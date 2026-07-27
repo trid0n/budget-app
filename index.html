@@ -613,9 +613,6 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
 .sync-status{font-size:.68rem; color:var(--ink-soft); display:flex; align-items:center; gap:5px; margin-top:6px;}
 .sync-status .dot{width:6px; height:6px; border-radius:50%; background:var(--credit); flex-shrink:0;}
 .sync-status.err .dot{background:var(--debit);}
-.folder-banner{display:flex; align-items:center; gap:10px; background:var(--paper-dim); border:1px solid var(--gold); padding:10px 12px; margin-bottom:16px; font-size:.76rem;}
-.folder-banner.hidden{display:none;}
-.folder-banner .fb-close{margin-left:auto; background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:1rem;}
 
 .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--paper); padding:10px 18px; font-size:.8rem; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:100;}
 .wd-hdr{display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--rule); font-weight:700; font-size:.85rem; color:var(--ink); position:sticky; top:0; background:var(--surface);}
@@ -753,12 +750,6 @@ input[type=file]{display:none;}
         <button class="mini-btn" id="jumpToCurrentMonthBtn" title="Jump to the current month">Today</button>
       </div>
     </header>
-
-    <div class="folder-banner hidden" id="folderBanner">
-      <span>Connect a folder on your device so this backs up there too, not just in the browser.</span>
-      <button class="mini-btn gold" id="folderBannerBtn">Connect folder</button>
-      <button class="fb-close" id="folderBannerClose">×</button>
-    </div>
 
     <!-- ================= LEDGER (ASSIGN) VIEW ================= -->
     <div class="view active" id="view-ledger">
@@ -1438,11 +1429,10 @@ let settings = { currentMonth: DEFAULT_MONTH, theme: 'light', lastGoal: 0, balan
 let existingMonths = [];
 let monthData = null;
 let saveTimer = null;
-let backupDirHandle = null;
 let techItems = [];
 let txAssignments = {};
 let txRules = {};
-async function saveTxRules(){ try{ await db.saveTxRules(txRules); tryWriteToFolder(); }catch(e){} }
+async function saveTxRules(){ try{ await db.saveTxRules(txRules); }catch(e){} }
 function extractMerchantKey(desc, amt){
   if(!desc) return '';
   const lower = desc.trim().toLowerCase();
@@ -1618,9 +1608,9 @@ function findGuessForTx(desc, amt, tx){
   }
   return null;
 }
-async function saveTxAssignments(){ try{ await db.saveTxAssignments(txAssignments); tryWriteToFolder(); }catch(e){} }
+async function saveTxAssignments(){ try{ await db.saveTxAssignments(txAssignments); }catch(e){} }
 let priceChangeNotes = {};
-async function savePriceChangeNotes(){ try{ await db.savePriceChangeNotes(priceChangeNotes); tryWriteToFolder(); }catch(e){} }
+async function savePriceChangeNotes(){ try{ await db.savePriceChangeNotes(priceChangeNotes); }catch(e){} }
 let grocery = { items: [], days: 30, eatOut: 5 };
 let ballet = {cost:0, dateCharged:'', balance:0};
 let mtg = { rows: [] };
@@ -1679,14 +1669,13 @@ async function saveCurrentMonth(){
     await db.saveMonth(settings.currentMonth, monthData);
     if(!existingMonths.includes(settings.currentMonth)){ existingMonths.push(settings.currentMonth); existingMonths.sort(); }
     setSyncStatus('Saved just now');
-    tryWriteToFolder();
   }catch(e){ setSyncStatus('Save failed', true); }
 }
 function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(saveCurrentMonth, 500); }
-async function saveTech(){ try{ await db.saveTechItems(techItems); tryWriteToFolder(); }catch(e){} }
-async function saveGrocery(){ try{ await db.saveGrocery(grocery); tryWriteToFolder(); }catch(e){} }
-async function saveBallet(){ try{ await db.saveBallet(ballet); tryWriteToFolder(); }catch(e){} }
-async function saveMtg(){ try{ await db.saveMtg(mtg); tryWriteToFolder(); }catch(e){} }
+async function saveTech(){ try{ await db.saveTechItems(techItems); }catch(e){} }
+async function saveGrocery(){ try{ await db.saveGrocery(grocery); }catch(e){} }
+async function saveBallet(){ try{ await db.saveBallet(ballet); }catch(e){} }
+async function saveMtg(){ try{ await db.saveMtg(mtg); }catch(e){} }
 
 async function loadMonth(key){
   try{ const row = await db.loadMonth(key); return row ? withIds({ income: row.income, categories: row.categories, notes: row.notes, goal: Number(row.goal)||0 }) : null; }catch(e){ return null; }
@@ -1733,8 +1722,8 @@ async function loadEverything(){
 function updateSummary(){
   if(!monthData) return;
   const t = monthTotals(monthData);
-  document.getElementById('miniIncome').textContent = money(t.income);
-  document.getElementById('miniCost').textContent = money(t.cost);
+  document.getElementById('miniIncome').textContent = money(t.unreceivedIncome);
+  document.getElementById('miniCost').textContent = money(t.remaining);
   const usingManual = settings.balanceMode === 'manual';
   const usingRememberedUp = !usingManual && typeof upSpendingBalance !== 'number' && typeof lastKnownUpBalance === 'number';
   const effectiveBalance = usingManual ? (Number(settings.manualBalance)||0)
@@ -1742,7 +1731,7 @@ function updateSummary(){
     : typeof lastKnownUpBalance === 'number' ? lastKnownUpBalance
     : null;
   const goal = Number(monthData.goal)||0;
-  const rawProjected = effectiveBalance != null ? (effectiveBalance + t.unreceivedIncome - t.remaining) : (t.income - t.cost);
+  const rawProjected = effectiveBalance != null ? (effectiveBalance + t.unreceivedIncome - t.remaining) : (t.unreceivedIncome - t.remaining);
   const inHand = rawProjected - goal;
   document.getElementById('rtaAmt').textContent = money(inHand);
   const anyChargedNow = t.charged > 0 || t.receivedIncome > 0;
@@ -1775,10 +1764,10 @@ function updateSummary(){
   recalcTotalsInPlace();
 }
 function recalcTotalsInPlace(){
-  const incTotal = monthData.income.reduce((s,i)=>s+(Number(i.amount)||0),0);
+  const incTotal = monthData.income.reduce((s,i)=>s+(i.charged?0:(Number(i.amount)||0)),0);
   const incEl = document.getElementById('incomeTotalDisplay'); if(incEl) incEl.textContent = money(incTotal);
   monthData.categories.forEach(cat => {
-    const gTotal = cat.items.reduce((s,i)=>s+(Number(i.amount)||0),0);
+    const gTotal = cat.items.reduce((s,i)=>s+(i.charged?0:(Number(i.amount)||0)),0);
     const row = document.querySelector(`[data-group="${cat.id}"] .grow`);
     if(row){
       const cell = row.querySelector('[data-role="total"]');
@@ -2230,7 +2219,7 @@ function catColor(cat){
   return CAT_COLORS[idx];
 }
 function groupHtml(cat){
-  const gTotal = cat.items.reduce((s,i)=>s+(Number(i.amount)||0),0);
+  const gTotal = cat.items.reduce((s,i)=>s+(i.charged?0:(Number(i.amount)||0)),0);
   const color = catColor(cat);
   return `<div class="group" data-group="${cat.id}" data-col="${cat.col===1?1:0}" style="--cat-color:${color}">
     <div class="grow" data-toggle="${cat.id}" draggable="true" data-drag-cat="${cat.id}">
@@ -2400,7 +2389,7 @@ let templateSaveTimer = null;
 function scheduleTemplateSave(){
   clearTimeout(templateSaveTimer);
   templateSaveTimer = setTimeout(async () => {
-    try{ await db.saveMonthTemplate(monthTemplate); tryWriteToFolder(); updateTemplateStatus(); }catch(e){}
+    try{ await db.saveMonthTemplate(monthTemplate); updateTemplateStatus(); }catch(e){}
   }, 500);
 }
 function tplIncomeRowHtml(item){
@@ -3219,7 +3208,6 @@ document.getElementById('useAsTemplateBtn').addEventListener('click', async () =
   };
   try{
     await db.saveMonthTemplate(monthTemplate);
-    tryWriteToFolder();
     updateTechTotal();
     updateGroceryTotal();
     renderBalletCalc();
@@ -3340,7 +3328,7 @@ let upIncomeSourceKey = null;
 let upIncomeSourceLabel = null;
 let upPayCycleSince = null;
 let upPayCycleUntil = null;
-async function saveIncomeSource(){ try{ await db.saveIncomeSource(upIncomeSourceKey, upIncomeSourceLabel); tryWriteToFolder(); }catch(e){} }
+async function saveIncomeSource(){ try{ await db.saveIncomeSource(upIncomeSourceKey, upIncomeSourceLabel); }catch(e){} }
 function findUpSpendingAccount(accounts){
   return accounts.find(a => (a.attributes.displayName||'').toLowerCase().includes('spending'))
       || accounts.find(a => a.attributes.accountType === 'TRANSACTIONAL')
@@ -4244,7 +4232,7 @@ document.getElementById('upConnectBtn').addEventListener('click', async () => {
   const val = document.getElementById('upTokenInput').value.trim();
   if(!val) return;
   upToken = val;
-  try{ await db.saveSettings({ up_token: upToken }); tryWriteToFolder(); }catch(e){}
+  try{ await db.saveSettings({ up_token: upToken }); }catch(e){}
   upTokenRowExpanded = false;
   renderUpConnectState();
   refreshUpData();
@@ -4846,7 +4834,7 @@ function syncMonthlyCostsToTemplate(){
     syncAmountEverywhere(n => n.trim().toLowerCase() === name, Number(mc.cost)||0);
   });
 }
-async function saveMonthlyCosts(){ try{ await db.saveMonthlyCosts(monthlyCosts.items); tryWriteToFolder(); }catch(e){} }
+async function saveMonthlyCosts(){ try{ await db.saveMonthlyCosts(monthlyCosts.items); }catch(e){} }
 function addMonthlyCostRow(){ pushUndo('monthlyCosts', monthlyCosts); monthlyCosts.items.push({id:uid('mc'), name:'', cost:0}); renderMonthlyCostRows(); saveMonthlyCosts(); renderOtherRecordsBudgetSummary(); syncMonthlyCostsToTemplate(); focusLastInput('monthlyCostRows'); }
 document.getElementById('addMonthlyCostRowBtn').addEventListener('click', addMonthlyCostRow);
 document.body.addEventListener('keydown', (e) => { if(e.key==='Enter' && e.target.matches('input') && e.target.dataset.mc){ e.preventDefault(); addMonthlyCostRow(); } });
@@ -4863,64 +4851,6 @@ document.body.addEventListener('click', (e) => {
   monthlyCosts.items = monthlyCosts.items.filter(i=>i.id!==del.dataset.mcDel);
   renderMonthlyCostRows(); saveMonthlyCosts(); renderOtherRecordsBudgetSummary();
 });
-
-/* ===================== folder backup (File System Access API) ===================== */
-const FOLDER_SUPPORTED = 'showDirectoryPicker' in window;
-function idbHandleDb(){
-  return new Promise((resolve,reject)=>{
-    const req = indexedDB.open('ledger-handles',1);
-    req.onupgradeneeded = () => req.result.createObjectStore('handles');
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-async function idbSaveHandle(key, handle){
-  const db = await idbHandleDb();
-  return new Promise((resolve,reject)=>{ const tx = db.transaction('handles','readwrite'); tx.objectStore('handles').put(handle, key); tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
-}
-async function idbLoadHandle(key){
-  const db = await idbHandleDb();
-  return new Promise((resolve,reject)=>{ const tx = db.transaction('handles','readonly'); const req = tx.objectStore('handles').get(key); req.onsuccess = () => resolve(req.result || null); req.onerror = () => reject(req.error); });
-}
-async function buildBackupObject(){
-  // Serializes whatever's already loaded in memory (this is the live Supabase-backed
-  // state, kept in sync by loadEverything()/each saveX()) rather than re-querying —
-  // this function only feeds the local folder-backup safety net now.
-  const data = { settings: JSON.stringify(settings), techItems: JSON.stringify(techItems), grocery: JSON.stringify(grocery), ballet: JSON.stringify(ballet), mtg: JSON.stringify(mtg), monthTemplate: JSON.stringify(monthTemplate), monthlyCosts: JSON.stringify(monthlyCosts), txAssignments: JSON.stringify(txAssignments), txRules: JSON.stringify(txRules) };
-  for(const key of existingMonths){
-    try{ const m = await loadMonth(key); if(m) data['month:'+key] = JSON.stringify(m); }catch(e){}
-  }
-  return { app:'household-ledger', exportedAt:new Date().toISOString(), data };
-}
-async function writeFileToDir(dir, name, content){
-  const fileHandle = await dir.getFileHandle(name, {create:true});
-  const writable = await fileHandle.createWritable();
-  await writable.write(content);
-  await writable.close();
-}
-let folderWriteTimer = null;
-function tryWriteToFolder(){
-  if(!backupDirHandle) return;
-  clearTimeout(folderWriteTimer);
-  folderWriteTimer = setTimeout(async () => {
-    try{ const backup = await buildBackupObject(); await writeFileToDir(backupDirHandle, 'ledger-backup.json', JSON.stringify(backup, null, 2)); }catch(e){}
-  }, 700);
-}
-async function connectFolder(){
-  if(!FOLDER_SUPPORTED){ toast('Folder backup isn\u2019t supported in this browser'); return; }
-  try{
-    const dir = await window.showDirectoryPicker({id:'ledger-backups', mode:'readwrite', startIn:'downloads'});
-    if((await dir.requestPermission({mode:'readwrite'})) !== 'granted'){ toast('Permission not granted'); return; }
-    backupDirHandle = dir;
-    try{ await idbSaveHandle('backupDir', dir); }catch(e){}
-    showFolderBanner(false);
-    tryWriteToFolder();
-    toast('Connected — backups will save here automatically');
-  }catch(e){ if(e && e.name==='AbortError') return; toast('Couldn\u2019t connect that folder'); }
-}
-function showFolderBanner(show){ document.getElementById('folderBanner').classList.toggle('hidden', !show); }
-document.getElementById('folderBannerBtn').addEventListener('click', connectFolder);
-document.getElementById('folderBannerClose').addEventListener('click', () => showFolderBanner(false));
 
 /* ===================== theme ===================== */
 function applyTheme(){
@@ -4969,17 +4899,6 @@ document.getElementById('darkModeSwitch').addEventListener('click', () => {
     if(document.getElementById('view-dashboard').classList.contains('active')) refreshUpData();
     else refreshUpSpendingBalance();
   }, 30000);
-
-  if(FOLDER_SUPPORTED){
-    try{
-      const handle = await idbLoadHandle('backupDir');
-      if(handle){
-        const perm = await handle.queryPermission({mode:'readwrite'});
-        if(perm==='granted'){ backupDirHandle = handle; }
-        else showFolderBanner(true);
-      } else { showFolderBanner(true); }
-    }catch(e){ showFolderBanner(true); }
-  }
 
   if(document.fonts && document.fonts.ready){
     document.fonts.ready.then(() => { updateAllNameTooltips(); updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths(); });
