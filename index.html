@@ -265,7 +265,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .grow{display:grid; grid-template-columns:24px 1fr 95px 30px; padding:0; align-items:center; background:var(--paper-dim); font-weight:700; font-size:.86rem; border-bottom:1px solid var(--rule); border-left:3px solid transparent; transition:background-color .15s, border-left-color .15s; cursor:pointer;}
 .grow .gcell{cursor:pointer;}
 .grow-name{display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer; min-width:0; position:relative;}
-.grip-handle{display:flex; align-items:center; justify-content:center; color:var(--ink-faint); cursor:grab; flex-shrink:0; padding:10px 2px 10px 10px; opacity:.5; transition:opacity .15s;}
+.grip-handle{display:flex; align-items:center; justify-content:center; color:var(--ink-faint); cursor:grab; flex-shrink:0; padding:10px 2px 10px 10px; opacity:.5; transition:opacity .15s; touch-action:none;}
 .grow:hover .grip-handle{opacity:1;}
 .grip-handle:active{cursor:grabbing;}
 .group.dragging{opacity:.4;}
@@ -293,7 +293,10 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .income-card.collapsed .income-body{grid-template-rows:0fr;}
 .income-body-inner{overflow:hidden; min-height:0;}
 .group-body-inner{overflow:hidden; min-height:0;}
-.lrow.leaf{display:grid; grid-template-columns:1fr 95px 30px; padding:0; align-items:center; cursor:pointer; position:relative;}
+.lrow.leaf{display:grid; grid-template-columns:18px 1fr 95px 30px; padding:0; align-items:center; cursor:pointer; position:relative;}
+.lrow.leaf .grip-handle{padding:8px 0 8px 10px; opacity:0;}
+.lrow.leaf:hover .grip-handle{opacity:.6;}
+.lrow.leaf.dragging{opacity:.4;}
 .lrow.leaf > *{padding:8px 12px;}
 .lrow.leaf .del-cell{padding:8px 4px;}
 .lrow:hover{background:var(--paper-dim); background:color-mix(in srgb, var(--cat-color, var(--gold)) 8%, var(--surface)); border-left-color:var(--cat-color, var(--gold));}
@@ -2191,6 +2194,7 @@ function leafRowHtml(catId, item){
   const linkedTxCount = getTxsForItem(catId, item.id).length;
   const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge" data-tx-view-item="${item.id}" data-tx-view-cat="${catId}" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked \u2014 click to view"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></button>` : '';
   return `<div class="lrow leaf ${charged?'charged':''}" data-leaf-row="${item.id}" data-cat="${catId}" data-item="${item.id}">
+    <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
     ${priceChangeHtml(item)}
     ${txBadge}
     <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. rent" value="${escapeAttr(item.name)}" data-cat="${catId}" data-item="${item.id}" data-field="name"></div>
@@ -2247,7 +2251,7 @@ function groupHtml(cat){
   const gTotal = cat.items.reduce((s,i)=>s+(i.charged?0:(Number(i.amount)||0)),0);
   const color = catColor(cat);
   return `<div class="group" data-group="${cat.id}" data-col="${cat.col===1?1:0}" style="--cat-color:${color}">
-    <div class="grow" data-toggle="${cat.id}" draggable="true" data-drag-cat="${cat.id}">
+    <div class="grow" data-toggle="${cat.id}" data-drag-cat="${cat.id}">
       <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
       <div class="grow-name"><span class="chev">${CHEV_SVG}</span><span class="cat-dot"></span><input class="sh-name-input" data-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
       <div class="gcell" data-role="total">${money(gTotal)}</div>
@@ -2942,15 +2946,13 @@ document.getElementById('view-ledger').addEventListener('focusout', async (e) =>
   }
 });
 let draggedCategoryId = null;
-function flipCaptureGroups(){
+function flipCaptureGroups(selector){
   const rects = new Map();
-  document.querySelectorAll('.group').forEach(g => rects.set(g, g.getBoundingClientRect()));
+  document.querySelectorAll(selector || '.group').forEach(g => rects.set(g, g.getBoundingClientRect()));
   return rects;
 }
 function flipPlayGroups(oldRects){
-  document.querySelectorAll('.group').forEach(g => {
-    const old = oldRects.get(g);
-    if(!old) return;
+  oldRects.forEach((old, g) => {
     const now = g.getBoundingClientRect();
     const dx = old.left - now.left, dy = old.top - now.top;
     if(Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5){
@@ -3008,119 +3010,138 @@ function syncCategoryOrderFromDOM(){
   });
   if(newOrder.length === monthData.categories.length) monthData.categories = newOrder;
 }
-document.getElementById('view-ledger').addEventListener('dragstart', (e) => {
-  const grow = e.target.closest('[data-drag-cat]');
-  if(!grow){ return; }
-  if(e.target.closest('.sh-name-input') || e.target.closest('.sh-del')){ e.preventDefault(); return; }
-  draggedCategoryId = grow.dataset.dragCat;
-  pushUndo('month', monthData, {monthKey: settings.currentMonth});
-  e.dataTransfer.effectAllowed = 'move';
-  try{ e.dataTransfer.setData('text/plain', draggedCategoryId); }catch(err){}
-  requestAnimationFrame(() => { const g = grow.closest('.group'); if(g) g.classList.add('dragging'); });
-});
-document.getElementById('view-ledger').addEventListener('dragend', () => {
-  document.querySelectorAll('.group.dragging').forEach(g => g.classList.remove('dragging'));
-  if(draggedCategoryId){
-    syncCategoryOrderFromDOM();
+/* unified pointer-based reordering (mouse + touch + pen) for categories and items.
+   Moves the real element live via DOM insertBefore/appendChild, no native drag-ghost. */
+let dragMode = null; // 'category' | 'item' | null
+let draggedItemId = null, draggedItemCatId = null;
+let dragPointerId = null, dragMoved = false;
+function liveReorderItemDOM(catId, draggedId, targetRowEl, before){
+  if(performance.now() - lastCategorySwapTime < 260) return;
+  const container = document.querySelector(`[data-cat-rows="${catId}"]`);
+  if(!container) return;
+  const draggedEl = container.querySelector(`.lrow.leaf[data-item="${draggedId}"]`);
+  if(!draggedEl) return;
+  if(targetRowEl){
+    if(targetRowEl.dataset.item === draggedId) return;
+    if(before && draggedEl.nextSibling === targetRowEl) return;
+    if(!before && targetRowEl.nextSibling === draggedEl) return;
+  } else if(container.lastElementChild === draggedEl){ return; }
+  const oldRects = flipCaptureGroups(`[data-cat-rows="${catId}"] .lrow.leaf`);
+  if(targetRowEl){
+    if(before) container.insertBefore(draggedEl, targetRowEl);
+    else container.insertBefore(draggedEl, targetRowEl.nextSibling);
+  } else {
+    container.appendChild(draggedEl);
+  }
+  flipPlayGroups(oldRects);
+  lastCategorySwapTime = performance.now();
+}
+function syncItemOrderFromDOM(catId){
+  const container = document.querySelector(`[data-cat-rows="${catId}"]`);
+  const cat = monthData.categories.find(c=>c.id===catId);
+  if(!container || !cat) return;
+  const newOrder = [];
+  Array.from(container.children).forEach(el => {
+    if(!el.classList || !el.classList.contains('leaf')) return;
+    const item = cat.items.find(i=>i.id===el.dataset.item);
+    if(item) newOrder.push(item);
+  });
+  if(newOrder.length === cat.items.length) cat.items = newOrder;
+}
+function finishDrag(){
+  document.querySelectorAll('.group.dragging, .lrow.leaf.dragging').forEach(el => el.classList.remove('dragging'));
+  if(dragMoved){
+    if(dragMode === 'category') syncCategoryOrderFromDOM();
+    else if(dragMode === 'item') syncItemOrderFromDOM(draggedItemCatId);
     renderGroups(); updateSummary(); scheduleSave();
   }
-  draggedCategoryId = null;
-});
-document.getElementById('view-ledger').addEventListener('dragover', (e) => {
-  if(!draggedCategoryId) return;
-  const group = e.target.closest('.group');
-  if(group){
-    e.preventDefault();
-    if(group.dataset.group === draggedCategoryId) return;
-    const rect = group.getBoundingClientRect();
-    const draggedEl = document.querySelector(`.group[data-group="${draggedCategoryId}"]`);
-    const before = draggedEl ? computeBeforeWithHysteresis(e.clientY, rect, draggedEl, group) : (e.clientY - rect.top) < rect.height/2;
-    liveReorderCategoryDOM(draggedCategoryId, group, before);
-    return;
-  }
-  const colWrap = e.target.closest('#groupsWrap0, #groupsWrap1');
-  if(colWrap){
-    const lastCard = Array.from(colWrap.children).filter(c => c.classList && c.classList.contains('group') && c.dataset.group !== draggedCategoryId).pop();
-    if(lastCard && e.clientY < lastCard.getBoundingClientRect().bottom + 12) return;
-    e.preventDefault();
-    liveReorderCategoryDOM(draggedCategoryId, null, false, colWrap.id === 'groupsWrap1' ? 1 : 0);
-    return;
-  }
-  const twoCol = e.target.closest('.layout.two-col');
-  if(twoCol){
-    e.preventDefault();
-    const cards = twoCol.querySelectorAll(':scope > .table-card');
-    let targetCol = null;
-    cards.forEach((card, idx) => {
-      const r = card.getBoundingClientRect();
-      if(e.clientX >= r.left && e.clientX <= r.right) targetCol = idx;
-    });
-    if(targetCol !== null) liveReorderCategoryDOM(draggedCategoryId, null, false, targetCol);
-  }
-});
-document.getElementById('view-ledger').addEventListener('drop', (e) => {
-  if(!draggedCategoryId) return;
-  e.preventDefault();
-});
-/* touch-based reordering, for mobile where native HTML5 drag doesn't respond to touch */
-let touchDragId = null, touchDragStartY = 0, touchDragMoved = false;
-document.getElementById('view-ledger').addEventListener('touchstart', (e) => {
+  dragMode = null; draggedCategoryId = null; draggedItemId = null; draggedItemCatId = null; dragPointerId = null;
+}
+function cancelDrag(){
+  document.querySelectorAll('.group.dragging, .lrow.leaf.dragging').forEach(el => el.classList.remove('dragging'));
+  if(dragMode){ renderGroups(); updateSummary(); }
+  dragMode = null; draggedCategoryId = null; draggedItemId = null; draggedItemCatId = null; dragPointerId = null;
+}
+document.getElementById('view-ledger').addEventListener('pointerdown', (e) => {
   const handle = e.target.closest('.grip-handle');
   if(!handle) return;
-  const grow = handle.closest('[data-drag-cat]');
-  if(!grow) return;
-  touchDragId = grow.dataset.dragCat;
-  touchDragMoved = false;
-  touchDragStartY = e.touches[0].clientY;
-  pushUndo('month', monthData, {monthKey: settings.currentMonth});
-  const g = grow.closest('.group'); if(g) g.classList.add('dragging');
-}, {passive:true});
-document.getElementById('view-ledger').addEventListener('touchmove', (e) => {
-  if(!touchDragId) return;
-  touchDragMoved = true;
-  e.preventDefault();
-  const touch = e.touches[0];
-  const elAtPoint = document.elementFromPoint(touch.clientX, touch.clientY);
-  const group = elAtPoint ? elAtPoint.closest('.group') : null;
-  if(group && group.dataset.group !== touchDragId){
-    const rect = group.getBoundingClientRect();
-    const draggedEl = document.querySelector(`.group[data-group="${touchDragId}"]`);
-    const before = draggedEl ? computeBeforeWithHysteresis(touch.clientY, rect, draggedEl, group) : (touch.clientY - rect.top) < rect.height/2;
-    liveReorderCategoryDOM(touchDragId, group, before);
+  const catGrow = handle.closest('[data-drag-cat]');
+  const itemRow = handle.closest('.lrow.leaf');
+  if(catGrow){
+    dragMode = 'category';
+    draggedCategoryId = catGrow.dataset.dragCat;
+    pushUndo('month', monthData, {monthKey: settings.currentMonth});
+    const g = catGrow.closest('.group'); if(g) g.classList.add('dragging');
+  } else if(itemRow && itemRow.dataset.cat && itemRow.dataset.item){
+    dragMode = 'item';
+    draggedItemId = itemRow.dataset.item;
+    draggedItemCatId = itemRow.dataset.cat;
+    pushUndo('month', monthData, {monthKey: settings.currentMonth});
+    itemRow.classList.add('dragging');
   } else {
-    const colWrap = elAtPoint ? elAtPoint.closest('#groupsWrap0, #groupsWrap1') : null;
+    return;
+  }
+  e.preventDefault();
+  dragMoved = false;
+  dragPointerId = e.pointerId;
+  try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+});
+document.getElementById('view-ledger').addEventListener('pointermove', (e) => {
+  if(!dragMode || e.pointerId !== dragPointerId) return;
+  dragMoved = true;
+  const elAtPoint = document.elementFromPoint(e.clientX, e.clientY);
+  if(!elAtPoint) return;
+  if(dragMode === 'category'){
+    const group = elAtPoint.closest('.group');
+    if(group && group.dataset.group !== draggedCategoryId){
+      const rect = group.getBoundingClientRect();
+      const draggedEl = document.querySelector(`.group[data-group="${draggedCategoryId}"]`);
+      const before = draggedEl ? computeBeforeWithHysteresis(e.clientY, rect, draggedEl, group) : (e.clientY - rect.top) < rect.height/2;
+      liveReorderCategoryDOM(draggedCategoryId, group, before);
+      return;
+    }
+    const colWrap = elAtPoint.closest('#groupsWrap0, #groupsWrap1');
     if(colWrap){
-      const lastCard = Array.from(colWrap.children).filter(c => c.classList && c.classList.contains('group') && c.dataset.group !== touchDragId).pop();
-      if(!lastCard || touch.clientY >= lastCard.getBoundingClientRect().bottom + 12){
-        liveReorderCategoryDOM(touchDragId, null, false, colWrap.id === 'groupsWrap1' ? 1 : 0);
+      const lastCard = Array.from(colWrap.children).filter(c => c.classList && c.classList.contains('group') && c.dataset.group !== draggedCategoryId).pop();
+      if(!lastCard || e.clientY >= lastCard.getBoundingClientRect().bottom + 12){
+        liveReorderCategoryDOM(draggedCategoryId, null, false, colWrap.id === 'groupsWrap1' ? 1 : 0);
       }
-    } else {
-      const twoCol = elAtPoint ? elAtPoint.closest('.layout.two-col') : null;
-      if(twoCol){
-        const cards = twoCol.querySelectorAll(':scope > .table-card');
-        let targetCol = null;
-        cards.forEach((card, idx) => {
-          const r = card.getBoundingClientRect();
-          if(touch.clientX >= r.left && touch.clientX <= r.right) targetCol = idx;
-        });
-        if(targetCol !== null) liveReorderCategoryDOM(touchDragId, null, false, targetCol);
+      return;
+    }
+    const twoCol = elAtPoint.closest('.layout.two-col');
+    if(twoCol){
+      const cards = twoCol.querySelectorAll(':scope > .table-card');
+      let targetCol = null;
+      cards.forEach((card, idx) => {
+        const r = card.getBoundingClientRect();
+        if(e.clientX >= r.left && e.clientX <= r.right) targetCol = idx;
+      });
+      if(targetCol !== null) liveReorderCategoryDOM(draggedCategoryId, null, false, targetCol);
+    }
+  } else if(dragMode === 'item'){
+    const container = document.querySelector(`[data-cat-rows="${draggedItemCatId}"]`);
+    if(!container) return;
+    const row = elAtPoint.closest('.lrow.leaf');
+    if(row && container.contains(row) && row.dataset.item !== draggedItemId){
+      const rect = row.getBoundingClientRect();
+      const draggedEl = container.querySelector(`.lrow.leaf[data-item="${draggedItemId}"]`);
+      const before = draggedEl ? computeBeforeWithHysteresis(e.clientY, rect, draggedEl, row) : (e.clientY - rect.top) < rect.height/2;
+      liveReorderItemDOM(draggedItemCatId, draggedItemId, row, before);
+    } else if(container.contains(elAtPoint)){
+      const lastRow = Array.from(container.children).filter(c => c.classList && c.classList.contains('leaf') && c.dataset.item !== draggedItemId).pop();
+      if(lastRow && e.clientY >= lastRow.getBoundingClientRect().bottom){
+        liveReorderItemDOM(draggedItemCatId, draggedItemId, null, false);
       }
     }
   }
-}, {passive:false});
-document.getElementById('view-ledger').addEventListener('touchend', () => {
-  if(!touchDragId) return;
-  document.querySelectorAll('.group.dragging').forEach(g => g.classList.remove('dragging'));
-  if(touchDragMoved){
-    syncCategoryOrderFromDOM();
-    renderGroups(); updateSummary(); scheduleSave();
-  }
-  touchDragId = null;
 });
-document.getElementById('view-ledger').addEventListener('touchcancel', () => {
-  document.querySelectorAll('.group.dragging').forEach(g => g.classList.remove('dragging'));
-  if(touchDragId){ renderGroups(); updateSummary(); }
-  touchDragId = null;
+document.getElementById('view-ledger').addEventListener('pointerup', (e) => {
+  if(!dragMode || e.pointerId !== dragPointerId) return;
+  finishDrag();
+});
+document.getElementById('view-ledger').addEventListener('pointercancel', (e) => {
+  if(!dragMode || e.pointerId !== dragPointerId) return;
+  cancelDrag();
 });
 document.getElementById('view-ledger').addEventListener('dblclick', (e) => {
   if(e.target.closest('.lrow') && !e.target.matches('input:not([readonly])')) e.preventDefault();
