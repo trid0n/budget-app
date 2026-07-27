@@ -22,6 +22,8 @@
   --debit-bg:#FBEAE8;
   --gold:#3B6FE0;
   --gold-bg:#EAF0FE;
+  --teal:#0F9E8E;
+  --teal-bg:#E4F7F4;
   --shadow:0 1px 2px rgba(27,31,39,.05), 0 1px 3px rgba(27,31,39,.06);
 }
 body.dark{
@@ -39,6 +41,8 @@ body.dark{
   --debit-bg:#33202A;
   --gold:#6F93E8;
   --gold-bg:#1E2A46;
+  --teal:#3FC9BB;
+  --teal-bg:#173330;
   --shadow:0 1px 2px rgba(0,0,0,.4);
 }
 body{transition:background .15s ease, color .15s ease;}
@@ -314,12 +318,21 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .balance-bar-amt{font-size:1.5rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums;}
 .balance-bar-sub{font-size:.74rem; color:var(--ink-faint); margin-top:2px;}
 .balance-bar-right{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
-.month-actions-panel{display:flex; align-items:center; gap:8px; max-width:0; opacity:0; overflow:hidden; white-space:nowrap; transition:max-width .32s ease, opacity .22s ease;}
+.month-actions-panel{display:flex; align-items:center; gap:10px; max-width:0; opacity:0; overflow:hidden; white-space:nowrap; padding-left:8px; transition:max-width .32s ease, opacity .22s ease;}
 .month-actions-panel.open{max-width:900px; opacity:1;}
 .month-actions-gear{flex-shrink:0;}
 .month-actions-gear .btn-ic{display:inline-flex; transition:transform .3s ease;}
 .month-actions-gear.open .btn-ic{transform:rotate(75deg);}
-.month-actions-panel .btn-ic{display:inline-flex; margin-right:5px; vertical-align:-2px;}
+.chip-btn{position:relative; display:inline-flex; align-items:center; border:none; border-radius:999px; padding:7px 14px 7px 20px; margin-left:8px; font-family:'Inter',sans-serif; font-size:.8rem; font-weight:500; cursor:pointer; flex-shrink:0;}
+.chip-ic{position:absolute; left:-8px; top:50%; transform:translateY(-50%); width:26px; height:26px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; border:2px solid var(--surface);}
+.chip-blue{background:var(--gold-bg); color:var(--gold);}
+.chip-blue .chip-ic{background:var(--gold);}
+.chip-teal{background:var(--teal-bg); color:var(--teal);}
+.chip-teal .chip-ic{background:var(--teal);}
+.chip-green{background:var(--credit-bg); color:var(--credit);}
+.chip-green .chip-ic{background:var(--credit);}
+.chip-red{background:var(--debit-bg); color:var(--debit);}
+.chip-red .chip-ic{background:var(--debit);}
 @media (max-width:640px){
   .month-actions-panel.open{max-width:100%; flex-wrap:wrap;}
 }
@@ -799,10 +812,10 @@ input[type=file]{display:none;}
           </div>
           <div class="balance-bar-right">
             <div class="month-actions-panel" id="monthActionsPanel">
-              <button class="mini-btn gold" id="useAsTemplateBtn"><span class="btn-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>Use this month as my template</button>
-              <button class="mini-btn" id="restoreTemplateOrderBtn"><span class="btn-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="10" x2="7" y2="10"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="7" y2="18"/></svg></span>Restore template order</button>
-              <button class="mini-btn" id="restoreFromTemplateBtn"><span class="btn-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg></span>Restore this month to template</button>
-              <button class="mini-btn danger-text" id="clearMonthBtn"><span class="btn-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>Clear this month's data</button>
+              <button class="chip-btn chip-blue" id="useAsTemplateBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>Use this month as my template</button>
+              <button class="chip-btn chip-teal" id="restoreTemplateOrderBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="10" x2="7" y2="10"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="7" y2="18"/></svg></span>Restore template order</button>
+              <button class="chip-btn chip-green" id="restoreFromTemplateBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg></span>Restore this month to template</button>
+              <button class="chip-btn chip-red" id="clearMonthBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>Clear this month's data</button>
             </div>
             <button class="mini-btn month-actions-gear" id="monthActionsToggle" title="Month actions"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
           </div>
