@@ -2243,10 +2243,10 @@ async function restoreTemplateOrder(){
   const newOrder = [];
   monthTemplate.categories.forEach(tplCat => {
     const match = monthData.categories.find(c => !usedIds.has(c.id) && c.name.trim().toLowerCase() === tplCat.name.trim().toLowerCase());
-    if(match){ usedIds.add(match.id); newOrder.push(match); }
+    if(match){ usedIds.add(match.id); match.col = tplCat.col; newOrder.push(match); }
   });
-  monthData.categories.forEach(c => { if(!usedIds.has(c.id)) newOrder.push(c); });
-  newOrder.forEach((cat, i) => { cat.col = i % 2; });
+  let nextCol = newOrder.length;
+  monthData.categories.forEach(c => { if(!usedIds.has(c.id)){ c.col = nextCol % 2; nextCol++; newOrder.push(c); } });
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
   monthData.categories = newOrder;
   renderGroups(); updateSummary(); scheduleSave();
@@ -2330,7 +2330,7 @@ document.getElementById('pickerNextYear').addEventListener('click', () => {
 function buildFromTemplate(){
   return {
     income: monthTemplate.income.map(i => ({id:uid(), name:i.name, amount:i.amount, charged:false})),
-    categories: monthTemplate.categories.map(c => ({id:uid(), name:c.name, items:c.items.map(i=>({id:uid(), name:i.name, amount:i.amount, planned:i.amount, charged:false}))})),
+    categories: monthTemplate.categories.map(c => ({id:uid(), name:c.name, col:c.col, items:c.items.map(i=>({id:uid(), name:i.name, amount:i.amount, planned:i.amount, charged:false}))})),
     notes:'', goal: Number(monthTemplate.goal)||0
   };
 }
