@@ -538,6 +538,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-tx-assign-btn.guess.rough{opacity:.6; font-weight:700;}
 .up-tx-assign-btn.excluded{background:var(--paper-dim); border-color:var(--rule); color:var(--ink-faint); font-style:italic;}
 .up-tx-exclude-btn{flex-shrink:0; width:22px; height:22px; border-radius:50%; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-faint); font-size:.9rem; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:border-color .15s, color .15s; position:relative;}
+.up-tx-note{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-soft); font-size:.78rem; font-style:italic;}
 .up-tx-exclude-btn:hover{border-color:var(--debit); color:var(--debit);}
 .up-tx-assign-btn.guess:hover{background:var(--gold); color:#fff; border-color:var(--gold);}
 .tx-assign-box{max-width:520px; width:92%; display:flex; flex-direction:column; gap:12px;}
@@ -3721,7 +3722,8 @@ function renderUpTxList(){
     const isIncomeSource = upIncomeSourceKey && merchantKeyHere === upIncomeSourceKey;
     const descClickable = amt > 0 ? ` data-tx-income-select="${t.id}"` : '';
     const descTip = amt > 0 ? (isIncomeSource ? 'This is your set income source. Click to unset.' : `${t.attributes.description} \u2014 click to set as your income source`) : `${t.attributes.description}${held}`;
-    return `<div class="up-tx-row"><div class="up-tx-desc-chip${isIncomeSource?' is-income-source':''}"${descClickable} data-tip="${escapeAttr(descTip)}">${escapeAttr(t.attributes.description)}${held}</div>${assignBtn}${excludeBtn}<div class="up-tx-date">${date}</div>${coverIcon}<div class="up-tx-amt ${amt<0?'neg':'pos'}">${amt<0?'-':'+'}${money(Math.abs(amt))}</div></div>`;
+    const noteHtml = t.attributes.message ? `<div class="up-tx-note" data-tip="${escapeAttr(t.attributes.message)}">${escapeAttr(t.attributes.message)}</div>` : '';
+    return `<div class="up-tx-row"><div class="up-tx-desc-chip${isIncomeSource?' is-income-source':''}"${descClickable} data-tip="${escapeAttr(descTip)}">${escapeAttr(t.attributes.description)}${held}</div>${assignBtn}${excludeBtn}${noteHtml}<div class="up-tx-date">${date}</div>${coverIcon}<div class="up-tx-amt ${amt<0?'neg':'pos'}">${amt<0?'-':'+'}${money(Math.abs(amt))}</div></div>`;
   }).join('') || `<div class="pc-faint" style="padding:12px;">${upIncomeFilterActive ? 'No incoming (+) transactions in this range.' : term ? 'No transactions match your search.' : 'No recent transactions.'}</div>`;
   const loadMoreBtn = document.getElementById('upLoadMoreBtn');
   loadMoreBtn.style.display = (!term && upTxNextUrl) ? '' : 'none';
