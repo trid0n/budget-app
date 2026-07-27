@@ -211,7 +211,7 @@ async function runMigration(dump){
       const items = mc.items || [];
       await sb.from('monthly_costs').delete().eq('user_id', authUserId);
       if(items.length){
-        const { error } = await sb.from('monthly_costs').insert(items.map((it, idx) => ({ id: it.id, user_id: authUserId, name: it.name||'', cost: Number(it.cost)||0, sort_order: idx })));
+        const { error } = await sb.from('monthly_costs').insert(items.map((it, idx) => ({ id: it.id, user_id: authUserId, name: it.name||'', cost: Number(it.cost)||0, round_to: Number(it.roundTo)||0, sort_order: idx })));
         if(error) throw error;
       }
       log(`monthly_costs ✓ (${items.length})`);

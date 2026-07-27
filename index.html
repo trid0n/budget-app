@@ -625,6 +625,7 @@ table.rtable input{width:100%; border:none; background:transparent; font-family:
 table.rtable input:not(.num-in){width:var(--rt-name-w, 100%); max-width:100%; min-width:20px;}
 table.rtable input:hover, table.rtable input:focus{background:var(--paper-dim); outline:none;}
 table.rtable input.num-in{text-align:right;}
+table.rtable select.mc-round-select{width:100%; border:1px solid var(--rule); border-radius:6px; background:var(--surface); font-family:'Inter',sans-serif; font-size:.76rem; padding:4px 5px; color:var(--ink); cursor:pointer;}
 table.rtable tr.total-row td{font-weight:700; border-top:2px solid var(--ink); border-bottom:none;}
 .pos{color:var(--credit); font-weight:600;} .neg{color:var(--debit); font-weight:600;}
 .rec-table-wrap{max-height:340px; overflow-y:auto; overflow-x:auto; border:1px solid var(--rule); scrollbar-width:thin; scrollbar-color:var(--ink-faint) var(--paper-dim);}
@@ -1084,7 +1085,7 @@ input[type=file]{display:none;}
       <div class="rec-body"><div class="rec-body-inner">
         <div class="rec-table-wrap">
           <table class="rtable">
-            <thead><tr><th>Item</th><th style="text-align:right;">Monthly cost</th><th></th></tr></thead>
+            <thead><tr><th>Item</th><th style="text-align:right;">Monthly cost</th><th>Round to</th><th></th></tr></thead>
             <tbody id="monthlyCostRows"></tbody>
           </table>
         </div>
@@ -1373,13 +1374,13 @@ const db = {
   async loadMonthlyCosts(){
     const { data, error } = await sb.from('monthly_costs').select('*').eq('user_id', authUserId).order('sort_order', { ascending: true });
     if(error) throw error;
-    return (data||[]).map(r => ({ id: r.id, name: r.name, cost: Number(r.cost)||0 }));
+    return (data||[]).map(r => ({ id: r.id, name: r.name, cost: Number(r.cost)||0, roundTo: Number(r.round_to)||0 }));
   },
   async saveMonthlyCosts(items){
     const { error: delErr } = await sb.from('monthly_costs').delete().eq('user_id', authUserId);
     if(delErr) throw delErr;
     if(items.length){
-      const rows = items.map((it, idx) => ({ id: it.id, user_id: authUserId, name: it.name, cost: Number(it.cost)||0, sort_order: idx }));
+      const rows = items.map((it, idx) => ({ id: it.id, user_id: authUserId, name: it.name, cost: Number(it.cost)||0, round_to: Number(it.roundTo)||0, sort_order: idx }));
       const { error } = await sb.from('monthly_costs').insert(rows);
       if(error) throw error;
     }
@@ -4866,10 +4867,13 @@ document.getElementById('mtgRows').addEventListener('click', (e) => {
 
 /* ===================== Monthly costs (flat recurring items) ===================== */
 let monthlyCosts = { items: [] };
+const MC_ROUND_OPTIONS = [0,1,5,10,20,25,50];
 function monthlyCostRowHtml(m){
+  const roundTo = Number(m.roundTo)||0;
   return `<tr data-mc-row="${m.id}">
       <td><input value="${escapeAttr(m.name)}" data-mc="${m.id}" data-field="name"></td>
       <td><input class="num-in" type="number" step="0.01" value="${m.cost||''}" data-mc="${m.id}" data-field="cost"></td>
+      <td><select class="mc-round-select" data-mc="${m.id}" data-field="roundTo" data-tip="Round the full monthly amount to the nearest multiple of this before it's used anywhere">${MC_ROUND_OPTIONS.map(v => `<option value="${v}" ${roundTo===v?'selected':''}>${v===0?'No rounding':'Nearest $'+v}</option>`).join('')}</select></td>
       <td class="num"><button class="item-del rtable-del" data-mc-del="${m.id}" title="Remove">${X_SVG}</button></td>
     </tr>`;
 }
@@ -4880,14 +4884,22 @@ function renderMonthlyCostRows(){
 }
 function getMonthlyCostFor(name){
   const item = monthlyCosts.items.find(i => i.name.trim().toLowerCase() === name.toLowerCase());
-  return item ? (Number(item.cost)||0) : 0;
+  return item ? monthlyCostEffective(item) : 0;
+}
+function roundToMultiple(value, multiple){
+  const m = Number(multiple)||0;
+  if(m <= 0) return value;
+  return Math.round(value / m) * m;
+}
+function monthlyCostEffective(mc){
+  return roundToMultiple(Number(mc.cost)||0, mc.roundTo);
 }
 function syncMonthlyCostsToTemplate(){
   ensureTemplateIds();
   monthlyCosts.items.forEach(mc => {
     const name = mc.name.trim().toLowerCase();
     if(!name) return;
-    syncAmountEverywhere(n => n.trim().toLowerCase() === name, Number(mc.cost)||0);
+    syncAmountEverywhere(n => n.trim().toLowerCase() === name, monthlyCostEffective(mc));
   });
 }
 async function saveMonthlyCosts(){ try{ await db.saveMonthlyCosts(monthlyCosts.items); }catch(e){} }
@@ -4895,10 +4907,17 @@ function addMonthlyCostRow(){ pushUndo('monthlyCosts', monthlyCosts); monthlyCos
 document.getElementById('addMonthlyCostRowBtn').addEventListener('click', addMonthlyCostRow);
 document.body.addEventListener('keydown', (e) => { if(e.key==='Enter' && e.target.matches('input') && e.target.dataset.mc){ e.preventDefault(); addMonthlyCostRow(); } });
 document.body.addEventListener('input', (e) => {
-  const t = e.target; if(!t.dataset.mc) return;
+  const t = e.target; if(!t.dataset.mc || t.dataset.field==='roundTo') return;
   const item = monthlyCosts.items.find(i=>i.id===t.dataset.mc); if(!item) return;
   if(t.dataset.field==='name'){ item.name = t.value; updateRtableNameWidth(t); } else item.cost = parseFloat(t.value)||0;
   document.querySelectorAll(`[data-mc="${item.id}"][data-field="${t.dataset.field}"]`).forEach(el => { if(el !== t) el.value = t.value; });
+  saveMonthlyCosts(); renderOtherRecordsBudgetSummary(); syncMonthlyCostsToTemplate();
+});
+document.body.addEventListener('change', (e) => {
+  const t = e.target; if(!t.dataset.mc || t.dataset.field!=='roundTo') return;
+  const item = monthlyCosts.items.find(i=>i.id===t.dataset.mc); if(!item) return;
+  item.roundTo = parseFloat(t.value)||0;
+  document.querySelectorAll(`[data-mc="${item.id}"][data-field="roundTo"]`).forEach(el => { if(el !== t) el.value = t.value; });
   saveMonthlyCosts(); renderOtherRecordsBudgetSummary(); syncMonthlyCostsToTemplate();
 });
 document.body.addEventListener('click', (e) => {

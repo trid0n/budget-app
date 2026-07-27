@@ -137,6 +137,7 @@ create table if not exists public.monthly_costs (
   user_id     uuid references auth.users(id) on delete cascade default auth.uid(),
   name        text not null default '',
   cost        numeric not null default 0,
+  round_to    numeric not null default 0,  -- 0 = no rounding; otherwise round the monthly cost to the nearest multiple of this
   sort_order  int not null default 0
 );
 
