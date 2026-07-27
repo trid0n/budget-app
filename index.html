@@ -1680,6 +1680,7 @@ async function loadEverything(){
     if(row){
       settings = { currentMonth: row.current_month || settings.currentMonth, theme: row.theme || 'light', lastGoal: Number(row.last_goal)||0, balanceMode: row.balance_mode || 'live', manualBalance: Number(row.manual_balance)||0 };
       upToken = row.up_token || '';
+      lastKnownUpBalance = typeof row.last_up_balance === 'number' ? row.last_up_balance : (row.last_up_balance != null ? Number(row.last_up_balance) : null);
     }
   }catch(e){}
   try{ existingMonths = (await db.listMonthKeys()).sort(); }catch(e){ existingMonths=[]; }
@@ -1717,9 +1718,13 @@ function updateSummary(){
   document.getElementById('miniIncome').textContent = money(t.income);
   document.getElementById('miniCost').textContent = money(t.cost);
   const usingManual = settings.balanceMode === 'manual';
-  const effectiveBalance = usingManual ? (Number(settings.manualBalance)||0) : (typeof upSpendingBalance === 'number' ? upSpendingBalance : null);
+  const usingRememberedUp = !usingManual && typeof upSpendingBalance !== 'number' && typeof lastKnownUpBalance === 'number';
+  const effectiveBalance = usingManual ? (Number(settings.manualBalance)||0)
+    : typeof upSpendingBalance === 'number' ? upSpendingBalance
+    : typeof lastKnownUpBalance === 'number' ? lastKnownUpBalance
+    : null;
   const goal = Number(monthData.goal)||0;
-  const rawProjected = effectiveBalance != null ? (effectiveBalance + t.unreceivedIncome - t.remaining) : (t.income - t.charged);
+  const rawProjected = effectiveBalance != null ? (effectiveBalance + t.unreceivedIncome - t.remaining) : (t.income - t.cost);
   const inHand = rawProjected - goal;
   document.getElementById('rtaAmt').textContent = money(inHand);
   const anyChargedNow = t.charged > 0 || t.receivedIncome > 0;
@@ -1729,7 +1734,7 @@ function updateSummary(){
   const balSubEl = document.getElementById('balanceBarSub');
   if(effectiveBalance != null){
     balAmtEl.textContent = money(effectiveBalance);
-    balSubEl.textContent = usingManual ? 'Entered manually' : '';
+    balSubEl.textContent = usingManual ? 'Entered manually' : (usingRememberedUp ? 'Last known balance — reconnecting…' : '');
   } else {
     balAmtEl.textContent = '—';
     balSubEl.textContent = upToken ? 'Fetching…' : 'Connect Up Bank on the Dashboard tab, or switch to Manual';
@@ -3311,6 +3316,7 @@ document.getElementById('dashTimeframeRow').addEventListener('click', (e) => {
 /* ===================== dashboard (Savings Dashboard sheet) ===================== */
 let upToken = '';
 let upSpendingBalance = null;
+let lastKnownUpBalance = null;
 let upSpendingAccountId = null;
 let upIncomeSourceKey = null;
 let upIncomeSourceLabel = null;
@@ -3415,7 +3421,7 @@ async function refreshUpSpendingBalance(){
   try{
     const res = await upFetch('/accounts');
     const acc = findUpSpendingAccount(res.data);
-    if(acc){ upSpendingBalance = parseFloat(acc.attributes.balance.value); updateSummary(); }
+    if(acc){ upSpendingBalance = parseFloat(acc.attributes.balance.value); lastKnownUpBalance = upSpendingBalance; db.saveSettings({ last_up_balance: upSpendingBalance }).catch(()=>{}); updateSummary(); }
   }catch(e){ /* silent here - Dashboard tab surfaces the real error if the user checks there */ }
 }
 let upTokenRowExpanded = false;
@@ -4209,7 +4215,7 @@ async function refreshUpData(){
       }).join('')}</div>`;
     }
     document.getElementById('upAccounts').innerHTML = html || '<div class="pc-faint">No accounts found.</div>';
-    if(spendingAcc){ upSpendingBalance = parseFloat(spendingAcc.attributes.balance.value); upSpendingAccountId = spendingAcc.id; updateSummary(); }
+    if(spendingAcc){ upSpendingBalance = parseFloat(spendingAcc.attributes.balance.value); lastKnownUpBalance = upSpendingBalance; upSpendingAccountId = spendingAcc.id; db.saveSettings({ last_up_balance: upSpendingBalance }).catch(()=>{}); updateSummary(); }
     await fetchUpTransactionsFresh();
     document.getElementById('upMeta').textContent = 'Updated ' + new Date().toLocaleTimeString('en-AU', {hour:'2-digit', minute:'2-digit'});
   }catch(e){
