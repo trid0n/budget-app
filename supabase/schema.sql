@@ -125,7 +125,7 @@ create table if not exists public.mtg_rows (
   id                text primary key,
   user_id           uuid references auth.users(id) on delete cascade default auth.uid(),
   item              text not null default '',
-  date_bought       date,
+  date_bought       text,  -- free text, not a real date — source data is notes like "April 3-11*, some bought on 3rd..."
   cost              numeric not null default 0,
   expected_revenue  numeric not null default 0,
   sort_order        int not null default 0
