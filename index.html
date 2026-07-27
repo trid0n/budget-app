@@ -262,7 +262,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .thead div{text-align:right;} .thead div:first-child{text-align:left;}
 .group{background:var(--surface); border:1px solid var(--rule); border-left:4px solid var(--cat-color, var(--gold)); border-radius:10px; margin-bottom:12px; overflow:hidden; box-shadow:var(--shadow);}
 .group:last-child{margin-bottom:0;}
-.grow{display:grid; grid-template-columns:24px 1fr 95px 30px; padding:0; align-items:center; background:var(--paper-dim); font-weight:700; font-size:.86rem; border-bottom:1px solid var(--rule); border-left:3px solid transparent; transition:background-color .15s, border-left-color .15s; cursor:pointer;}
+.grow{display:grid; grid-template-columns:24px 1fr 95px 30px; padding:0; align-items:center; background:var(--paper-dim); font-weight:700; font-size:.86rem; border-bottom:1px solid var(--rule); border-left:3px solid transparent; transition:background-color .15s, border-left-color .15s; cursor:pointer; user-select:none;}
 .grow .gcell{cursor:pointer;}
 .grow-name{display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer; min-width:0; position:relative;}
 .grip-handle{display:flex; align-items:center; justify-content:center; color:var(--ink-faint); cursor:grab; flex-shrink:0; padding:10px 2px 10px 10px; opacity:.5; transition:opacity .15s; touch-action:none;}
@@ -293,7 +293,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .income-card.collapsed .income-body{grid-template-rows:0fr;}
 .income-body-inner{overflow:hidden; min-height:0;}
 .group-body-inner{overflow:hidden; min-height:0;}
-.lrow.leaf{display:grid; grid-template-columns:18px 1fr 95px 30px; padding:0; align-items:center; cursor:pointer; position:relative;}
+.lrow.leaf{display:grid; grid-template-columns:18px 1fr 95px 30px; padding:0; align-items:center; cursor:pointer; position:relative; user-select:none;}
 .lrow.leaf .grip-handle{padding:8px 0 8px 10px; opacity:0;}
 .lrow.leaf:hover .grip-handle{opacity:.6;}
 .lrow.leaf.dragging{opacity:.4;}
@@ -819,8 +819,8 @@ input[type=file]{display:none;}
           <div class="balance-bar-right">
             <div class="month-actions-panel" id="monthActionsPanel">
               <button class="chip-btn chip-blue" id="useAsTemplateBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>Use this month as my template</button>
-              <button class="chip-btn chip-teal" id="restoreTemplateOrderBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="10" x2="7" y2="10"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="7" y2="18"/></svg></span>Restore template order</button>
-              <button class="chip-btn chip-green" id="restoreFromTemplateBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg></span>Restore this month to template</button>
+              <button class="chip-btn chip-teal" id="restoreTemplateOrderBtn"><span class="chip-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20V4M8 4 4 8M8 4l4 4"/><path d="M16 4v16m0 0 4-4m-4 4-4-4"/></svg></span>Restore template order</button>
+              <button class="chip-btn chip-green" id="restoreFromTemplateBtn"><span class="chip-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 8 16 8"/></svg></span>Restore this month to template</button>
               <button class="chip-btn chip-red" id="clearMonthBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>Clear this month's data</button>
             </div>
             <button class="mini-btn month-actions-gear" id="monthActionsToggle" title="Month actions"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
@@ -3018,6 +3018,9 @@ function syncCategoryOrderFromDOM(){
 let dragMode = null; // 'category' | 'item' | null
 let draggedItemId = null, draggedItemCatId = null;
 let dragPointerId = null, dragMoved = false;
+let pendingDrag = null; // {mode, el, startX, startY, pointerId} — a candidate drag not yet past the movement threshold
+let suppressNextClick = false; // set once a drag actually moves, so the click that follows pointerup doesn't also toggle/collapse
+const DRAG_THRESHOLD = 6;
 function liveReorderItemDOM(catId, draggedId, targetRowEl, before){
   if(performance.now() - lastCategorySwapTime < 260) return;
   const container = document.querySelector(`[data-cat-rows="${catId}"]`);
@@ -3065,31 +3068,53 @@ function cancelDrag(){
   if(dragMode){ renderGroups(); updateSummary(); }
   dragMode = null; draggedCategoryId = null; draggedItemId = null; draggedItemCatId = null; dragPointerId = null;
 }
+function commitPendingDrag(){
+  if(!pendingDrag) return;
+  const { mode, el, pointerId } = pendingDrag;
+  dragMode = mode;
+  if(mode === 'category'){
+    draggedCategoryId = el.dataset.dragCat;
+    pushUndo('month', monthData, {monthKey: settings.currentMonth});
+    const g = el.closest('.group'); if(g) g.classList.add('dragging');
+  } else {
+    draggedItemId = el.dataset.item;
+    draggedItemCatId = el.dataset.cat;
+    pushUndo('month', monthData, {monthKey: settings.currentMonth});
+    el.classList.add('dragging');
+  }
+  dragMoved = false;
+  dragPointerId = pointerId;
+  try{ el.setPointerCapture(pointerId); }catch(err){}
+  pendingDrag = null;
+}
 document.getElementById('view-ledger').addEventListener('pointerdown', (e) => {
-  const handle = e.target.closest('.grip-handle');
-  if(!handle) return;
-  const catGrow = handle.closest('[data-drag-cat]');
-  const itemRow = handle.closest('.lrow.leaf');
+  const onHandle = e.target.closest('.grip-handle');
+  const catGrow = e.target.closest('[data-drag-cat]');
+  const itemRow = !catGrow ? e.target.closest('.lrow.leaf') : null;
+  let mode = null, el = null;
   if(catGrow){
-    dragMode = 'category';
-    draggedCategoryId = catGrow.dataset.dragCat;
-    pushUndo('month', monthData, {monthKey: settings.currentMonth});
-    const g = catGrow.closest('.group'); if(g) g.classList.add('dragging');
+    if(!onHandle && (e.target.closest('.sh-name-input') || e.target.closest('.sh-del'))) return;
+    mode = 'category'; el = catGrow;
   } else if(itemRow && itemRow.dataset.cat && itemRow.dataset.item){
-    dragMode = 'item';
-    draggedItemId = itemRow.dataset.item;
-    draggedItemCatId = itemRow.dataset.cat;
-    pushUndo('month', monthData, {monthKey: settings.currentMonth});
-    itemRow.classList.add('dragging');
+    if(!onHandle && (e.target.closest('.name-input') || e.target.closest('.amt-input') || e.target.closest('.item-del') || e.target.closest('.tpl-source-link') || e.target.closest('.tx-link-badge'))) return;
+    mode = 'item'; el = itemRow;
   } else {
     return;
   }
+  // Starting a drag from the middle of a row (not the grip) only makes sense for
+  // mouse/pen — on touch that same gesture is how the page scrolls, so touch still
+  // requires the dedicated grip handle.
+  if(!onHandle && e.pointerType === 'touch') return;
   e.preventDefault();
-  dragMoved = false;
-  dragPointerId = e.pointerId;
-  try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+  pendingDrag = { mode, el, startX: e.clientX, startY: e.clientY, pointerId: e.pointerId };
+  if(onHandle) commitPendingDrag();
 });
 document.getElementById('view-ledger').addEventListener('pointermove', (e) => {
+  if(pendingDrag && e.pointerId === pendingDrag.pointerId){
+    const dx = e.clientX - pendingDrag.startX, dy = e.clientY - pendingDrag.startY;
+    if(Math.hypot(dx, dy) > DRAG_THRESHOLD) commitPendingDrag();
+    else return;
+  }
   if(!dragMode || e.pointerId !== dragPointerId) return;
   dragMoved = true;
   const elAtPoint = document.elementFromPoint(e.clientX, e.clientY);
@@ -3139,10 +3164,13 @@ document.getElementById('view-ledger').addEventListener('pointermove', (e) => {
   }
 });
 document.getElementById('view-ledger').addEventListener('pointerup', (e) => {
+  if(pendingDrag && e.pointerId === pendingDrag.pointerId){ pendingDrag = null; return; }
   if(!dragMode || e.pointerId !== dragPointerId) return;
+  if(dragMoved) suppressNextClick = true;
   finishDrag();
 });
 document.getElementById('view-ledger').addEventListener('pointercancel', (e) => {
+  if(pendingDrag && e.pointerId === pendingDrag.pointerId){ pendingDrag = null; return; }
   if(!dragMode || e.pointerId !== dragPointerId) return;
   cancelDrag();
 });
@@ -3150,6 +3178,7 @@ document.getElementById('view-ledger').addEventListener('dblclick', (e) => {
   if(e.target.closest('.lrow') && !e.target.matches('input:not([readonly])')) e.preventDefault();
 });
 document.getElementById('view-ledger').addEventListener('click', async (e) => {
+  if(suppressNextClick){ suppressNextClick = false; return; }
   const inlineToggle = e.target.closest('[data-inline-toggle]');
   if(inlineToggle){
     const id = inlineToggle.dataset.inlineToggle;
