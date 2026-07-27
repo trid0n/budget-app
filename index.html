@@ -682,6 +682,8 @@ input[type=file]{display:none;}
 .auth-tab.active{background:var(--surface); color:var(--ink); box-shadow:var(--shadow);}
 .auth-field{display:flex; flex-direction:column; gap:4px; font-size:.78rem; font-weight:600; color:var(--ink-soft); margin-bottom:14px;}
 .auth-field input{font:inherit; font-size:.95rem; font-weight:500; color:var(--ink); background:var(--paper-dim); border:1px solid var(--rule); border-radius:8px; padding:9px 10px;}
+.auth-remember{display:flex; align-items:center; gap:7px; font-size:.8rem; font-weight:500; color:var(--ink-soft); margin:-6px 0 14px; cursor:pointer;}
+.auth-remember input{margin:0;}
 .auth-error{min-height:18px; font-size:.8rem; color:var(--debit); margin-bottom:8px;}
 .auth-submit{width:100%; justify-content:center; padding:10px 0; font-size:.9rem;}
 .auth-hint{margin-top:14px; font-size:.78rem; color:var(--ink-soft); text-align:center;}
@@ -701,6 +703,7 @@ input[type=file]{display:none;}
     <form id="authForm">
       <label class="auth-field">Email<input type="email" id="authEmail" autocomplete="username" required></label>
       <label class="auth-field">Password<input type="password" id="authPassword" autocomplete="current-password" required minlength="6"></label>
+      <label class="auth-remember"><input type="checkbox" id="authRemember" checked> Remember me on this device</label>
       <div class="auth-error" id="authError"></div>
       <button type="submit" class="mini-btn gold auth-submit" id="authSubmit">Log in</button>
     </form>
@@ -1149,7 +1152,21 @@ input[type=file]{display:none;}
 // own rows, not secrecy of this key.
 const SUPABASE_URL = 'https://ajhsebrgpcsvkefcezdz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_qlVUSyU1inxJIfV6DTkpVA_t8dWVpqH';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// "Remember me" support: supabase-js always persists the session in one
+// storage object handed to it at client-creation time, so this adapter picks
+// localStorage (survives closing the browser) vs sessionStorage (cleared
+// when the browser closes) per-call based on a plain flag, rather than
+// needing two separate clients.
+const REMEMBER_FLAG_KEY = 'budget_remember_me';
+function rememberMeEnabled(){ return localStorage.getItem(REMEMBER_FLAG_KEY) !== '0'; }
+function setRememberMe(on){ localStorage.setItem(REMEMBER_FLAG_KEY, on ? '1' : '0'); }
+const authStorage = {
+  getItem(key){ return localStorage.getItem(key) ?? sessionStorage.getItem(key); },
+  setItem(key, value){ (rememberMeEnabled() ? localStorage : sessionStorage).setItem(key, value); },
+  removeItem(key){ localStorage.removeItem(key); sessionStorage.removeItem(key); },
+};
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storage: authStorage } });
 let authUserId = null;
 
 function showAuthOverlay(){ document.getElementById('authOverlay').classList.remove('hidden'); }
@@ -1177,6 +1194,7 @@ document.getElementById('authForm').addEventListener('submit', async (e) => {
   const btn = document.getElementById('authSubmit');
   errEl.textContent = '';
   btn.disabled = true;
+  setRememberMe(document.getElementById('authRemember').checked);
   try{
     if(authMode === 'login'){
       const { error } = await sb.auth.signInWithPassword({ email, password });
