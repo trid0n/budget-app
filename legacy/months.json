@@ -1,0 +1,6605 @@
+{
+ "2024-04": {
+  "income": [
+   {
+    "name": "work (64,316.71  p.a -tax = 50024.71)",
+    "amount": 4168.0
+   },
+   {
+    "name": "Up spendings account",
+    "amount": 0.0
+   },
+   {
+    "name": "cash",
+    "amount": 0.0
+   }
+  ],
+  "totalIncome": 4168.0,
+  "totalCosts": 3522.78,
+  "difference": 645.22,
+  "comments": "Did not have extra income\nfrom mums work yet",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 80.0
+     },
+     {
+      "name": "water",
+      "amount": 50.0
+     },
+     {
+      "name": "gas",
+      "amount": 50.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "taiko",
+      "amount": 20.0
+     },
+     {
+      "name": "Netflix",
+      "amount": 17.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 5.65
+     },
+     {
+      "name": "mtg",
+      "amount": 70.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public transport",
+      "amount": 20.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Loans",
+    "items": [
+     {
+      "name": "car debt",
+      "amount": 50.0
+     },
+     {
+      "name": "HECS (2.5% for 65k)",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "Home",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     },
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 307.2
+     },
+     {
+      "name": "Dining out",
+      "amount": 131.33
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal care",
+    "items": [
+     {
+      "name": "Hair",
+      "amount": 40.0
+     },
+     {
+      "name": "choir",
+      "amount": 50.0
+     },
+     {
+      "name": "meds",
+      "amount": 81.6
+     },
+     {
+      "name": "Doc",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2024-06": {
+  "income": [
+   {
+    "name": "work (64,316.71  p.a -tax = 50024.71)",
+    "amount": 4169.0
+   },
+   {
+    "name": "mums work",
+    "amount": 375.0
+   },
+   {
+    "name": "covers from misc saver",
+    "amount": 202.0
+   }
+  ],
+  "totalIncome": 4746.0,
+  "totalCosts": 4550.0,
+  "difference": 196.0,
+  "comments": "Paid off car debt\noverspent on misc",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 80.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "gas",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "mtgo",
+      "amount": 266.0
+     },
+     {
+      "name": "Netflix + the movies",
+      "amount": 47.0
+     },
+     {
+      "name": "umbrella/facemask Kmart",
+      "amount": 137.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 20.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Loans",
+    "items": [
+     {
+      "name": "HECS (2.5% for 65k)",
+      "amount": 0.0
+     },
+     {
+      "name": "Paid off car debt",
+      "amount": 556.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 369.0
+     },
+     {
+      "name": "Dining out saver",
+      "amount": 150.0
+     },
+     {
+      "name": "extra on takeout",
+      "amount": 21.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 0.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "Dental",
+      "amount": 35.0
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2025-06": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4677.0
+   },
+   {
+    "name": "mums work",
+    "amount": 390.0
+   },
+   {
+    "name": "cash deposit + mtg cards",
+    "amount": 297.0
+   },
+   {
+    "name": "parkhound (minus $68 tax)",
+    "amount": 126.0
+   }
+  ],
+  "totalIncome": 5490.0,
+  "totalCosts": 4664.45,
+  "difference": 825.55,
+  "comments": "Goal saver amount \nafter june's 1k: $12445\n\nextra $253 for pub hol\nfrom work",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify",
+      "amount": 4.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "mtg saver",
+      "amount": 120.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.0
+     },
+     {
+      "name": "aus post",
+      "amount": 23.75
+     },
+     {
+      "name": "apple tv (oops)",
+      "amount": 4.0
+     },
+     {
+      "name": "mtga",
+      "amount": 790.0
+     },
+     {
+      "name": "steam game",
+      "amount": 2.2
+     },
+     {
+      "name": "broom/duster (big w)",
+      "amount": 27.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 30.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 294.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "overpsend on takeout",
+      "amount": 21.5
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 60.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.0
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2025-07": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4424.0
+   },
+   {
+    "name": "mums work",
+    "amount": 320.0
+   },
+   {
+    "name": "cards",
+    "amount": 887.48
+   },
+   {
+    "name": "parkhound",
+    "amount": 194.0
+   }
+  ],
+  "totalIncome": 5825.48,
+  "totalCosts": 4070.05,
+  "difference": 1755.43,
+  "comments": "goal saver amount\nafter July's 1k: $13,898 ($453 extra from tax return this month)",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 20.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify",
+      "amount": 4.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "mtg saver",
+      "amount": 120.0
+     },
+     {
+      "name": "Netflix",
+      "amount": 8.0
+     },
+     {
+      "name": "dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "The Isle (game)",
+      "amount": 30.0
+     },
+     {
+      "name": "postage",
+      "amount": 43.7
+     },
+     {
+      "name": "mtg top loaders",
+      "amount": 18.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 10.0
+     },
+     {
+      "name": "airport parking",
+      "amount": 27.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Parkhound",
+      "amount": 60.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 336.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "going out overspend",
+      "amount": 52.2
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 60.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.0
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2024-07": {
+  "income": [
+   {
+    "name": "work (64,316.71  p.a -tax = 50024.71)",
+    "amount": 4169.0
+   },
+   {
+    "name": "mums work ($80 pw)",
+    "amount": 325.0
+   }
+  ],
+  "totalIncome": 4494.0,
+  "totalCosts": 3652.5,
+  "difference": 841.5,
+  "comments": "Overspent $70 on clothes",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 90.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "gas",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "hobby",
+      "amount": 0.0
+     },
+     {
+      "name": "Misc Saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Dota Plus",
+      "amount": 5.5
+     },
+     {
+      "name": "Extra on clothing",
+      "amount": 70.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 0.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Parking",
+      "amount": 10.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Loans",
+    "items": [
+     {
+      "name": "HECS (2.5% for 65k)",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 383.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 40.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "Dental",
+      "amount": 35.0
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2025-04": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4426.33
+   },
+   {
+    "name": "mums work",
+    "amount": 312.0
+   },
+   {
+    "name": "mtg cards",
+    "amount": 502.0
+   },
+   {
+    "name": "raise back pay",
+    "amount": 189.0
+   }
+  ],
+  "totalIncome": 5429.33,
+  "totalCosts": 4729.0,
+  "difference": 700.33,
+  "comments": "-owe $242 to savings",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "gas",
+      "amount": 0.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify + apple tv + dota+",
+      "amount": 19.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "mtg deck 560 + Maze \nstandard 33",
+      "amount": 593.0
+     },
+     {
+      "name": "mystery draft + FOMO's",
+      "amount": 336.0
+     },
+     {
+      "name": "overspend take out",
+      "amount": 70.0
+     },
+     {
+      "name": "postage",
+      "amount": 34.0
+     },
+     {
+      "name": "mtg saver",
+      "amount": 120.0
+     },
+     {
+      "name": "total mtg overspend",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 20.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 202.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 60.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.0
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2024-05": {
+  "income": [
+   {
+    "name": "work (64,316.71  p.a -tax = 50024.71)",
+    "amount": 4167.0
+   },
+   {
+    "name": "mums work",
+    "amount": 337.5
+   },
+   {
+    "name": "water/gas excess in saver",
+    "amount": 330.0
+   }
+  ],
+  "totalIncome": 4834.5,
+  "totalCosts": 3516.15,
+  "difference": 1318.35,
+  "comments": "",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 80.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "gas",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "dota plus",
+      "amount": 5.5
+     },
+     {
+      "name": "Netflix",
+      "amount": 17.0
+     },
+     {
+      "name": "Pokemon movie",
+      "amount": 5.0
+     },
+     {
+      "name": "Go-Carting",
+      "amount": 69.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public transport",
+      "amount": 20.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Loans",
+    "items": [
+     {
+      "name": "car debt",
+      "amount": 100.0
+     },
+     {
+      "name": "HECS (2.5% for 65k)",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "Home",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     },
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 224.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 274.65
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair",
+      "amount": 0.0
+     },
+     {
+      "name": "Organization dues or fees",
+      "amount": 0.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 32.0
+     },
+     {
+      "name": "choir fees",
+      "amount": 125.0
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2024-08": {
+  "income": [
+   {
+    "name": "work (64,316.71  p.a -tax = 50024.71)",
+    "amount": 4302.0
+   },
+   {
+    "name": "mums work",
+    "amount": 390.0
+   },
+   {
+    "name": "transfer from misc saver (for overspending)",
+    "amount": 50.0
+   },
+   {
+    "name": "choir music hire fee refund",
+    "amount": 35.0
+   }
+  ],
+  "totalIncome": 4777.0,
+  "totalCosts": 3912.5,
+  "difference": 864.5,
+  "comments": "extra on groceries due to \n$50 worth of kitchenware\nand a failed meal prep +\na decent amount on \nsnacks",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 90.0
+     },
+     {
+      "name": "water",
+      "amount": 0.0
+     },
+     {
+      "name": "gas",
+      "amount": 0.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "alcahol",
+      "amount": 11.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "forgot to cover saver for a shake",
+      "amount": 9.0
+     },
+     {
+      "name": "spotify",
+      "amount": 4.0
+     },
+     {
+      "name": "House stuff (containers)",
+      "amount": 170.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 20.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Loans",
+    "items": [
+     {
+      "name": "HECS (2.5% for 65k)",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 4.5
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 484.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 80.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "Dental",
+      "amount": 35.0
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2024-10": {
+  "income": [
+   {
+    "name": "work (64,316.71  p.a -tax = 50024.71)",
+    "amount": 4302.0
+   },
+   {
+    "name": "mums work",
+    "amount": 312.0
+   },
+   {
+    "name": "AHM",
+    "amount": 100.0
+   }
+  ],
+  "totalIncome": 4714.0,
+  "totalCosts": 3808.14,
+  "difference": 905.86,
+  "comments": "",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 90.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "gas",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify",
+      "amount": 4.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 5.65
+     },
+     {
+      "name": "Overspending on going out",
+      "amount": 16.59
+     },
+     {
+      "name": "Disney plus",
+      "amount": 14.0
+     },
+     {
+      "name": "Netflix",
+      "amount": 19.0
+     },
+     {
+      "name": "Phone protector + case",
+      "amount": 68.4
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 0.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Loans",
+    "items": [
+     {
+      "name": "HECS (2.5% for 65k)",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 372.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 60.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 14.5
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2024-11": {
+  "income": [
+   {
+    "name": "work (64,316.71  p.a -tax = 50024.71)",
+    "amount": 4302.0
+   },
+   {
+    "name": "mums work",
+    "amount": 390.0
+   },
+   {
+    "name": "interest",
+    "amount": 17.26
+   }
+  ],
+  "totalIncome": 4709.26,
+  "totalCosts": 3701.65,
+  "difference": 1007.61,
+  "comments": "heavily covered wedding\ncosts through misc saver",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 90.0
+     },
+     {
+      "name": "water",
+      "amount": 0.0
+     },
+     {
+      "name": "gas",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify",
+      "amount": 4.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 4.5
+     },
+     {
+      "name": "Disney plus",
+      "amount": 14.0
+     },
+     {
+      "name": "Netflix",
+      "amount": 19.0
+     },
+     {
+      "name": "Pants alteration",
+      "amount": 50.0
+     },
+     {
+      "name": "Hexcells",
+      "amount": 5.65
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 20.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Loans",
+    "items": [
+     {
+      "name": "HECS (2.5% for 65k)",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 263.5
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 80.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 14.0
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2024-09": {
+  "income": [
+   {
+    "name": "work (64,316.71  p.a -tax = 50024.71)",
+    "amount": 4302.0
+   },
+   {
+    "name": "mums work",
+    "amount": 312.0
+   }
+  ],
+  "totalIncome": 4614.0,
+  "totalCosts": 3770.5,
+  "difference": 843.5,
+  "comments": "charity donation + going\nout and snacks from \nwoolies",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 90.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "gas",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify",
+      "amount": 4.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Peter Mac donation",
+      "amount": 39.0
+     },
+     {
+      "name": "Charity donation",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 10.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Loans",
+    "items": [
+     {
+      "name": "HECS (2.5% for 65k)",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 382.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 237.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 0.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 14.5
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2024-12": {
+  "income": [
+   {
+    "name": "work (64,316.71  p.a -tax = 50024.71)",
+    "amount": 4302.73
+   },
+   {
+    "name": "mums work",
+    "amount": 312.0
+   },
+   {
+    "name": "Cybertill bonus",
+    "amount": 866.0
+   },
+   {
+    "name": "Bonus from mum",
+    "amount": 50.0
+   }
+  ],
+  "totalIncome": 5530.73,
+  "totalCosts": 4564.55,
+  "difference": 966.18,
+  "comments": "",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 90.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "gas",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify",
+      "amount": 4.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 5.65
+     },
+     {
+      "name": "Printing mtg card stuff",
+      "amount": 68.4
+     },
+     {
+      "name": "Apple tv",
+      "amount": 13.0
+     },
+     {
+      "name": "bike stuff",
+      "amount": 848.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 0.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Loans",
+    "items": [
+     {
+      "name": "HECS (2.5% for 65k)",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 347.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 180.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 0.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 14.5
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2025-02": {
+  "income": [
+   {
+    "name": "work (64,316.71  p.a -tax = 50024.71)",
+    "amount": 4334.55
+   },
+   {
+    "name": "mums work",
+    "amount": 312.0
+   }
+  ],
+  "totalIncome": 4646.55,
+  "totalCosts": 3646.55,
+  "difference": 1000.0,
+  "comments": "spending on groceries\ndied down significantly\nsince cutting snacks",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 90.0
+     },
+     {
+      "name": "water",
+      "amount": 25.0
+     },
+     {
+      "name": "gas",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify",
+      "amount": 8.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Apple tv",
+      "amount": 13.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "excess transferred to misc",
+      "amount": 77.25
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 10.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Loans",
+    "items": [
+     {
+      "name": "HECS (2.5% for 65k)",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 264.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 152.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 0.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 14.15
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2025-03": {
+  "income": [
+   {
+    "name": "work (64,316.71  p.a -tax = 50024.71)",
+    "amount": 4334.55
+   },
+   {
+    "name": "mums work",
+    "amount": 390.0
+   },
+   {
+    "name": "Excess from misc saver",
+    "amount": 44.0
+   }
+  ],
+  "totalIncome": 4768.55,
+  "totalCosts": 3768.55,
+  "difference": 1000.0,
+  "comments": "$31.82 extra (overtime)",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 90.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "gas",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify",
+      "amount": 4.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "mtg",
+      "amount": 54.3
+     },
+     {
+      "name": "Netflix",
+      "amount": 19.0
+     },
+     {
+      "name": "kfc",
+      "amount": 20.45
+     },
+     {
+      "name": "food van",
+      "amount": 4.0
+     },
+     {
+      "name": "mcdonalds",
+      "amount": 5.0
+     },
+     {
+      "name": "KFC/HJ's with Joosh and Chels",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 10.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 277.5
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 60.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 14.15
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2025-05": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4424.32
+   },
+   {
+    "name": "mums work",
+    "amount": 312.0
+   },
+   {
+    "name": "mtg cards",
+    "amount": 290.5
+   }
+  ],
+  "totalIncome": 5026.82,
+  "totalCosts": 7590.22,
+  "difference": -2563.4,
+  "comments": "- for mtg transferred \n$2600 from savings + the\n$850 short of the montlhy\n1k + April's $242 so:\nOWE SAVER $3692",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 31.79
+     },
+     {
+      "name": "gas",
+      "amount": 18.39
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify/apple",
+      "amount": 8.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "mtg proxy printing",
+      "amount": 13.0
+     },
+     {
+      "name": "mtg singles/entry fees",
+      "amount": 1135.0
+     },
+     {
+      "name": "aus post",
+      "amount": 15.0
+     },
+     {
+      "name": "mtga",
+      "amount": 2434.0
+     },
+     {
+      "name": "mtgo",
+      "amount": 70.0
+     },
+     {
+      "name": "Netflix",
+      "amount": 19.0
+     },
+     {
+      "name": "footy/takeout overspend",
+      "amount": 177.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 20.0
+     },
+     {
+      "name": "uber",
+      "amount": 10.75
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 310.29
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 60.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.0
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2025-08": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4424.32
+   },
+   {
+    "name": "mums work",
+    "amount": 320.0
+   },
+   {
+    "name": "cards",
+    "amount": 5454.48
+   },
+   {
+    "name": "parkhound",
+    "amount": 194.0
+   }
+  ],
+  "totalIncome": 10392.8,
+  "totalCosts": 9809.3,
+  "difference": 583.5,
+  "comments": "- sold many cards\n- sent $3980 to\ncover owed savings",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 25.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     },
+     {
+      "name": "made up for savings owing",
+      "amount": 3980.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify/Netflix",
+      "amount": 12.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Ballet shoes",
+      "amount": 50.0
+     },
+     {
+      "name": "PC screen",
+      "amount": 920.0
+     },
+     {
+      "name": "Aus post",
+      "amount": 112.15
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "kmart random stuff",
+      "amount": 34.0
+     },
+     {
+      "name": "Ballet",
+      "amount": 160.0
+     },
+     {
+      "name": "Bali flights",
+      "amount": 545.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 30.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Parkhound tax",
+      "amount": 40.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 560.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 60.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.0
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2025-09": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4424.32
+   },
+   {
+    "name": "mums work",
+    "amount": 320.0
+   },
+   {
+    "name": "park hound",
+    "amount": 194.0
+   },
+   {
+    "name": "monitor + pc",
+    "amount": 320.0
+   }
+  ],
+  "totalIncome": 5258.32,
+  "totalCosts": 4220.44,
+  "difference": 1037.88,
+  "comments": "",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 14.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify",
+      "amount": 4.5
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "gym saver+ next months gym",
+      "amount": 217.29
+     },
+     {
+      "name": "Netflix+movie rental",
+      "amount": 13.0
+     },
+     {
+      "name": "Ballet",
+      "amount": 160.0
+     },
+     {
+      "name": "PC side panel+ canned air",
+      "amount": 70.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "wise card",
+      "amount": 6.0
+     },
+     {
+      "name": "human fall flat",
+      "amount": 8.5
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 51.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "parkhound",
+      "amount": 80.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 235.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 60.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.0
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Monitor guys cash change",
+      "amount": 20.0
+     }
+    ]
+   }
+  ]
+ },
+ "2025-01": {
+  "income": [
+   {
+    "name": "work (64,316.71  p.a -tax = 50024.71)",
+    "amount": 4302.73
+   },
+   {
+    "name": "mums work",
+    "amount": 312.0
+   },
+   {
+    "name": "mtg cards sale",
+    "amount": 10.85
+   }
+  ],
+  "totalIncome": 4625.58,
+  "totalCosts": 4156.19,
+  "difference": 469.39,
+  "comments": "-Purchased $550 CompTIA\nNetwork+ Certification\n-months transactions\nstarting from Jan 1",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 90.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "gas",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "spotify",
+      "amount": 0.0
+     },
+     {
+      "name": "misc saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Office Works stuff",
+      "amount": 0.0
+     },
+     {
+      "name": "Network+ exam",
+      "amount": 548.1
+     },
+     {
+      "name": "apple tv",
+      "amount": 13.0
+     },
+     {
+      "name": "dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "bike pump for me and josh",
+      "amount": 50.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 0.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Loans",
+    "items": [
+     {
+      "name": "HECS (2.5% for 65k)",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Federal",
+      "amount": 0.0
+     },
+     {
+      "name": "State",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 173.71
+     },
+     {
+      "name": "Dining out",
+      "amount": 207.08
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 60.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 14.15
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2026-01": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4537.32
+   },
+   {
+    "name": "mums work",
+    "amount": 380.0
+   },
+   {
+    "name": "Parkhound",
+    "amount": 194.0
+   },
+   {
+    "name": "Jas paying for accomadation \n(minus what I owed him for takeout)",
+    "amount": 186.0
+   }
+  ],
+  "totalIncome": 5297.32,
+  "totalCosts": 4107.6,
+  "difference": 1189.72,
+  "comments": "",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "Spotify",
+      "amount": 4.67
+     },
+     {
+      "name": "Streamio",
+      "amount": 3.33
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Misc Saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "Ballet",
+      "amount": 225.0
+     },
+     {
+      "name": "kmart",
+      "amount": 4.5
+     },
+     {
+      "name": "Frozen coke",
+      "amount": 2.0
+     },
+     {
+      "name": "apple storage",
+      "amount": 1.5
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 50.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Parkhound tax",
+      "amount": 60.0
+     },
+     {
+      "name": "interest from savers",
+      "amount": 23.45
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 415.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 50.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.0
+     },
+     {
+      "name": "Hair loss meds",
+      "amount": 15.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2026-02": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4537.32
+   },
+   {
+    "name": "mums work",
+    "amount": 320.0
+   },
+   {
+    "name": "Parkhound",
+    "amount": 194.0
+   },
+   {
+    "name": "bike",
+    "amount": 350.0
+   }
+  ],
+  "totalIncome": 5401.32,
+  "totalCosts": 4148.73,
+  "difference": 1252.59,
+  "comments": "",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "Spotify",
+      "amount": 4.67
+     },
+     {
+      "name": "Streamio",
+      "amount": 3.33
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Misc Saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "Ballet",
+      "amount": 225.0
+     },
+     {
+      "name": "boohooman",
+      "amount": 19.67
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 80.0
+     },
+     {
+      "name": "uber",
+      "amount": 12.22
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Parkhound tax",
+      "amount": 60.0
+     },
+     {
+      "name": "interest from savers",
+      "amount": 24.69
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries - $14.14/day",
+      "amount": 396.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 50.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$30 choir fee (plus sheet music)",
+      "amount": 35.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.0
+     },
+     {
+      "name": "Hair loss meds",
+      "amount": 15.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2025-10": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4537.32
+   },
+   {
+    "name": "mums work",
+    "amount": 400.0
+   },
+   {
+    "name": "cash",
+    "amount": 15.0
+   },
+   {
+    "name": "PTV saver closure",
+    "amount": 5.0
+   }
+  ],
+  "totalIncome": 4957.32,
+  "totalCosts": 3843.17,
+  "difference": 1114.15,
+  "comments": "- below HECs threshold, \n+$113 to post-tax income",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "Spotify",
+      "amount": 4.67
+     },
+     {
+      "name": "Netflix",
+      "amount": 10.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Misc Saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "Ballet",
+      "amount": 252.0
+     },
+     {
+      "name": "apple tv",
+      "amount": 7.0
+     },
+     {
+      "name": "RV there yet",
+      "amount": 10.61
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 65.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Parkhound tax",
+      "amount": 60.0
+     },
+     {
+      "name": "interest from savers",
+      "amount": 18.74
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 67.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 60.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.0
+     },
+     {
+      "name": "GP",
+      "amount": 35.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2025-11": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4537.72
+   },
+   {
+    "name": "mums work",
+    "amount": 320.0
+   },
+   {
+    "name": "parkhound",
+    "amount": 194.0
+   },
+   {
+    "name": "random money (listed to the\n right) + extra from last month",
+    "amount": 274.0
+   }
+  ],
+  "totalIncome": 5325.72,
+  "totalCosts": 4310.01,
+  "difference": 1015.71,
+  "comments": "",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "Spotify",
+      "amount": 4.67
+     },
+     {
+      "name": "Netflix",
+      "amount": 21.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Misc Saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "Ballet",
+      "amount": 252.0
+     },
+     {
+      "name": "Apple+",
+      "amount": 16.0
+     },
+     {
+      "name": "prime tv",
+      "amount": 10.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 30.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Parkhound tax",
+      "amount": 60.0
+     },
+     {
+      "name": "tax for prev months interest",
+      "amount": 76.21
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 339.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 60.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.0
+     },
+     {
+      "name": "medication",
+      "amount": 187.98
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2025-12": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4596.73
+   },
+   {
+    "name": "mums work",
+    "amount": 500.0
+   },
+   {
+    "name": "Parkhound",
+    "amount": 194.0
+   },
+   {
+    "name": "ballet + hair stuff + hair cut + electricity excess + ebay",
+    "amount": 733.0
+   }
+  ],
+  "totalIncome": 6023.73,
+  "totalCosts": 4361.88,
+  "difference": 1661.85,
+  "comments": "5 payments for Dec and\n$100 bonus from mum",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "Spotify",
+      "amount": 4.67
+     },
+     {
+      "name": "guilty as sock",
+      "amount": 10.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Misc Saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "Ballet",
+      "amount": 252.0
+     },
+     {
+      "name": "stremio",
+      "amount": 40.0
+     },
+     {
+      "name": "clothing overspend",
+      "amount": 127.33
+     },
+     {
+      "name": "takeout overspend",
+      "amount": 38.0
+     },
+     {
+      "name": "postage",
+      "amount": 22.6
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 60.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Parkhound tax",
+      "amount": 60.0
+     },
+     {
+      "name": "interest from savers",
+      "amount": 21.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 355.13
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 14.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 60.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$25 choir fee (plus sheet music)",
+      "amount": 30.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.0
+     },
+     {
+      "name": "Hair loss meds",
+      "amount": 44.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2026-03": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4537.32
+   },
+   {
+    "name": "mums work",
+    "amount": 320.0
+   },
+   {
+    "name": "Parkhound",
+    "amount": 194.0
+   },
+   {
+    "name": "Jasper TGI's + boohman refund",
+    "amount": 149.0
+   }
+  ],
+  "totalIncome": 5200.32,
+  "totalCosts": 4385.95,
+  "difference": 814.37,
+  "comments": "expecting bonus of \n$864.96",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 25.0
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "Spotify",
+      "amount": 4.67
+     },
+     {
+      "name": "Streamio",
+      "amount": 3.33
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Misc Saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "Ballet",
+      "amount": 225.0
+     },
+     {
+      "name": "court hire",
+      "amount": 28.0
+     },
+     {
+      "name": "Tea + postage",
+      "amount": 17.6
+     },
+     {
+      "name": "movies",
+      "amount": 26.08
+     },
+     {
+      "name": "excess takeout",
+      "amount": 38.01
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 90.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Parkhound tax",
+      "amount": 60.0
+     },
+     {
+      "name": "interest from savers",
+      "amount": 24.2
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries - 17.58/day",
+      "amount": 545.16
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 50.75
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$30 choir fee (plus sheet music)",
+      "amount": 35.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.0
+     },
+     {
+      "name": "Hair loss meds",
+      "amount": 15.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2026-04": {
+  "income": [
+   {
+    "name": "work (68,898  p.a -tax = $55,778.64/12 = $4,649.5)",
+    "amount": 4649.5
+   },
+   {
+    "name": "mums work + Parkhound",
+    "amount": 514.0
+   },
+   {
+    "name": "expected mtg value\n(Bloomburrow boxes)",
+    "amount": 280.0
+   },
+   {
+    "name": "Bonus",
+    "amount": 864.88
+   }
+  ],
+  "totalIncome": 6308.38,
+  "totalCosts": 5328.58,
+  "difference": 979.8,
+  "comments": "$300 transferred to misc \nanticipating mtg boxes",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone",
+      "amount": 12.5
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     },
+     {
+      "name": "Bonus extra into house saver",
+      "amount": 432.48
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "Spotify",
+      "amount": 4.67
+     },
+     {
+      "name": "Streamio",
+      "amount": 3.33
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Misc Saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "Ballet",
+      "amount": 210.0
+     },
+     {
+      "name": "take out overspend",
+      "amount": 61.0
+     },
+     {
+      "name": "Bonus extra into Misc saver",
+      "amount": 216.24
+     },
+     {
+      "name": "mtg boxes funds to misc saver",
+      "amount": 300.0
+     },
+     {
+      "name": "kmart $18 + not covered mtg box cost $70.32 + mana clash not covered $50",
+      "amount": 138.32
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 0.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     },
+     {
+      "name": "Bonus extra into education",
+      "amount": 216.24
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Parkhound tax",
+      "amount": 60.0
+     },
+     {
+      "name": "interest from savers",
+      "amount": 28.65
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 346.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Savings account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 50.75
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$30 choir fee (plus sheet music)",
+      "amount": 35.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.25
+     },
+     {
+      "name": "Hair loss meds",
+      "amount": 15.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2026-05": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4672.47
+   },
+   {
+    "name": "mums work + Parkhound",
+    "amount": 514.0
+   },
+   {
+    "name": "expected mtg value\n(24x SOS, FF bundle + singles, \n1x SOS collector, 3x WOE collector)",
+    "amount": 9800.0
+   },
+   {
+    "name": "mtg singles",
+    "amount": 147.3
+   }
+  ],
+  "totalIncome": 15133.77,
+  "totalCosts": 10681.4,
+  "difference": 4452.37,
+  "comments": "",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 12.5
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "Spotify + postage",
+      "amount": 37.87
+     },
+     {
+      "name": "Streamio + air con remote",
+      "amount": 18.33
+     },
+     {
+      "name": "Tech replacements + Misc saver",
+      "amount": 325.0
+     },
+     {
+      "name": "MTGA box spend",
+      "amount": 5899.0
+     },
+     {
+      "name": "Dota plus + badminton",
+      "amount": 16.05
+     },
+     {
+      "name": "Ballet",
+      "amount": 210.0
+     },
+     {
+      "name": "Adelaide trip events + fuel",
+      "amount": 435.0
+     },
+     {
+      "name": "excess spend on food",
+      "amount": 290.36
+     },
+     {
+      "name": "Book of Mormon",
+      "amount": 99.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 9.77
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Parkhound tax",
+      "amount": 60.0
+     },
+     {
+      "name": "interest from savers",
+      "amount": 32.01
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 267.68
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 51.58
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$30 choir fee (plus sheet music)",
+      "amount": 35.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.25
+     },
+     {
+      "name": "Hair loss meds",
+      "amount": 15.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2026-06": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4649.47
+   },
+   {
+    "name": "mums work",
+    "amount": 320.0
+   },
+   {
+    "name": "Parkhound",
+    "amount": 194.0
+   },
+   {
+    "name": "expected mtg value\n(foundations boxes)",
+    "amount": 690.0
+   }
+  ],
+  "totalIncome": 5853.47,
+  "totalCosts": 5621.87,
+  "difference": 231.6,
+  "comments": "",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 12.5
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "Spotify + stremio",
+      "amount": 8.0
+     },
+     {
+      "name": "mtga box spending (plaaceholder\nnot actual amount)",
+      "amount": 1159.63
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Misc Saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Dota plus + game",
+      "amount": 12.95
+     },
+     {
+      "name": "Ballet",
+      "amount": 210.0
+     },
+     {
+      "name": "plenty of games + mtg postage",
+      "amount": 47.0
+     },
+     {
+      "name": "takeout excess + uuber (10)",
+      "amount": 175.0
+     },
+     {
+      "name": "manatraders",
+      "amount": 87.0
+     },
+     {
+      "name": "VFN's + prerelease + sleeves",
+      "amount": 112.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 30.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Parkhound tax",
+      "amount": 60.0
+     },
+     {
+      "name": "interest from savers",
+      "amount": 24.96
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 389.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 51.58
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$30 choir fee (plus sheet music)",
+      "amount": 35.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.25
+     },
+     {
+      "name": "Hair loss meds",
+      "amount": 15.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2026-07": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 2339.23
+   },
+   {
+    "name": "mums work",
+    "amount": 80.0
+   },
+   {
+    "name": "Parkhound",
+    "amount": 0.0
+   }
+  ],
+  "totalIncome": 2419.23,
+  "totalCosts": 212.9864516,
+  "difference": 2206.243548,
+  "comments": "- tech replacements $500\n- April's $300 to house\n- May's $1000 to house\n- June's $1000 to house\n- borrowed house saver $2000\n- borrowed house saver $3000\n=total $7800\nexpected income - $9520",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 0.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 0.0
+     },
+     {
+      "name": "internet",
+      "amount": 0.0
+     },
+     {
+      "name": "water",
+      "amount": 0.0
+     },
+     {
+      "name": "hot water",
+      "amount": 0.0
+     },
+     {
+      "name": "electricity",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "Spotify",
+      "amount": 4.67
+     },
+     {
+      "name": "Streamio",
+      "amount": 0.0
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 0.0
+     },
+     {
+      "name": "Misc Saver",
+      "amount": 0.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 0.0
+     },
+     {
+      "name": "Ballet",
+      "amount": 0.0
+     },
+     {
+      "name": "excess spend on food",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 20.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "Parkhound tax",
+      "amount": 0.0
+     },
+     {
+      "name": "interest from savers",
+      "amount": 0.0
+     },
+     {
+      "name": "Local",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 188.32
+     },
+     {
+      "name": "Dining out",
+      "amount": 0.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 0.0
+     },
+     {
+      "name": "Clothing",
+      "amount": 0.0
+     },
+     {
+      "name": "$30 choir fee (plus sheet music)",
+      "amount": 0.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 0.0
+     },
+     {
+      "name": "Hair loss meds",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2026-08": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4672.47
+   },
+   {
+    "name": "mums work",
+    "amount": 320.0
+   },
+   {
+    "name": "Parkhound",
+    "amount": 194.0
+   }
+  ],
+  "totalIncome": 5186.47,
+  "totalCosts": 4034.49,
+  "difference": 1151.98,
+  "comments": "- owe education saver $900\n- tax withholdings $800\n- April's $300 to house\n- May's $1000 to house\n- borrowed house saver $2000\n- borrowed house saver $3000\n=total $8000\nexpected income - $10,170",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 12.5
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "Spotify",
+      "amount": 4.67
+     },
+     {
+      "name": "Streamio",
+      "amount": 3.33
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Misc Saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "Ballet",
+      "amount": 120.0
+     },
+     {
+      "name": "excess spend on food",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 50.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "interest from savers",
+      "amount": 32.01
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 512.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 51.58
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$30 choir fee (plus sheet music)",
+      "amount": 35.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.25
+     },
+     {
+      "name": "Hair loss meds",
+      "amount": 15.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ },
+ "2026-09": {
+  "income": [
+   {
+    "name": "work (66,568  p.a -tax = 53,148.72)",
+    "amount": 4672.47
+   },
+   {
+    "name": "mums work",
+    "amount": 320.0
+   },
+   {
+    "name": "Parkhound",
+    "amount": 194.0
+   }
+  ],
+  "totalIncome": 5186.47,
+  "totalCosts": 4034.49,
+  "difference": 1151.98,
+  "comments": "- owe education saver $900\n- tax withholdings $800\n- April's $300 to house\n- May's $1000 to house\n- borrowed house saver $2000\n- borrowed house saver $3000\n=total $8000\nexpected income - $10,170",
+  "categories": [
+   {
+    "name": "Housing",
+    "items": [
+     {
+      "name": "rent",
+      "amount": 2390.0
+     },
+     {
+      "name": "Phone (18th monthly) 25",
+      "amount": 12.5
+     },
+     {
+      "name": "internet",
+      "amount": 95.0
+     },
+     {
+      "name": "water",
+      "amount": 7.0
+     },
+     {
+      "name": "hot water",
+      "amount": 7.0
+     },
+     {
+      "name": "electricity",
+      "amount": 100.0
+     }
+    ]
+   },
+   {
+    "name": "Entertainment",
+    "items": [
+     {
+      "name": "Spotify",
+      "amount": 4.67
+     },
+     {
+      "name": "Streamio",
+      "amount": 3.33
+     },
+     {
+      "name": "Tech replacements",
+      "amount": 125.0
+     },
+     {
+      "name": "Misc Saver",
+      "amount": 200.0
+     },
+     {
+      "name": "Dota plus",
+      "amount": 6.15
+     },
+     {
+      "name": "Ballet",
+      "amount": 120.0
+     },
+     {
+      "name": "excess spend on food",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Transportation",
+    "items": [
+     {
+      "name": "Public Transport",
+      "amount": 50.0
+     },
+     {
+      "name": "car maintenance",
+      "amount": 0.0
+     },
+     {
+      "name": "Insurance",
+      "amount": 0.0
+     },
+     {
+      "name": "Eastlink",
+      "amount": 0.0
+     },
+     {
+      "name": "Fuel",
+      "amount": 0.0
+     },
+     {
+      "name": "rego",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Education",
+    "items": [
+     {
+      "name": "Education saver",
+      "amount": 30.0
+     }
+    ]
+   },
+   {
+    "name": "Insurance",
+    "items": [
+     {
+      "name": "ambulance ($50)",
+      "amount": 0.0
+     },
+     {
+      "name": "Health",
+      "amount": 0.0
+     },
+     {
+      "name": "Life",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Taxes",
+    "items": [
+     {
+      "name": "interest from savers",
+      "amount": 32.01
+     }
+    ]
+   },
+   {
+    "name": "Food",
+    "items": [
+     {
+      "name": "Groceries",
+      "amount": 512.0
+     },
+     {
+      "name": "Dining out",
+      "amount": 150.0
+     },
+     {
+      "name": "medical",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": [
+     {
+      "name": "Retirement account",
+      "amount": 0.0
+     },
+     {
+      "name": "Investment account",
+      "amount": 0.0
+     }
+    ]
+   },
+   {
+    "name": "Personal Care",
+    "items": [
+     {
+      "name": "Hair cut",
+      "amount": 51.58
+     },
+     {
+      "name": "Clothing",
+      "amount": 75.0
+     },
+     {
+      "name": "$30 choir fee (plus sheet music)",
+      "amount": 35.0
+     },
+     {
+      "name": "AHM cover",
+      "amount": 13.25
+     },
+     {
+      "name": "Hair loss meds",
+      "amount": 15.0
+     }
+    ]
+   },
+   {
+    "name": "Other",
+    "items": []
+   }
+  ]
+ }
+}

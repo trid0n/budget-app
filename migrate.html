@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Budget app — one-time Supabase migration</title>
+<style>
+  body{font:15px/1.5 -apple-system,Segoe UI,Inter,sans-serif; max-width:720px; margin:40px auto; padding:0 20px; color:#1B1F27;}
+  h1{font-size:1.3rem;}
+  ol{padding-left:20px;}
+  li{margin-bottom:10px;}
+  textarea{width:100%; height:160px; font-family:monospace; font-size:12px; box-sizing:border-box; padding:8px;}
+  input{font-size:14px; padding:6px 8px; box-sizing:border-box;}
+  button{font-size:14px; padding:8px 16px; cursor:pointer;}
+  pre{background:#f5f5f5; padding:10px; max-height:300px; overflow:auto; font-size:12px; white-space:pre-wrap;}
+  .row{display:flex; gap:8px; margin:10px 0; flex-wrap:wrap;}
+  .row input{flex:1; min-width:200px;}
+  code{background:#f0f0f0; padding:1px 5px; border-radius:3px;}
+  .err{color:#b00; font-weight:600;}
+  .ok{color:#0a0;}
+</style>
+</head>
+<body>
+<h1>Budget app — one-time Supabase migration</h1>
+<p>Moves everything from the old browser-local IndexedDB storage into Supabase, under one logged-in account. Run this once, then this file is no longer needed.</p>
+
+<ol>
+  <li>Open the <strong>currently deployed</strong> app (or <code>legacy/budget-assign.html</code>) in a browser, open DevTools → Console, and run:
+    <pre>copy(JSON.stringify(await (async()=>{const out={};const r=await window.storage.list('',false);for(const k of r.keys){const v=await window.storage.get(k,false); out[k]=v.value;} return out;})()))</pre>
+    This copies a full dump of every stored key to your clipboard.
+  </li>
+  <li>Paste it into the box below.</li>
+  <li>Log in below with the account you created via the new app's sign-up screen (the migration writes rows owned by whichever account you're logged in as).</li>
+  <li>Click <strong>Run migration</strong>. Safe to re-run — each table is fully replaced per run, not appended to.</li>
+</ol>
+
+<div class="row">
+  <input id="url" placeholder="Supabase URL (https://xxxx.supabase.co)">
+  <input id="key" placeholder="Supabase anon key">
+</div>
+<div class="row">
+  <input id="email" type="email" placeholder="Email" autocomplete="username">
+  <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+  <button id="loginBtn">Log in</button>
+</div>
+<div id="loginStatus"></div>
+
+<textarea id="dump" placeholder="Paste the JSON dump here"></textarea>
+<div class="row"><button id="runBtn" disabled>Run migration</button></div>
+<pre id="log"></pre>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+let sb = null;
+let authUserId = null;
+
+function log(msg, cls){
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  if(cls) line.className = cls;
+  line.textContent = msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const url = document.getElementById('url').value.trim();
+  const key = document.getElementById('key').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const statusEl = document.getElementById('loginStatus');
+  if(!url || !key || !email || !password){ statusEl.innerHTML = '<span class="err">Fill in URL, key, email and password first.</span>'; return; }
+  sb = window.supabase.createClient(url, key);
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){ statusEl.innerHTML = `<span class="err">${error.message}</span>`; return; }
+  authUserId = data.user.id;
+  statusEl.innerHTML = `<span class="ok">Logged in as ${data.user.email} (${authUserId})</span>`;
+  document.getElementById('runBtn').disabled = false;
+});
+
+// Same shape mapping as index.html's db module and withIds() — kept in sync manually
+// since this is a standalone one-time tool, not loaded by the main app.
+function normalizeMonth(m){
+  m.income = (m.income||[]).map(i => ({ id: i.id, name: i.name||'', amount: Number(i.amount)||0, charged: !!i.charged }));
+  m.categories = (m.categories||[]).map(c => ({
+    id: c.id,
+    name: c.name||'',
+    items: (c.items||[]).map(i => {
+      let amount = i.amount;
+      if(typeof amount !== 'number'){ amount = (Number(i.activity)||0) || (Number(i.assigned)||0) || 0; }
+      return { id: i.id, name: i.name||'', amount: Number(amount)||0, planned: typeof i.planned==='number' ? i.planned : Number(amount)||0, charged: !!i.charged };
+    })
+  }));
+  m.notes = m.notes || '';
+  m.goal = Number(m.goal)||0;
+  return m;
+}
+
+async function runMigration(dump){
+  const monthEntries = Object.entries(dump).filter(([k]) => k.startsWith('month:'));
+  for(const [key, raw] of monthEntries){
+    const monthKey = key.slice('month:'.length);
+    try{
+      const m = normalizeMonth(JSON.parse(raw));
+      const { error } = await sb.from('months').upsert({ user_id: authUserId, month_key: monthKey, income: m.income, categories: m.categories, notes: m.notes, goal: m.goal }, { onConflict: 'user_id,month_key' });
+      if(error) throw error;
+      log(`months: ${monthKey} ✓`);
+    }catch(e){ log(`months: ${monthKey} FAILED — ${e.message}`, 'err'); }
+  }
+
+  if(dump.settings){
+    try{
+      const s = JSON.parse(dump.settings);
+      const patch = { current_month: s.currentMonth, theme: s.theme, last_goal: Number(s.lastGoal)||0, balance_mode: s.balanceMode, manual_balance: Number(s.manualBalance)||0 };
+      if(dump.upToken) patch.up_token = dump.upToken;
+      const { error } = await sb.from('user_settings').upsert({ user_id: authUserId, ...patch }, { onConflict: 'user_id' });
+      if(error) throw error;
+      log('user_settings ✓');
+    }catch(e){ log(`user_settings FAILED — ${e.message}`, 'err'); }
+  } else if(dump.upToken){
+    try{
+      const { error } = await sb.from('user_settings').upsert({ user_id: authUserId, up_token: dump.upToken }, { onConflict: 'user_id' });
+      if(error) throw error;
+      log('user_settings (up_token only) ✓');
+    }catch(e){ log(`user_settings FAILED — ${e.message}`, 'err'); }
+  }
+
+  if(dump.monthTemplate){
+    try{
+      const t = JSON.parse(dump.monthTemplate);
+      const { error } = await sb.from('month_template').upsert({ user_id: authUserId, income: t.income||[], categories: t.categories||[], goal: Number(t.goal)||0 }, { onConflict: 'user_id' });
+      if(error) throw error;
+      log('month_template ✓');
+    }catch(e){ log(`month_template FAILED — ${e.message}`, 'err'); }
+  }
+
+  if(dump.ballet){
+    try{
+      const b = JSON.parse(dump.ballet);
+      const { error } = await sb.from('ballet').upsert({ user_id: authUserId, cost: Number(b.cost)||0, date_charged: b.dateCharged || null, balance: Number(b.balance)||0 }, { onConflict: 'user_id' });
+      if(error) throw error;
+      log('ballet ✓');
+    }catch(e){ log(`ballet FAILED — ${e.message}`, 'err'); }
+  }
+
+  if(dump.upIncomeSource){
+    try{
+      const s = JSON.parse(dump.upIncomeSource);
+      const { error } = await sb.from('up_income_source').upsert({ user_id: authUserId, key: s.key||null, label: s.label||null }, { onConflict: 'user_id' });
+      if(error) throw error;
+      log('up_income_source ✓');
+    }catch(e){ log(`up_income_source FAILED — ${e.message}`, 'err'); }
+  }
+
+  if(dump.priceChangeNotes){
+    try{
+      const notes = JSON.parse(dump.priceChangeNotes);
+      await sb.from('price_change_notes').delete().eq('user_id', authUserId);
+      const rows = Object.entries(notes).map(([key, note]) => ({ user_id: authUserId, key, note: typeof note==='string'?note:JSON.stringify(note) }));
+      if(rows.length){ const { error } = await sb.from('price_change_notes').insert(rows); if(error) throw error; }
+      log('price_change_notes ✓');
+    }catch(e){ log(`price_change_notes FAILED — ${e.message}`, 'err'); }
+  }
+
+  if(dump.techItems){
+    try{
+      const items = JSON.parse(dump.techItems);
+      await sb.from('tech_items').delete().eq('user_id', authUserId);
+      if(items.length){
+        const rows = items.map((t, idx) => ({ id: t.id, user_id: authUserId, name: t.name||'', cost: Number(t.cost)||0, lifespan: t.lifespan==null?null:Number(t.lifespan), sort_order: idx }));
+        const { error } = await sb.from('tech_items').insert(rows);
+        if(error) throw error;
+      }
+      log(`tech_items ✓ (${items.length})`);
+    }catch(e){ log(`tech_items FAILED — ${e.message}`, 'err'); }
+  }
+
+  if(dump.grocery){
+    try{
+      const g = JSON.parse(dump.grocery);
+      await sb.from('grocery_settings').upsert({ user_id: authUserId, days: Number(g.days)||30, eat_out: Number(g.eatOut)||0 }, { onConflict: 'user_id' });
+      await sb.from('grocery_items').delete().eq('user_id', authUserId);
+      const items = g.items || [];
+      if(items.length){
+        const { error: itErr } = await sb.from('grocery_items').insert(items.map((it, idx) => ({ id: it.id, user_id: authUserId, name: it.name||'', cost: Number(it.cost)||0, sort_order: idx })));
+        if(itErr) throw itErr;
+        const bdRows = [];
+        items.forEach(it => (it.breakdown||[]).forEach((b, bidx) => bdRows.push({ id: b.id, grocery_item_id: it.id, user_id: authUserId, name: b.name||'', cost: Number(b.cost)||0, sort_order: bidx })));
+        if(bdRows.length){ const { error: bdErr } = await sb.from('grocery_item_breakdown').insert(bdRows); if(bdErr) throw bdErr; }
+      }
+      log(`grocery ✓ (${items.length} items)`);
+    }catch(e){ log(`grocery FAILED — ${e.message}`, 'err'); }
+  }
+
+  if(dump.mtg){
+    try{
+      const m = JSON.parse(dump.mtg);
+      await sb.from('mtg_rows').delete().eq('user_id', authUserId);
+      const rows = (m.rows||[]);
+      if(rows.length){
+        const { error } = await sb.from('mtg_rows').insert(rows.map((r, idx) => ({ id: r.id, user_id: authUserId, item: r.item||'', date_bought: r.dateBought||null, cost: Number(r.cost)||0, expected_revenue: Number(r.expectedRevenue)||0, sort_order: idx })));
+        if(error) throw error;
+      }
+      log(`mtg_rows ✓ (${rows.length})`);
+    }catch(e){ log(`mtg_rows FAILED — ${e.message}`, 'err'); }
+  }
+
+  if(dump.monthlyCosts){
+    try{
+      const mc = JSON.parse(dump.monthlyCosts);
+      const items = mc.items || [];
+      await sb.from('monthly_costs').delete().eq('user_id', authUserId);
+      if(items.length){
+        const { error } = await sb.from('monthly_costs').insert(items.map((it, idx) => ({ id: it.id, user_id: authUserId, name: it.name||'', cost: Number(it.cost)||0, sort_order: idx })));
+        if(error) throw error;
+      }
+      log(`monthly_costs ✓ (${items.length})`);
+    }catch(e){ log(`monthly_costs FAILED — ${e.message}`, 'err'); }
+  }
+
+  if(dump.txAssignments){
+    try{
+      const assignments = JSON.parse(dump.txAssignments);
+      await sb.from('tx_assignments').delete().eq('user_id', authUserId);
+      const rows = Object.entries(assignments).map(([txId, a]) => ({ tx_id: txId, user_id: authUserId, cat_id: a.catId, item_id: a.itemId, month_key: a.monthKey, description: a.desc, item_name: a.itemName, tx_date: a.date || null, tx_amount: a.txAmt==null?null:Number(a.txAmt), excluded: !!a.excluded }));
+      if(rows.length){ const { error } = await sb.from('tx_assignments').insert(rows); if(error) throw error; }
+      log(`tx_assignments ✓ (${rows.length})`);
+    }catch(e){ log(`tx_assignments FAILED — ${e.message}`, 'err'); }
+  }
+
+  if(dump.txRules){
+    try{
+      const rules = JSON.parse(dump.txRules);
+      await sb.from('tx_rules').delete().eq('user_id', authUserId);
+      const rows = Object.entries(rules).map(([key, r]) => ({ merchant_key: key, user_id: authUserId, category_name: r.categoryName, item_name: r.itemName, threshold: r.threshold==null?null:Number(r.threshold), above_category_name: r.aboveCategoryName, above_item_name: r.aboveItemName }));
+      if(rows.length){ const { error } = await sb.from('tx_rules').insert(rows); if(error) throw error; }
+      log(`tx_rules ✓ (${rows.length})`);
+    }catch(e){ log(`tx_rules FAILED — ${e.message}`, 'err'); }
+  }
+
+  log('Done. Spot-check a few rows in the Supabase table editor against the live app.', 'ok');
+}
+
+document.getElementById('runBtn').addEventListener('click', async () => {
+  document.getElementById('log').textContent = '';
+  let dump;
+  try{ dump = JSON.parse(document.getElementById('dump').value); }
+  catch(e){ log('That doesn’t look like valid JSON — re-copy the dump and paste again.', 'err'); return; }
+  if(!authUserId){ log('Log in first.', 'err'); return; }
+  document.getElementById('runBtn').disabled = true;
+  await runMigration(dump);
+  document.getElementById('runBtn').disabled = false;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,696 @@
+{
+ "techItems": [
+  {
+   "name": "Chair",
+   "cost": 500.0,
+   "lifespan": 5.0
+  },
+  {
+   "name": "Headset",
+   "cost": 300.0,
+   "lifespan": 3.0
+  },
+  {
+   "name": "PC",
+   "cost": 4000.0,
+   "lifespan": 5.0
+  },
+  {
+   "name": "Phone",
+   "cost": 1500.0,
+   "lifespan": 5.0
+  },
+  {
+   "name": "Airpods",
+   "cost": 300.0,
+   "lifespan": 3.0
+  }
+ ],
+ "grocery": {
+  "staples": [
+   {
+    "name": "Yakult",
+    "cost": 0.77
+   },
+   {
+    "name": "cereal",
+    "cost": 1.1
+   },
+   {
+    "name": "Burritos",
+    "cost": 6.23,
+    "breakdown": [
+     {
+      "name": "wraps",
+      "cost": 1.1
+     },
+     {
+      "name": "sauce",
+      "cost": 1.0
+     },
+     {
+      "name": "beans",
+      "cost": 0.33
+     },
+     {
+      "name": "chicken",
+      "cost": 3.2
+     },
+     {
+      "name": "cheese",
+      "cost": 0.6
+     }
+    ]
+   },
+   {
+    "name": "Fibre gummies",
+    "cost": 1.16
+   },
+   {
+    "name": "diner",
+    "cost": 8.0
+   }
+  ],
+  "other": [
+   {
+    "name": "Toilet paper",
+    "cost": 0.1
+   },
+   {
+    "name": "Toothpaste",
+    "cost": 0.15
+   },
+   {
+    "name": "Hair paste",
+    "cost": 0.5
+   },
+   {
+    "name": "conditioner/shampoo",
+    "cost": 0.4
+   }
+  ],
+  "daysInMonth": 31,
+  "monthLabel": "July"
+ },
+ "ballet": [
+  {
+   "month": "Jun",
+   "monthlyTransfer": 120,
+   "dateCharged": "2026-06-24 00:00:00",
+   "cost": 174,
+   "remainingBalance": 928.48
+  },
+  {
+   "month": "Jul",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 165.0
+  },
+  {
+   "month": "Aug",
+   "monthlyTransfer": 120,
+   "dateCharged": "2026-08-05 00:00:00",
+   "cost": 174,
+   "remainingBalance": 111
+  },
+  {
+   "month": "Sep",
+   "monthlyTransfer": 120,
+   "dateCharged": "2026-09-16 00:00:00",
+   "cost": 174,
+   "remainingBalance": 57
+  },
+  {
+   "month": "Oct",
+   "monthlyTransfer": 120,
+   "dateCharged": "2026-10-28 00:00:00",
+   "cost": 174,
+   "remainingBalance": 3
+  },
+  {
+   "month": "Nov",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 123
+  },
+  {
+   "month": "Dec",
+   "monthlyTransfer": 120,
+   "dateCharged": "2026-12-09 00:00:00",
+   "cost": 174,
+   "remainingBalance": 69
+  },
+  {
+   "month": "Jan",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 189
+  },
+  {
+   "month": "Feb",
+   "monthlyTransfer": 120,
+   "dateCharged": "2027-02-12 00:00:00",
+   "cost": 174,
+   "remainingBalance": 135
+  },
+  {
+   "month": "Mar",
+   "monthlyTransfer": 120,
+   "dateCharged": "2027-03-26 00:00:00",
+   "cost": 174,
+   "remainingBalance": 81
+  },
+  {
+   "month": "Apr",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 201
+  },
+  {
+   "month": "May",
+   "monthlyTransfer": 120,
+   "dateCharged": "2027-05-07 00:00:00",
+   "cost": 174,
+   "remainingBalance": 147
+  },
+  {
+   "month": "Jun",
+   "monthlyTransfer": 120,
+   "dateCharged": "2027-06-18 00:00:00",
+   "cost": 174,
+   "remainingBalance": 93
+  },
+  {
+   "month": "Jul",
+   "monthlyTransfer": 120,
+   "dateCharged": "2027-07-30 00:00:00",
+   "cost": 174,
+   "remainingBalance": 39
+  },
+  {
+   "month": "Aug",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 159
+  },
+  {
+   "month": "Sep",
+   "monthlyTransfer": 120,
+   "dateCharged": "2027-09-10 00:00:00",
+   "cost": 174,
+   "remainingBalance": 105
+  },
+  {
+   "month": "Oct",
+   "monthlyTransfer": 120,
+   "dateCharged": "2027-10-22 00:00:00",
+   "cost": 174,
+   "remainingBalance": 51
+  },
+  {
+   "month": "Nov",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 171
+  },
+  {
+   "month": "Dec",
+   "monthlyTransfer": 120,
+   "dateCharged": "2027-12-03 00:00:00",
+   "cost": 174,
+   "remainingBalance": 117
+  },
+  {
+   "month": "Jan",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 237
+  },
+  {
+   "month": "Feb",
+   "monthlyTransfer": 120,
+   "dateCharged": "2028-02-11 00:00:00",
+   "cost": 174,
+   "remainingBalance": 183
+  },
+  {
+   "month": "Mar",
+   "monthlyTransfer": 120,
+   "dateCharged": "2028-03-24 00:00:00",
+   "cost": 174,
+   "remainingBalance": 129
+  },
+  {
+   "month": "Apr",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 249
+  },
+  {
+   "month": "May",
+   "monthlyTransfer": 120,
+   "dateCharged": "2028-05-05 00:00:00",
+   "cost": 174,
+   "remainingBalance": 195
+  },
+  {
+   "month": "Jun",
+   "monthlyTransfer": 120,
+   "dateCharged": "2028-06-16 00:00:00",
+   "cost": 174,
+   "remainingBalance": 141
+  },
+  {
+   "month": "Jul",
+   "monthlyTransfer": 120,
+   "dateCharged": "2028-07-28 00:00:00",
+   "cost": 174,
+   "remainingBalance": 87
+  },
+  {
+   "month": "Aug",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 207
+  },
+  {
+   "month": "Sep",
+   "monthlyTransfer": 120,
+   "dateCharged": "2028-09-08 00:00:00",
+   "cost": 174,
+   "remainingBalance": 153
+  },
+  {
+   "month": "Oct",
+   "monthlyTransfer": 120,
+   "dateCharged": "2028-10-20 00:00:00",
+   "cost": 174,
+   "remainingBalance": 99
+  },
+  {
+   "month": "Nov",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 219
+  },
+  {
+   "month": "Dec",
+   "monthlyTransfer": 120,
+   "dateCharged": "2028-12-01 00:00:00",
+   "cost": 174,
+   "remainingBalance": 165
+  },
+  {
+   "month": "Jan",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 285
+  },
+  {
+   "month": "Feb",
+   "monthlyTransfer": 120,
+   "dateCharged": "2029-02-09 00:00:00",
+   "cost": 174,
+   "remainingBalance": 231
+  },
+  {
+   "month": "Mar",
+   "monthlyTransfer": 120,
+   "dateCharged": "2029-03-23 00:00:00",
+   "cost": 174,
+   "remainingBalance": 177
+  },
+  {
+   "month": "Apr",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 297
+  },
+  {
+   "month": "May",
+   "monthlyTransfer": 120,
+   "dateCharged": "2029-05-04 00:00:00",
+   "cost": 174,
+   "remainingBalance": 243
+  },
+  {
+   "month": "Jun",
+   "monthlyTransfer": 120,
+   "dateCharged": "2029-06-15 00:00:00",
+   "cost": 174,
+   "remainingBalance": 189
+  },
+  {
+   "month": "Jul",
+   "monthlyTransfer": 120,
+   "dateCharged": "2029-07-27 00:00:00",
+   "cost": 174,
+   "remainingBalance": 135
+  },
+  {
+   "month": "Aug",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 255
+  },
+  {
+   "month": "Sep",
+   "monthlyTransfer": 120,
+   "dateCharged": "2029-09-07 00:00:00",
+   "cost": 174,
+   "remainingBalance": 201
+  },
+  {
+   "month": "Oct",
+   "monthlyTransfer": 120,
+   "dateCharged": "2029-10-19 00:00:00",
+   "cost": 174,
+   "remainingBalance": 147
+  },
+  {
+   "month": "Nov",
+   "monthlyTransfer": 120,
+   "dateCharged": "2029-11-30 00:00:00",
+   "cost": 174,
+   "remainingBalance": 93
+  },
+  {
+   "month": "Dec",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 213
+  },
+  {
+   "month": "Jan",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 333
+  },
+  {
+   "month": "Feb",
+   "monthlyTransfer": 120,
+   "dateCharged": "2030-02-15 00:00:00",
+   "cost": 174,
+   "remainingBalance": 279
+  },
+  {
+   "month": "Mar",
+   "monthlyTransfer": 120,
+   "dateCharged": "2030-03-29 00:00:00",
+   "cost": 174,
+   "remainingBalance": 225
+  },
+  {
+   "month": "Apr",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 345
+  },
+  {
+   "month": "May",
+   "monthlyTransfer": 120,
+   "dateCharged": "2030-05-10 00:00:00",
+   "cost": 174,
+   "remainingBalance": 291
+  },
+  {
+   "month": "Jun",
+   "monthlyTransfer": 120,
+   "dateCharged": "2030-06-21 00:00:00",
+   "cost": 174,
+   "remainingBalance": 237
+  },
+  {
+   "month": "Jul",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 357
+  },
+  {
+   "month": "Aug",
+   "monthlyTransfer": 120,
+   "dateCharged": "2030-08-02 00:00:00",
+   "cost": 174,
+   "remainingBalance": 303
+  },
+  {
+   "month": "Sep",
+   "monthlyTransfer": 120,
+   "dateCharged": "2030-09-13 00:00:00",
+   "cost": 174,
+   "remainingBalance": 249
+  },
+  {
+   "month": "Oct",
+   "monthlyTransfer": 120,
+   "dateCharged": "2030-10-25 00:00:00",
+   "cost": 174,
+   "remainingBalance": 195
+  },
+  {
+   "month": "Nov",
+   "monthlyTransfer": 120,
+   "dateCharged": null,
+   "cost": null,
+   "remainingBalance": 315
+  },
+  {
+   "month": "Dec",
+   "monthlyTransfer": 120,
+   "dateCharged": "2030-12-06 00:00:00",
+   "cost": 174,
+   "remainingBalance": 261
+  }
+ ],
+ "mtg": {
+  "rows": [
+   {
+    "item": "strixhaven draft practice",
+    "dateBought": "April 3 - 11*\nsome bought on 3rd for draft\npart spent on box later",
+    "cost": 119.38,
+    "expectedRevenue": null,
+    "pending": null,
+    "profit": null,
+    "monthlyTotalsLabel": "April:"
+   },
+   {
+    "item": "2x Bloomburrow boxes",
+    "dateBought": "^",
+    "cost": 170.91,
+    "expectedRevenue": 280.0,
+    "pending": 280.0,
+    "profit": 109.09,
+    "monthlyTotalsLabel": 290.29
+   },
+   {
+    "item": "Strixhaven + wilds collectors",
+    "dateBought": "May 1 - 4",
+    "cost": 1688.51,
+    "expectedRevenue": 4200.0,
+    "pending": 3550.0,
+    "profit": 2511.49,
+    "monthlyTotalsLabel": null
+   },
+   {
+    "item": "10x strixhaven play box",
+    "dateBought": "May 16-19",
+    "cost": 1688.19,
+    "expectedRevenue": 2000.0,
+    "pending": 2000.0,
+    "profit": 311.81,
+    "monthlyTotalsLabel": null
+   },
+   {
+    "item": "Final Fantasy Bundle + singles (170 for FF, 390",
+    "dateBought": "charged May 19 - 27",
+    "cost": 655.0,
+    "expectedRevenue": 800.0,
+    "pending": 200.0,
+    "profit": 145,
+    "monthlyTotalsLabel": "May: "
+   },
+   {
+    "item": "14x strixhaven play box",
+    "dateBought": "May 28 - June 1",
+    "cost": 2522.59,
+    "expectedRevenue": 2800.0,
+    "pending": 2800.0,
+    "profit": 277.41,
+    "monthlyTotalsLabel": 6554.29
+   },
+   {
+    "item": "limited championship drafts",
+    "dateBought": "June 6-8",
+    "cost": 1133.68,
+    "expectedRevenue": 0.0,
+    "pending": "N/A",
+    "profit": -1133.68,
+    "monthlyTotalsLabel": "June:"
+   },
+   {
+    "item": "Foundations",
+    "dateBought": "Junne 15",
+    "cost": 715.95,
+    "expectedRevenue": 690.0,
+    "pending": 690.0,
+    "profit": -25.95,
+    "monthlyTotalsLabel": 1849.63
+   },
+   {
+    "item": "Marvel",
+    "dateBought": "July 1-4",
+    "cost": 1888.25,
+    "expectedRevenue": 0.0,
+    "pending": "N/A",
+    "profit": -1888.25,
+    "monthlyTotalsLabel": "Juy: $1888"
+   }
+  ],
+  "total": {
+   "item": "Total",
+   "cost": 10463.08,
+   "expectedRevenue": 10770,
+   "pending": 9520,
+   "profit": 306.92
+  }
+ },
+ "savingsHistory": [
+  {
+   "month": "April 2024",
+   "amount": 645.22
+  },
+  {
+   "month": "May 2024",
+   "amount": 1318.35
+  },
+  {
+   "month": "June 2024",
+   "amount": 196.0
+  },
+  {
+   "month": "July 2024",
+   "amount": 841.5
+  },
+  {
+   "month": "August 2024",
+   "amount": 864.5
+  },
+  {
+   "month": "September 2024",
+   "amount": 843.5
+  },
+  {
+   "month": "October 2024",
+   "amount": 905.86
+  },
+  {
+   "month": "November 2024",
+   "amount": 1007.61
+  },
+  {
+   "month": "December 2024",
+   "amount": 966.18
+  },
+  {
+   "month": "January 2025",
+   "amount": 469.39
+  },
+  {
+   "month": "February 2025",
+   "amount": 1000.0
+  },
+  {
+   "month": "March 2025",
+   "amount": 1000.0
+  },
+  {
+   "month": "April 2025",
+   "amount": 700.33
+  },
+  {
+   "month": "May 2025",
+   "amount": -2563.4
+  },
+  {
+   "month": "June 2025",
+   "amount": 825.55
+  },
+  {
+   "month": "July 2025",
+   "amount": 1755.43
+  },
+  {
+   "month": "August 2025",
+   "amount": 583.5
+  },
+  {
+   "month": "September 2025",
+   "amount": 1037.88
+  },
+  {
+   "month": "October 2025",
+   "amount": 1114.15
+  },
+  {
+   "month": "November 2025",
+   "amount": 1015.71
+  },
+  {
+   "month": "December 2025",
+   "amount": 1661.85
+  },
+  {
+   "month": "January 2026",
+   "amount": 1189.72
+  },
+  {
+   "month": "February 2026",
+   "amount": 1252.59
+  },
+  {
+   "month": "March 2026",
+   "amount": 814.37
+  },
+  {
+   "month": "April 2026",
+   "amount": 979.8
+  },
+  {
+   "month": "May 2026",
+   "amount": 4452.37
+  },
+  {
+   "month": "June 2026",
+   "amount": 231.6
+  },
+  {
+   "month": "July 2026",
+   "amount": 2206.243548
+  },
+  {
+   "month": "August 2026",
+   "amount": 1151.98
+  },
+  {
+   "month": "September 2026",
+   "amount": 1151.98
+  }
+ ]
+}
