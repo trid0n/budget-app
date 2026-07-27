@@ -4931,8 +4931,10 @@ document.getElementById('darkModeSwitch').addEventListener('click', () => {
   refreshUpSpendingBalance();
   setInterval(() => {
     if(!upToken) return;
-    if(document.getElementById('view-dashboard').classList.contains('active')) refreshUpData();
-    else refreshUpSpendingBalance();
+    // Only the lightweight balance check runs automatically — refreshUpData() rebuilds
+    // the whole transaction list, which was cancelling in-progress transaction
+    // assignments. Use the Refresh button for that instead.
+    refreshUpSpendingBalance();
   }, 30000);
 
   if(document.fonts && document.fonts.ready){
