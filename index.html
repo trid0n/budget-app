@@ -595,6 +595,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-assign-threshold-link{background:none; border:none; color:var(--ink-faint); font-size:.76rem; font-weight:600; cursor:pointer; text-align:left; padding:0; text-decoration:underline; text-underline-offset:3px; width:fit-content;}
 .tx-assign-threshold-link:hover{color:var(--gold);}
 .tx-assign-threshold-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:.8rem; color:var(--ink-soft); background:var(--paper-dim); border:1px solid var(--rule); border-radius:8px; padding:10px 12px;}
+.tx-assign-threshold-row .tx-assign-threshold-only{flex-basis:100%; margin-top:2px;}
 .tx-assign-threshold-amt{width:70px; font-family:'Inter',sans-serif; font-size:.82rem; color:var(--ink); background:var(--surface); border:1px solid var(--rule); border-radius:7px; padding:6px 8px;}
 .tx-assign-above-item{flex:1; min-width:100px; font-family:'Inter',sans-serif; font-size:.82rem; color:var(--ink); background:var(--surface); border:1px solid var(--rule); border-radius:7px; padding:6px 8px;}
 .tx-assign-name-suggestions{display:flex; flex-direction:column; border:1px solid var(--rule); border-radius:8px; overflow:hidden; background:var(--paper-dim); margin-top:8px;}
@@ -1138,6 +1139,7 @@ input[type=file]{display:none;}
           <div class="custom-select-list" id="txAssignAboveCatList"></div>
         </div>
         <input type="text" id="txAssignAboveItem" placeholder="Item name" class="tx-assign-above-item">
+        <label class="tx-assign-checkbox tx-assign-threshold-only"><input type="checkbox" id="txAssignThresholdOnly">Only auto-assign above this amount — leave smaller ones for me to assign manually</label>
       </div>
     </div>
     <div class="modal-actions">
@@ -1572,6 +1574,20 @@ function findGuessForTx(desc, amt, tx){
   if(Number(amt) > 0 && Number(amt) < 200) return null;
   const key = extractMerchantKey(desc, amt);
   if(key){
+    if(txRules[key]){
+      // A saved rule exists for this merchant — defer to it (it already applies
+      // threshold logic correctly for this specific amount) instead of the naive
+      // "copy whatever a past transaction from this merchant was assigned to" guess
+      // below, which doesn't know about thresholds and could copy an assignment from
+      // the OTHER side of one (e.g. suggesting a big-shop override for a small
+      // transaction). If the rule doesn't resolve for this amount (a threshold-only
+      // rule and this transaction is below the threshold), don't guess at all.
+      const ruleTarget = getRuleTargetForTx(desc, amt);
+      if(ruleTarget && ruleTarget.categoryName && ruleTarget.itemName){
+        return {categoryName: ruleTarget.categoryName, itemName: ruleTarget.itemName, reason: 'merchant'};
+      }
+      return null;
+    }
     for(const txId in txAssignments){
       const a = txAssignments[txId];
       if(a.merchantKey === key) return {categoryName: a.categoryName, itemName: a.itemName, reason: 'merchant'};
@@ -4068,6 +4084,7 @@ function openTxAssignModal(txId, amt, desc, date){
   document.getElementById('txAssignThresholdRow').style.display = 'none';
   document.getElementById('txAssignThresholdAmt').value = '';
   document.getElementById('txAssignAboveItem').value = '';
+  document.getElementById('txAssignThresholdOnly').checked = false;
   document.getElementById('txAssignOverlay').classList.add('show');
 }
 function closeTxAssignModal(){
@@ -4111,8 +4128,10 @@ function maybeSaveTxRule(merchantKey, categoryName, itemName){
   if(!remember || !remember.checked) return;
   const thresholdRow = document.getElementById('txAssignThresholdRow');
   const thresholdOn = thresholdRow && thresholdRow.style.display !== 'none';
-  const rule = {categoryName, itemName};
+  const existing = txRules[merchantKey];
+  let rule;
   if(thresholdOn){
+    rule = {categoryName, itemName};
     const amt = Number(document.getElementById('txAssignThresholdAmt').value)||0;
     const aboveCat = getSimpleSelectValue('txAssignAboveCat');
     const aboveItem = document.getElementById('txAssignAboveItem').value.trim();
@@ -4120,7 +4139,24 @@ function maybeSaveTxRule(merchantKey, categoryName, itemName){
       rule.threshold = amt;
       rule.aboveCategoryName = aboveCat;
       rule.aboveItemName = aboveItem;
+      // "Threshold-only": the item picked for THIS transaction (above) is not meant
+      // to become the catch-all default for every future transaction from this
+      // merchant — below-threshold ones should just stay unassigned for manual review.
+      if(document.getElementById('txAssignThresholdOnly').checked){
+        delete rule.categoryName;
+        delete rule.itemName;
+      }
     }
+  } else if(existing && existing.threshold != null){
+    // Don't clobber an existing above-threshold override just because the user
+    // assigned another transaction for this merchant without touching the threshold
+    // section. If the existing rule was deliberately left threshold-only (no
+    // below-threshold default), keep it that way rather than adopting whatever this
+    // one transaction happened to be assigned to as the new catch-all default.
+    rule = {threshold: existing.threshold, aboveCategoryName: existing.aboveCategoryName, aboveItemName: existing.aboveItemName};
+    if(existing.categoryName){ rule.categoryName = categoryName; rule.itemName = itemName; }
+  } else {
+    rule = {categoryName, itemName};
   }
   txRules[merchantKey] = rule;
   saveTxRules();
@@ -4239,7 +4275,7 @@ function renderDebugChecker(filterTerm){
       suspiciousCount++;
       lastColHtml = `<button class="tx-debug-fix-btn" data-tx-debug-fix="${t.id}">\u26a0\ufe0f Reset (credit \u2192 non-income)</button>`;
     } else {
-      const ruleLabel = rule ? `"${rule.itemName}"${rule.threshold!=null ? ` / above $${rule.threshold}: "${rule.aboveItemName}"` : ''}` : '\u2014';
+      const ruleLabel = rule ? `${rule.itemName ? `"${rule.itemName}"` : '(nothing below threshold)'}${rule.threshold!=null ? ` / above $${rule.threshold}: "${rule.aboveItemName}"` : ''}` : '\u2014';
       lastColHtml = escapeAttr(ruleLabel);
     }
     const coverNote = isCoverTransfer ? ' <span style="color:var(--gold);">[cover/transfer pattern]</span>' : '';
@@ -4343,7 +4379,21 @@ function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date){
   txAssignments[txId] = {monthKey: settings.currentMonth, catId: found.cat.id, itemId: found.item.id, itemName: found.item.name, categoryName: found.cat.name, merchantKey, txAmt: Math.abs(Number(amt)), desc, date};
   saveTxAssignments();
   if(reason === 'merchant'){
-    txRules[merchantKey] = {categoryName: found.cat.name, itemName: found.item.name};
+    const existingRule = txRules[merchantKey];
+    if(existingRule && existingRule.threshold != null){
+      // This guess came from the rule engine (findGuessForTx now defers to
+      // getRuleTargetForTx for merchants with a saved rule), so it matched either the
+      // below- or above-threshold side. Only update the side that actually matched —
+      // confirming an above-threshold guess must not overwrite the below-threshold
+      // default (or the lack of one, for a threshold-only rule) and vice versa.
+      const useAbove = Math.abs(Number(amt)) >= existingRule.threshold;
+      const rule = {threshold: existingRule.threshold, categoryName: existingRule.categoryName, itemName: existingRule.itemName, aboveCategoryName: existingRule.aboveCategoryName, aboveItemName: existingRule.aboveItemName};
+      if(useAbove){ rule.aboveCategoryName = found.cat.name; rule.aboveItemName = found.item.name; }
+      else { rule.categoryName = found.cat.name; rule.itemName = found.item.name; }
+      txRules[merchantKey] = rule;
+    } else {
+      txRules[merchantKey] = {categoryName: found.cat.name, itemName: found.item.name};
+    }
     saveTxRules();
     toast(`Confirmed \u2014 added ${money(Math.abs(Number(amt)))} to "${found.item.name}". We'll remember this merchant.`);
   } else {
