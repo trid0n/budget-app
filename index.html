@@ -1937,30 +1937,60 @@ function pixelScanGlyphCenterFromBaseline(text, cs){
   if(minY===null) return null;
   return (minY+maxY)/2/scale - baselineY;
 }
+// Deliberately NOT input.value for the calibration text: a per-row sample would shift
+// the line depending on which letters happen to be in that row's text (e.g. "payment"'s
+// descenders pull the ink bounding box down vs "rent"'s), so different item names would
+// strike at different heights even at identical font size. A fixed string gives every
+// row the same font-relative line, like real text-decoration does.
+const STRIKE_CALIBRATION_SAMPLE = 'xoncevrz';
+let _strikeMeasureDiv = null;
+// How far the browser actually places a single line of text below the top of an
+// <input>'s content box is NOT reliably derivable from font-metric formulas (ascent +
+// assumed half-leading) — that was guessed and was wrong specifically for the shorter
+// income-row inputs. Instead, replicate the input's real box model (height, padding,
+// box-sizing) on a hidden flex container with align-items:center — the same layout
+// algorithm browsers use internally to vertically center input text — and measure a
+// real text node inside it. That gives the true line position from actual browser
+// layout, not a guess.
+function measureLineTopViaFlexBox(text, cs, boxHeightPx){
+  if(!_strikeMeasureDiv){
+    _strikeMeasureDiv = document.createElement('div');
+    _strikeMeasureDiv.style.cssText = 'position:fixed; left:-99999px; top:0; visibility:hidden; pointer-events:none; margin:0; border:0; white-space:pre; display:flex; align-items:center; line-height:normal;';
+    document.body.appendChild(_strikeMeasureDiv);
+  }
+  const div = _strikeMeasureDiv;
+  div.style.boxSizing = cs.boxSizing;
+  div.style.height = boxHeightPx + 'px';
+  div.style.paddingTop = cs.paddingTop;
+  div.style.paddingBottom = cs.paddingBottom;
+  div.style.paddingLeft = '0';
+  div.style.paddingRight = '0';
+  div.style.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  div.textContent = text;
+  const textNode = div.firstChild;
+  const range = document.createRange();
+  range.selectNodeContents(textNode);
+  const textRect = range.getBoundingClientRect();
+  const divRect = div.getBoundingClientRect();
+  if(!textRect.height || !divRect.height) return null;
+  return textRect.top - divRect.top;
+}
 function computeStrikeTop(input, cs){
   const leafName = input.closest('.leaf-name');
   if(!leafName) return null;
-  // Deliberately NOT input.value: a per-row sample would shift the line depending on
-  // which letters happen to be in that row's text (e.g. "payment"'s descenders pull
-  // the ink bounding box down vs "rent"'s), so different item names would strike at
-  // different heights even at identical font size. A fixed calibration string gives
-  // every row the same font-relative line, like real text-decoration does.
-  const sample = 'xoncevrz';
-  const inkCenterFromBaseline = pixelScanGlyphCenterFromBaseline(sample, cs);
+  const inkCenterFromBaseline = pixelScanGlyphCenterFromBaseline(STRIKE_CALIBRATION_SAMPLE, cs);
   if(inkCenterFromBaseline == null) return null;
   const inputRect = input.getBoundingClientRect();
   const leafRect = leafName.getBoundingClientRect();
   if(!inputRect.height || !leafRect.height) return null;
-  const paddingTop = parseFloat(cs.paddingTop)||0;
-  const paddingBottom = parseFloat(cs.paddingBottom)||0;
-  const contentHeight = inputRect.height - paddingTop - paddingBottom;
-  const fontSizePx = parseFloat(cs.fontSize)||14;
-  const halfLeading = Math.max(0, (contentHeight - fontSizePx) / 2);
+  const lineTopFromInputTop = measureLineTopViaFlexBox(STRIKE_CALIBRATION_SAMPLE, cs, inputRect.height);
+  if(lineTopFromInputTop == null) return null;
   if(!_strikeCanvasCtx) _strikeCanvasCtx = document.createElement('canvas').getContext('2d');
   _strikeCanvasCtx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-  const m = _strikeCanvasCtx.measureText(sample);
+  const m = _strikeCanvasCtx.measureText(STRIKE_CALIBRATION_SAMPLE);
+  const fontSizePx = parseFloat(cs.fontSize)||14;
   const ascentMetric = m.fontBoundingBoxAscent != null ? m.fontBoundingBoxAscent : fontSizePx*0.8;
-  const baselineFromInputTop = paddingTop + halfLeading + ascentMetric;
+  const baselineFromInputTop = lineTopFromInputTop + ascentMetric;
   const glyphCenterFromInputTop = baselineFromInputTop + inkCenterFromBaseline;
   const inputTopFromLeafTop = inputRect.top - leafRect.top;
   return inputTopFromLeafTop + glyphCenterFromInputTop;
