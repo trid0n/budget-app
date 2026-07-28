@@ -1733,38 +1733,44 @@ async function loadMonth(key){
 }
 
 async function loadEverything(){
-  try{
-    const row = await db.loadSettings();
-    if(row){
-      settings = { currentMonth: row.current_month || settings.currentMonth, theme: row.theme || 'light', lastGoal: Number(row.last_goal)||0, balanceMode: row.balance_mode || 'live', manualBalance: Number(row.manual_balance)||0 };
-      upToken = row.up_token || '';
-      lastKnownUpBalance = typeof row.last_up_balance === 'number' ? row.last_up_balance : (row.last_up_balance != null ? Number(row.last_up_balance) : null);
-    }
-  }catch(e){}
-  try{ existingMonths = (await db.listMonthKeys()).sort(); }catch(e){ existingMonths=[]; }
-  try{ techItems = await db.loadTechItems(); }catch(e){ techItems=[]; }
-  try{ grocery = await db.loadGrocery(); }catch(e){ grocery = {items:[], days:30, eatOut:5}; }
-  try{
-    const row = await db.loadBallet();
-    ballet = row ? { cost: Number(row.cost)||0, dateCharged: row.date_charged || '', balance: Number(row.balance)||0 } : {cost:0, dateCharged:'', balance:0};
-  }catch(e){ ballet={cost:0, dateCharged:'', balance:0}; }
-  try{ mtg = await db.loadMtg(); }catch(e){ mtg={rows:[]}; }
-  try{
-    const items = await db.loadMonthlyCosts();
-    monthlyCosts = { items: items.length ? items : [{id:uid('mc'), name:'Public Transport', cost:20}] };
-  }catch(e){ monthlyCosts = {items:[{id:uid('mc'), name:'Public Transport', cost:20}]}; }
-  try{
-    const row = await db.loadMonthTemplate();
-    monthTemplate = row ? { income: row.income, categories: row.categories, goal: Number(row.goal)||0 } : null;
-  }catch(e){ monthTemplate=null; }
-  try{ txAssignments = await db.loadTxAssignments(); }catch(e){ txAssignments = {}; }
-  try{ txRules = await db.loadTxRules(); }catch(e){ txRules = {}; }
-  try{
-    const row = await db.loadIncomeSource();
-    upIncomeSourceKey = row ? (row.key || null) : null;
-    upIncomeSourceLabel = row ? (row.label || null) : null;
-  }catch(e){ upIncomeSourceKey = null; upIncomeSourceLabel = null; }
-  try{ priceChangeNotes = await db.loadPriceChangeNotes(); }catch(e){ priceChangeNotes = {}; }
+  // All 12 of these are independent reads with no dependency on each other's result —
+  // firing them one at a time (the original code awaited each before starting the
+  // next) turned every login/app-load into a 12-deep chain of Supabase round-trips.
+  // Same root cause as the month-switch delay: run them concurrently instead.
+  const [
+    settingsRow, monthKeys, techItemsRes, groceryRes, balletRow, mtgRes,
+    monthlyCostItems, templateRow, txAssignmentsRes, txRulesRes, incomeSourceRow, priceChangeNotesRes
+  ] = await Promise.all([
+    db.loadSettings().catch(() => null),
+    db.listMonthKeys().catch(() => []),
+    db.loadTechItems().catch(() => []),
+    db.loadGrocery().catch(() => ({items:[], days:30, eatOut:5})),
+    db.loadBallet().catch(() => null),
+    db.loadMtg().catch(() => ({rows:[]})),
+    db.loadMonthlyCosts().catch(() => []),
+    db.loadMonthTemplate().catch(() => null),
+    db.loadTxAssignments().catch(() => ({})),
+    db.loadTxRules().catch(() => ({})),
+    db.loadIncomeSource().catch(() => null),
+    db.loadPriceChangeNotes().catch(() => ({}))
+  ]);
+  if(settingsRow){
+    settings = { currentMonth: settingsRow.current_month || settings.currentMonth, theme: settingsRow.theme || 'light', lastGoal: Number(settingsRow.last_goal)||0, balanceMode: settingsRow.balance_mode || 'live', manualBalance: Number(settingsRow.manual_balance)||0 };
+    upToken = settingsRow.up_token || '';
+    lastKnownUpBalance = typeof settingsRow.last_up_balance === 'number' ? settingsRow.last_up_balance : (settingsRow.last_up_balance != null ? Number(settingsRow.last_up_balance) : null);
+  }
+  existingMonths = (monthKeys || []).sort();
+  techItems = techItemsRes || [];
+  grocery = groceryRes || {items:[], days:30, eatOut:5};
+  ballet = balletRow ? { cost: Number(balletRow.cost)||0, dateCharged: balletRow.date_charged || '', balance: Number(balletRow.balance)||0 } : {cost:0, dateCharged:'', balance:0};
+  mtg = mtgRes || {rows:[]};
+  monthlyCosts = { items: (monthlyCostItems && monthlyCostItems.length) ? monthlyCostItems : [{id:uid('mc'), name:'Public Transport', cost:20}] };
+  monthTemplate = templateRow ? { income: templateRow.income, categories: templateRow.categories, goal: Number(templateRow.goal)||0 } : null;
+  txAssignments = txAssignmentsRes || {};
+  txRules = txRulesRes || {};
+  upIncomeSourceKey = incomeSourceRow ? (incomeSourceRow.key || null) : null;
+  upIncomeSourceLabel = incomeSourceRow ? (incomeSourceRow.label || null) : null;
+  priceChangeNotes = priceChangeNotesRes || {};
   ensureTemplateIds();
   if(!existingMonths.includes(settings.currentMonth) && existingMonths.length){ settings.currentMonth = existingMonths[existingMonths.length-1]; }
 }
@@ -2840,11 +2846,14 @@ let rollingAvgLookup = {};
 const ROLLING_AVG_MONTHS = 4;
 async function buildRollingAverageLookup(key, monthsBack){
   const lookup = {};
-  for(let i=1; i<=monthsBack; i++){
-    const mKey = addMonths(key, -i);
-    let data;
-    try{ data = await loadMonth(mKey); }catch(e){ data = null; }
-    if(!data) continue;
+  // These months are independent reads — fire them all at once instead of awaiting
+  // one Supabase round-trip before starting the next, which was turning a single
+  // month switch into a multi-second waterfall.
+  const keys = [];
+  for(let i=1; i<=monthsBack; i++) keys.push(addMonths(key, -i));
+  const results = await Promise.all(keys.map(mKey => loadMonth(mKey)));
+  results.forEach(data => {
+    if(!data) return;
     data.categories.forEach(cat => {
       cat.items.forEach(item => {
         const name = (item.name||'').trim().toLowerCase();
@@ -2855,7 +2864,7 @@ async function buildRollingAverageLookup(key, monthsBack){
         lookup[name].count += 1;
       });
     });
-  }
+  });
   const result = {};
   Object.keys(lookup).forEach(name => { result[name] = {avg: lookup[name].sum / lookup[name].count, count: lookup[name].count}; });
   return result;
@@ -2864,9 +2873,16 @@ async function switchToMonth(key){
   settings.currentMonth = key;
   saveSettings();
   renderMonthDropdown();
-  const data = await loadMonth(key);
-  try{ prevMonthCompareData = await loadMonth(addMonths(key, -1)); }catch(e){ prevMonthCompareData = null; }
-  try{ rollingAvgLookup = await buildRollingAverageLookup(key, ROLLING_AVG_MONTHS); }catch(e){ rollingAvgLookup = {}; }
+  // The current month, the previous month (for comparison), and the rolling-average
+  // lookback are all independent reads — fire them concurrently rather than as a
+  // chain of sequential awaits (which was 6 round-trips end-to-end for one switch).
+  const [data, prevData, avgLookup] = await Promise.all([
+    loadMonth(key),
+    loadMonth(addMonths(key, -1)).catch(() => null),
+    buildRollingAverageLookup(key, ROLLING_AVG_MONTHS).catch(() => ({}))
+  ]);
+  prevMonthCompareData = prevData;
+  rollingAvgLookup = avgLookup;
   if(data){ monthData = data; await finishLoadMonth(); }
   else { monthData = null; showEmptyState(); refreshInsertDropdowns(); }
   updateGroceryTotal();
