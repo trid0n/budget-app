@@ -271,9 +271,10 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .group.dragging{opacity:.4;}
 .group{transition:transform .22s ease;}
 #groupsWrap0.drag-over-col, #groupsWrap1.drag-over-col{background:color-mix(in srgb, var(--gold) 6%, transparent); border-radius:12px;}
-.grow-name .cat-dot{width:9px; height:9px; border-radius:50%; background:var(--cat-color, var(--gold)); flex-shrink:0;}
 .cat-emoji{flex-shrink:0; font-size:.95em; line-height:1; cursor:pointer; border-radius:5px; padding:2px; transition:background-color .12s;}
 .cat-emoji:hover{background:var(--paper-dim);}
+.cat-emoji.cat-emoji-empty{opacity:.4; font-weight:700; font-size:.8rem; font-family:'Inter',sans-serif; padding:2px 4px;}
+.cat-emoji.cat-emoji-empty:hover{opacity:.8;}
 .cat-emoji-picker{position:fixed; z-index:200; background:var(--surface); border:1px solid var(--rule); border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,.3); padding:8px; display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; max-width:220px;}
 .cat-emoji-opt{font-size:1.1rem; line-height:1; padding:6px; border:none; background:none; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
 .cat-emoji-opt:hover{background:var(--paper-dim);}
@@ -2474,6 +2475,19 @@ function getCategoryEmoji(cat){
   if(!cat) return '';
   return cat.emoji != null ? cat.emoji : categoryEmoji(cat.name);
 }
+// Shared between groupHtml/tplGroupHtml (initial render) and the picker/rename
+// handlers (live update) so "chose None" still leaves something visible to click to
+// pick a new one, instead of an empty span that's nearly impossible to find again.
+function catEmojiHtml(cat, pickerAttr){
+  const val = getCategoryEmoji(cat);
+  return `<span class="cat-emoji${val?'':' cat-emoji-empty'}" ${pickerAttr}="${cat.id}" title="Change emoji">${val || '+'}</span>`;
+}
+function updateCatEmojiSpan(span, cat){
+  if(!span) return;
+  const val = getCategoryEmoji(cat);
+  span.textContent = val || '+';
+  span.classList.toggle('cat-emoji-empty', !val);
+}
 const CATEGORY_EMOJI_CHOICES = [...new Set(CATEGORY_EMOJI_KEYWORDS.map(k => k.emoji)), '🗂️'];
 function closeCatEmojiPicker(){
   document.getElementById('catEmojiPicker')?.remove();
@@ -2516,7 +2530,7 @@ document.addEventListener('click', (e) => {
       cat.emoji = choiceBtn.dataset.emojiChoice;
       const wrapper = document.querySelector(isTemplate ? `[data-tpl-group="${catId}"] .grow-name` : `[data-group="${catId}"] .grow-name`);
       const emojiEl = wrapper && wrapper.querySelector('.cat-emoji');
-      if(emojiEl) emojiEl.textContent = getCategoryEmoji(cat);
+      updateCatEmojiSpan(emojiEl, cat);
       if(isTemplate) scheduleTemplateSave(); else scheduleSave();
     }
     closeCatEmojiPicker();
@@ -2537,7 +2551,7 @@ function groupHtml(cat){
   return `<div class="group" data-group="${cat.id}" data-col="${cat.col===1?1:0}" style="--cat-color:${color}">
     <div class="grow" data-toggle="${cat.id}" data-drag-cat="${cat.id}">
       <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
-      <div class="grow-name"><span class="chev">${CHEV_SVG}</span><span class="cat-dot"></span><span class="cat-emoji" data-cat-emoji-picker="${cat.id}" title="Change emoji">${getCategoryEmoji(cat)}</span><input class="sh-name-input" data-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
+      <div class="grow-name"><span class="chev">${CHEV_SVG}</span>${catEmojiHtml(cat, 'data-cat-emoji-picker')}<input class="sh-name-input" data-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
       <div class="gcell" data-role="total">${money(gTotal)}</div>
       <div class="del-cell"><button class="sh-del" data-del-cat="${cat.id}" title="Delete category">${X_SVG}</button></div>
     </div>
@@ -2768,7 +2782,7 @@ function tplGroupHtml(cat, idx){
   return `<div class="group" data-tpl-group="${cat.id}" data-tpl-col="${cat.col===1?1:0}" style="--cat-color:${color}">
     <div class="grow" draggable="true" data-tpl-drag-cat="${cat.id}">
       <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
-      <div class="grow-name"><span class="cat-dot"></span><span class="cat-emoji" data-tpl-emoji-picker="${cat.id}" title="Change emoji">${getCategoryEmoji(cat)}</span><input class="sh-name-input" data-tpl-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
+      <div class="grow-name">${catEmojiHtml(cat, 'data-tpl-emoji-picker')}<input class="sh-name-input" data-tpl-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
       <div class="gcell">${money(total)}</div>
       <div class="del-cell"><button class="tpl-del-cat" data-tpl-del-cat="${cat.id}" title="Delete category">${X_SVG}</button></div>
     </div>
@@ -2962,7 +2976,7 @@ document.getElementById('templateCard').addEventListener('input', (e) => {
       if(wrapper){
         updateNameTooltip(wrapper, t);
         const emojiEl = wrapper.querySelector('.cat-emoji');
-        if(emojiEl) emojiEl.textContent = getCategoryEmoji(cat);
+        updateCatEmojiSpan(emojiEl, cat);
       }
       updateCatNameWidth(t);
     }
@@ -3252,7 +3266,7 @@ document.getElementById('view-ledger').addEventListener('input', (e) => {
       if(wrapper){
         updateNameTooltip(wrapper, t);
         const emojiEl = wrapper.querySelector('.cat-emoji');
-        if(emojiEl) emojiEl.textContent = getCategoryEmoji(cat);
+        updateCatEmojiSpan(emojiEl, cat);
       }
       updateCatNameWidth(t);
     }
