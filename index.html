@@ -4004,10 +4004,18 @@ async function applyPayCycleFilter(mode){
   const errEl = document.getElementById('upError');
   errEl.textContent = '';
   try{
+    // Once we've had to fall back to a broad fetch (below), upTransactions already
+    // covers everything from 6 months ago to now \u2014 which fully contains whatever
+    // [sinceTime, untilTime] window we end up needing. Filtering that in memory instead
+    // of hitting Up's API a second time was the actual reason this button felt slow:
+    // it was doing two full paginated fetches back to back on a cold click.
+    let haveBroadWindow = false;
     if(occurrences.length < neededCount){
       document.getElementById('upTxList').innerHTML = '<div class="pc-faint" style="padding:12px; text-align:center;">Looking for your pay history\u2026</div>';
       const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
       upTransactions = await loadTransactionsForRange(sixMonthsAgo.toISOString());
+      upTxNextUrl = null;
+      haveBroadWindow = true;
       occurrences = getIncomeSourceOccurrences();
       if(occurrences.length < neededCount){
         toast(`Found only ${occurrences.length} matching income transaction${occurrences.length===1?'':'s'} in the last 6 months \u2014 not enough for this filter`);
@@ -4017,8 +4025,15 @@ async function applyPayCycleFilter(mode){
     }
     const sinceTime = mode === 'since' ? occurrences[0] : occurrences[1];
     const untilTime = mode === 'between' ? occurrences[0] : null;
-    document.getElementById('upTxList').innerHTML = '<div class="pc-faint" style="padding:12px; text-align:center;">Loading transactions for this period\u2026</div>';
-    upTransactions = await loadTransactionsForRange(new Date(sinceTime).toISOString(), untilTime ? new Date(untilTime).toISOString() : null);
+    if(haveBroadWindow){
+      upTransactions = upTransactions.filter(t => {
+        const time = new Date(t.attributes.createdAt).getTime();
+        return time >= sinceTime && (untilTime == null || time < untilTime);
+      });
+    } else {
+      document.getElementById('upTxList').innerHTML = '<div class="pc-faint" style="padding:12px; text-align:center;">Loading transactions for this period\u2026</div>';
+      upTransactions = await loadTransactionsForRange(new Date(sinceTime).toISOString(), untilTime ? new Date(untilTime).toISOString() : null);
+    }
     upTxNextUrl = null;
   }catch(e){
     errEl.textContent = e.isRateLimit ? 'Checking in a bit too often \u2014 Up asked us to slow down. It\u2019ll catch up automatically shortly.' : (e.message || 'Couldn\u2019t reach Up.');
