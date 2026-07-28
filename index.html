@@ -275,10 +275,15 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .cat-emoji:hover{background:var(--paper-dim);}
 .cat-emoji.cat-emoji-empty{opacity:.4; font-weight:700; font-size:.8rem; font-family:'Inter',sans-serif; padding:2px 4px;}
 .cat-emoji.cat-emoji-empty:hover{opacity:.8;}
-.cat-emoji-picker{position:fixed; z-index:200; background:var(--surface); border:1px solid var(--rule); border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,.3); padding:8px; display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; max-width:220px;}
+.cat-emoji-picker{position:fixed; z-index:200; background:var(--surface); border:1px solid var(--rule); border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,.3); padding:8px; width:248px;}
+.cat-emoji-picker-hdr{display:flex; align-items:center; gap:6px; margin-bottom:6px;}
+.cat-emoji-search{flex:1; min-width:0; font-family:'Inter',sans-serif; font-size:.8rem; color:var(--ink); background:var(--paper-dim); border:1px solid var(--rule); border-radius:6px; padding:5px 8px;}
+.cat-emoji-search:focus{outline:none; border-color:var(--gold);}
+.cat-emoji-grid{display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; max-height:220px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
 .cat-emoji-opt{font-size:1.1rem; line-height:1; padding:6px; border:none; background:none; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
 .cat-emoji-opt:hover{background:var(--paper-dim);}
-.cat-emoji-opt.cat-emoji-none{grid-column:1 / -1; font-size:.78rem; font-weight:600; color:var(--ink-soft); font-family:'Inter',sans-serif;}
+.cat-emoji-opt.cat-emoji-none{flex-shrink:0; font-size:.78rem; font-weight:600; color:var(--ink-soft); font-family:'Inter',sans-serif; padding:5px 10px; white-space:nowrap;}
+.cat-emoji-no-results{grid-column:1 / -1; text-align:center; padding:16px 8px; font-size:.8rem; color:var(--ink-faint); font-family:'Inter',sans-serif;}
 .grow-name .chev{display:flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:6px; color:var(--ink-faint); background:var(--surface); transition:transform .22s ease, background-color .15s, color .15s; flex-shrink:0;}
 .grow:hover .grow-name .chev{background:var(--surface); color:var(--cat-color, var(--gold));}
 .group.collapsed .grow-name .chev{transform:rotate(-90deg);}
@@ -2488,9 +2493,114 @@ function updateCatEmojiSpan(span, cat){
   span.textContent = val || '+';
   span.classList.toggle('cat-emoji-empty', !val);
 }
-const CATEGORY_EMOJI_CHOICES = [...new Set(CATEGORY_EMOJI_KEYWORDS.map(k => k.emoji)), '🗂️'];
+// A much broader set for manually browsing/searching in the picker - separate from
+// CATEGORY_EMOJI_KEYWORDS above, which is deliberately small and tuned only for
+// matching common budget-category names automatically. Each entry is [emoji, keyword
+// string] so the search box can filter by a simple substring match.
+const EMOJI_PICKER_LIST = [
+  ['🗂️','folder none default'], ['🏠','house home housing rent mortgage'], ['🏡','house garden home'],
+  ['🏢','office building work'], ['🏬','store mall shopping'], ['🏦','bank money'], ['🏥','hospital health medical'],
+  ['🏫','school education'], ['🏭','factory industry'], ['⛪','church'], ['🕌','mosque'], ['🕍','synagogue'],
+  ['💵','cash money dollar income salary'], ['💴','yen money'], ['💶','euro money'], ['💷','pound money'],
+  ['💰','money bag savings'], ['🪙','coin money'], ['💳','credit card debt'], ['💸','money flying spending expense'],
+  ['🧾','receipt tax bill invoice'], ['📈','chart up growth investment stock'], ['📉','chart down loss'],
+  ['📊','chart graph analytics'], ['🏧','atm cash'], ['💎','diamond jewelry luxury'], ['🪪','id card license'],
+  ['🍔','burger food fast food'], ['🍕','pizza food'], ['🌮','taco food mexican'], ['🌯','burrito food'],
+  ['🍟','fries food fast food'], ['🍗','chicken food meat'], ['🥩','meat steak food'], ['🍖','meat food'],
+  ['🥪','sandwich food lunch'], ['🥗','salad food healthy'], ['🍝','pasta food italian'], ['🍜','noodles ramen food'],
+  ['🍣','sushi food japanese'], ['🍱','bento food lunch'], ['🍲','stew soup food'], ['🥘','paella food'],
+  ['🍛','curry food rice'], ['🥙','wrap food'], ['🧆','falafel food'], ['🥟','dumpling food'],
+  ['🍞','bread food bakery'], ['🥐','croissant food bakery'], ['🥖','baguette bread food'], ['🧀','cheese food'],
+  ['🥚','egg food'], ['🥞','pancakes breakfast food'], ['🧇','waffle breakfast food'], ['🍳','cooking eggs food'],
+  ['🍎','apple fruit food'], ['🍌','banana fruit food'], ['🍇','grapes fruit food'], ['🍉','watermelon fruit food'],
+  ['🍓','strawberry fruit food'], ['🥑','avocado fruit food'], ['🥦','broccoli vegetable food healthy'],
+  ['🥕','carrot vegetable food'], ['🌽','corn vegetable food'], ['🛒','grocery shopping cart groceries'],
+  ['🥫','canned food groceries pantry'], ['🍰','cake dessert sweet birthday'], ['🎂','birthday cake celebration'],
+  ['🍩','donut dessert sweet'], ['🍪','cookie dessert sweet'], ['🍫','chocolate dessert sweet'],
+  ['🍬','candy sweet'], ['🍭','lollipop candy sweet'], ['🍦','ice cream dessert sweet'], ['🍨','ice cream dessert'],
+  ['☕','coffee drink cafe'], ['🍵','tea drink'], ['🧃','juice drink'], ['🥤','soda drink beverage'],
+  ['🍺','beer drink alcohol'], ['🍷','wine drink alcohol'], ['🍸','cocktail drink alcohol'], ['🍹','tropical drink cocktail'],
+  ['🥂','cheers celebration drink'], ['🍾','champagne celebration party'], ['🚗','car transport drive'],
+  ['🚙','suv car transport'], ['🚕','taxi transport cab'], ['🚌','bus transport'], ['🚎','trolley bus transport'],
+  ['🚓','police car'], ['🚑','ambulance emergency health'], ['🚒','fire truck emergency'], ['🚚','truck delivery moving'],
+  ['🚛','truck delivery'], ['🚲','bike bicycle transport exercise'], ['🛵','scooter moped transport'],
+  ['🏍️','motorcycle transport'], ['🚂','train transport'], ['🚆','train transport commute'], ['🚇','subway metro transport commute'],
+  ['🚊','tram transport'], ['✈️','plane travel flight vacation'], ['🚀','rocket space launch'], ['🛳️','ship cruise travel'],
+  ['⛴️','ferry travel'], ['🚤','boat travel'], ['⛽','fuel petrol gas station'], ['🅿️','parking'],
+  ['🚦','traffic light road'], ['🛣️','road highway transport'], ['🧳','luggage travel suitcase'],
+  ['🗺️','map travel navigation'], ['🏝️','island vacation travel beach'], ['🏖️','beach vacation travel'],
+  ['🏔️','mountain travel hiking'], ['⛺','camping tent outdoors'], ['🎡','ferris wheel fun amusement'],
+  ['🎢','roller coaster fun amusement'], ['🏨','hotel travel'], ['🗽','landmark travel'], ['📱','phone mobile tech'],
+  ['💻','laptop computer tech work'], ['🖥️','desktop computer tech'], ['⌚','watch time accessory'],
+  ['📺','tv television streaming subscription'], ['🎮','gaming games entertainment'], ['🕹️','joystick gaming'],
+  ['📷','camera photo'], ['🎧','headphones music audio'], ['🎵','music note song'], ['🎶','music notes song'],
+  ['📻','radio music'], ['🔌','plug electric power utility'], ['💡','lightbulb electricity idea power'],
+  ['🔋','battery power'], ['🌐','internet web wifi network'], ['📡','satellite signal internet'],
+  ['🖨️','printer office work'], ['🧑‍💻','coding developer work tech'], ['📚','books education reading school'],
+  ['📖','book reading education'], ['✏️','pencil write school education'], ['🖊️','pen write office'],
+  ['🎓','graduation education school tuition'], ['🏋️','gym fitness workout exercise'], ['🏋️‍♀️','gym fitness workout'],
+  ['🤸','fitness exercise gymnastics'], ['🧘','yoga meditation wellness'], ['🏃','running exercise fitness'],
+  ['🚴','cycling exercise fitness bike'], ['🏊','swimming exercise fitness'], ['⚽','soccer football sport'],
+  ['🏀','basketball sport'], ['🏈','football sport'], ['⚾','baseball sport'], ['🎾','tennis sport'],
+  ['🏐','volleyball sport'], ['🏓','ping pong table tennis sport'], ['🥊','boxing sport fitness'],
+  ['⛳','golf sport'], ['🎣','fishing hobby outdoors'], ['🎯','darts target hobby game'], ['🎳','bowling sport hobby'],
+  ['🎲','dice game hobby board game'], ['♟️','chess game hobby'], ['🧩','puzzle hobby game'],
+  ['🎨','art painting hobby creative'], ['🖌️','paintbrush art creative'], ['📸','photography hobby camera'],
+  ['🎸','guitar music instrument hobby'], ['🎹','piano music instrument hobby'], ['🥁','drums music instrument'],
+  ['🎤','microphone singing karaoke music'], ['🎬','movie film entertainment cinema'], ['🍿','popcorn movie snack'],
+  ['🎭','theater drama entertainment'], ['🎪','circus entertainment fun'], ['🎟️','ticket event entertainment'],
+  ['🎫','ticket event'], ['🧵','sewing hobby craft'], ['🧶','yarn knitting hobby craft'], ['📷','camera photography'],
+  ['💊','medicine pill health pharmacy'], ['🩺','stethoscope doctor health medical'], ['🩹','bandage health medical'],
+  ['🦷','dental tooth health'], ['👓','glasses eyewear health'], ['🧴','lotion toiletries personal care'],
+  ['🧼','soap hygiene personal care'], ['🪥','toothbrush hygiene personal care'], ['💇','haircut salon personal care'],
+  ['💅','nails beauty personal care'], ['💄','makeup beauty personal care'], ['🧖','spa wellness self care'],
+  ['👕','shirt clothing clothes'], ['👖','pants clothing clothes'], ['👗','dress clothing clothes fashion'],
+  ['👠','heels shoes fashion'], ['👟','sneakers shoes fashion'], ['👜','purse bag fashion accessory'],
+  ['🧥','coat jacket clothing'], ['👔','tie formal clothing work'], ['🕶️','sunglasses fashion accessory'],
+  ['💍','ring jewelry engagement wedding'], ['👶','baby child kid'], ['🧒','child kid'], ['🧑','person adult'],
+  ['👨','man person'], ['👩','woman person'], ['👴','elderly man grandparent'], ['👵','elderly woman grandparent'],
+  ['👨‍👩‍👧‍👦','family kids'], ['🐶','dog pet animal'], ['🐱','cat pet animal'], ['🐰','rabbit pet animal'],
+  ['🐹','hamster pet animal'], ['🐦','bird pet animal'], ['🐟','fish pet animal'], ['🐴','horse pet animal'],
+  ['🦴','bone pet dog treat'], ['🎁','gift present birthday'], ['🎉','party celebration entertainment fun'],
+  ['🎊','confetti celebration party'], ['🎈','balloon party celebration'], ['🕯️','candle birthday celebration'],
+  ['💐','flowers gift bouquet'], ['🌹','rose flower gift'], ['🧸','teddy bear toy kid gift'], ['🪁','kite toy hobby'],
+  ['🧧','red envelope gift money'], ['💒','wedding church'], ['💌','love letter'], ['✈️','vacation travel flight'],
+  ['🏦','bank savings finance'], ['🧑‍⚖️','law legal court'], ['📄','document paperwork file'],
+  ['📁','folder file organize'], ['🗃️','archive files storage'], ['🔒','lock security'], ['🔑','key security'],
+  ['⚙️','settings gear maintenance repair'], ['🔧','wrench repair tools maintenance'], ['🔨','hammer tools repair diy'],
+  ['🪛','screwdriver tools repair diy'], ['🧰','toolbox tools repair'], ['🧹','broom cleaning chores'],
+  ['🧺','laundry basket chores'], ['🧽','sponge cleaning chores'], ['🛁','bath cleaning home'],
+  ['🚿','shower bathroom home'], ['🛋️','couch furniture home living room'], ['🛏️','bed furniture home bedroom'],
+  ['🪑','chair furniture home'], ['🪟','window home'], ['🚪','door home'], ['🪴','plant home garden'],
+  ['🌳','tree garden nature outdoors'], ['🌷','flower garden nature'], ['🐾','pet paw animal'], ['🐕','dog pet animal'],
+  ['🐈','cat pet animal'], ['🦴','pet bone dog'], ['🐠','fish pet aquarium'], ['🦜','bird pet parrot'],
+  ['📅','calendar schedule date'], ['⏰','alarm clock time'], ['⏳','hourglass time waiting'], ['🧭','compass navigation direction'],
+  ['🗓️','calendar schedule planner'], ['📌','pin note reminder'], ['📎','paperclip office'], ['✅','check done complete'],
+  ['❌','cross no cancel'], ['❓','question unknown'], ['❗','exclamation important'], ['⭐','star favorite important'],
+  ['🔥','fire hot popular trending'], ['💧','water drop utility'], ['⚡','electric lightning power utility fast'],
+  ['🌊','wave water ocean'], ['☀️','sun sunny weather'], ['🌙','moon night'], ['☁️','cloud weather'],
+  ['❄️','snow winter cold weather'], ['🌈','rainbow weather'], ['🔔','bell notification alert'],
+  ['📣','announcement megaphone'], ['🎗️','ribbon awareness charity'], ['🤝','handshake deal agreement partnership'],
+  ['🙏','pray thanks gratitude'], ['❤️','heart love'], ['💔','broken heart heartbreak'], ['💯','hundred perfect complete'],
+];
 function closeCatEmojiPicker(){
   document.getElementById('catEmojiPicker')?.remove();
+}
+function renderCatEmojiGrid(filterText){
+  const term = (filterText||'').trim().toLowerCase();
+  const list = term ? EMOJI_PICKER_LIST.filter(([, kw]) => kw.includes(term)) : EMOJI_PICKER_LIST;
+  if(!list.length) return '<div class="cat-emoji-no-results">No matches</div>';
+  return list.map(([em]) => `<button type="button" class="cat-emoji-opt" data-emoji-choice="${em}">${em}</button>`).join('');
+}
+function repositionCatEmojiPicker(panel, anchorEl){
+  const rect = anchorEl.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  let left = rect.left;
+  if(left + panelRect.width > window.innerWidth - 8) left = window.innerWidth - panelRect.width - 8;
+  let top = rect.bottom + 4;
+  if(top + panelRect.height > window.innerHeight - 8) top = Math.max(8, rect.top - panelRect.height - 4);
+  panel.style.top = top + 'px';
+  panel.style.left = Math.max(8, left) + 'px';
 }
 function openCatEmojiPicker(anchorEl, catId, isTemplate){
   closeCatEmojiPicker();
@@ -2499,15 +2609,26 @@ function openCatEmojiPicker(anchorEl, catId, isTemplate){
   panel.className = 'cat-emoji-picker';
   panel.dataset.catId = catId;
   panel.dataset.isTemplate = isTemplate ? '1' : '0';
-  panel.innerHTML = `<button type="button" class="cat-emoji-opt cat-emoji-none" data-emoji-choice="">None</button>${CATEGORY_EMOJI_CHOICES.map(em => `<button type="button" class="cat-emoji-opt" data-emoji-choice="${em}">${em}</button>`).join('')}`;
+  panel.innerHTML = `
+    <div class="cat-emoji-picker-hdr">
+      <input type="text" class="cat-emoji-search" placeholder="Search…" autocomplete="off">
+      <button type="button" class="cat-emoji-opt cat-emoji-none" data-emoji-choice="">None</button>
+    </div>
+    <div class="cat-emoji-grid">${renderCatEmojiGrid('')}</div>`;
   document.body.appendChild(panel);
-  const rect = anchorEl.getBoundingClientRect();
-  const panelRect = panel.getBoundingClientRect();
-  let left = rect.left;
-  if(left + panelRect.width > window.innerWidth - 8) left = window.innerWidth - panelRect.width - 8;
-  panel.style.top = (rect.bottom + 4) + 'px';
-  panel.style.left = Math.max(8, left) + 'px';
+  repositionCatEmojiPicker(panel, anchorEl);
+  panel.querySelector('.cat-emoji-search').focus();
 }
+document.addEventListener('input', (e) => {
+  if(!e.target.matches('.cat-emoji-search')) return;
+  const panel = e.target.closest('#catEmojiPicker');
+  const anchorSelector = panel.dataset.isTemplate === '1'
+    ? `[data-tpl-emoji-picker="${panel.dataset.catId}"]`
+    : `[data-cat-emoji-picker="${panel.dataset.catId}"]`;
+  const anchorEl = document.querySelector(anchorSelector);
+  panel.querySelector('.cat-emoji-grid').innerHTML = renderCatEmojiGrid(e.target.value);
+  if(anchorEl) repositionCatEmojiPicker(panel, anchorEl);
+});
 document.addEventListener('click', (e) => {
   const trigger = e.target.closest('[data-cat-emoji-picker], [data-tpl-emoji-picker]');
   if(trigger){
