@@ -1273,6 +1273,17 @@ const db = {
     if(error) throw error;
     return data;
   },
+  // Fetches several months in one round-trip instead of one request per month —
+  // used when a single screen (e.g. switching months, which also needs the previous
+  // month and several more for the rolling average) needs more than one at once.
+  async loadMonths(keys){
+    const uniqueKeys = [...new Set(keys)];
+    const { data, error } = await sb.from('months').select('*').eq('user_id', authUserId).in('month_key', uniqueKeys);
+    if(error) throw error;
+    const byKey = {};
+    (data||[]).forEach(row => { byKey[row.month_key] = row; });
+    return byKey;
+  },
   async saveMonth(key, monthData){
     const { error } = await sb.from('months').upsert({ user_id: authUserId, month_key: key, income: monthData.income, categories: monthData.categories, notes: monthData.notes, goal: monthData.goal }, { onConflict: 'user_id,month_key' });
     if(error) throw error;
@@ -1728,8 +1739,44 @@ async function saveGrocery(){ try{ await db.saveGrocery(grocery); }catch(e){} }
 async function saveBallet(){ try{ await db.saveBallet(ballet); }catch(e){} }
 async function saveMtg(){ try{ await db.saveMtg(mtg); }catch(e){} }
 
+function monthRowToData(row){
+  return row ? withIds({ income: row.income, categories: row.categories, notes: row.notes, goal: Number(row.goal)||0 }) : null;
+}
 async function loadMonth(key){
-  try{ const row = await db.loadMonth(key); return row ? withIds({ income: row.income, categories: row.categories, notes: row.notes, goal: Number(row.goal)||0 }) : null; }catch(e){ return null; }
+  try{ const row = await db.loadMonth(key); return monthRowToData(row); }catch(e){ return null; }
+}
+// Loads several months in a single Supabase round-trip. Used anywhere that previously
+// awaited loadMonth() once per month in a loop (rolling averages, the dashboard's full
+// history) — that pattern was N sequential network requests for N months, which is
+// what made the dashboard slow for anyone with more than a few months of history.
+async function loadMonthsBatch(keys){
+  const result = {};
+  try{
+    const byKey = await db.loadMonths(keys);
+    keys.forEach(k => { result[k] = monthRowToData(byKey[k]); });
+  }catch(e){
+    keys.forEach(k => { result[k] = null; });
+  }
+  return result;
+}
+function computeRollingAverageFromMonths(dataList){
+  const lookup = {};
+  dataList.forEach(data => {
+    if(!data) return;
+    data.categories.forEach(cat => {
+      cat.items.forEach(item => {
+        const name = (item.name||'').trim().toLowerCase();
+        const amt = Number(item.amount)||0;
+        if(!name || amt === 0) return;
+        if(!lookup[name]) lookup[name] = {sum:0, count:0};
+        lookup[name].sum += amt;
+        lookup[name].count += 1;
+      });
+    });
+  });
+  const result = {};
+  Object.keys(lookup).forEach(name => { result[name] = {avg: lookup[name].sum / lookup[name].count, count: lookup[name].count}; });
+  return result;
 }
 
 async function loadEverything(){
@@ -2845,44 +2892,26 @@ let prevMonthCompareData = null;
 let rollingAvgLookup = {};
 const ROLLING_AVG_MONTHS = 4;
 async function buildRollingAverageLookup(key, monthsBack){
-  const lookup = {};
-  // These months are independent reads — fire them all at once instead of awaiting
-  // one Supabase round-trip before starting the next, which was turning a single
-  // month switch into a multi-second waterfall.
   const keys = [];
   for(let i=1; i<=monthsBack; i++) keys.push(addMonths(key, -i));
-  const results = await Promise.all(keys.map(mKey => loadMonth(mKey)));
-  results.forEach(data => {
-    if(!data) return;
-    data.categories.forEach(cat => {
-      cat.items.forEach(item => {
-        const name = (item.name||'').trim().toLowerCase();
-        const amt = Number(item.amount)||0;
-        if(!name || amt === 0) return;
-        if(!lookup[name]) lookup[name] = {sum:0, count:0};
-        lookup[name].sum += amt;
-        lookup[name].count += 1;
-      });
-    });
-  });
-  const result = {};
-  Object.keys(lookup).forEach(name => { result[name] = {avg: lookup[name].sum / lookup[name].count, count: lookup[name].count}; });
-  return result;
+  const byKey = await loadMonthsBatch(keys);
+  return computeRollingAverageFromMonths(keys.map(k => byKey[k]));
 }
 async function switchToMonth(key){
   settings.currentMonth = key;
   saveSettings();
   renderMonthDropdown();
   // The current month, the previous month (for comparison), and the rolling-average
-  // lookback are all independent reads — fire them concurrently rather than as a
-  // chain of sequential awaits (which was 6 round-trips end-to-end for one switch).
-  const [data, prevData, avgLookup] = await Promise.all([
-    loadMonth(key),
-    loadMonth(addMonths(key, -1)).catch(() => null),
-    buildRollingAverageLookup(key, ROLLING_AVG_MONTHS).catch(() => ({}))
-  ]);
-  prevMonthCompareData = prevData;
-  rollingAvgLookup = avgLookup;
+  // lookback months are all independent reads — batch them into a single Supabase
+  // round-trip instead of one request per month (previously 6 concurrent requests,
+  // before that 6 sequential ones).
+  const prevKey = addMonths(key, -1);
+  const avgKeys = [];
+  for(let i=1; i<=ROLLING_AVG_MONTHS; i++) avgKeys.push(addMonths(key, -i));
+  const byKey = await loadMonthsBatch([key, prevKey, ...avgKeys]);
+  const data = byKey[key];
+  prevMonthCompareData = byKey[prevKey] || null;
+  rollingAvgLookup = computeRollingAverageFromMonths(avgKeys.map(k => byKey[k]));
   if(data){ monthData = data; await finishLoadMonth(); }
   else { monthData = null; showEmptyState(); refreshInsertDropdowns(); }
   updateGroceryTotal();
@@ -4554,11 +4583,11 @@ async function renderBiggestMovers(){
   const now = new Date();
   const todayKey = `${now.getFullYear()}-${pad2(now.getMonth()+1)}`;
   const lastMonthKey = addMonths(todayKey, -1);
-  let lastMonthData;
-  try{ lastMonthData = await loadMonth(lastMonthKey); }catch(e){ lastMonthData = null; }
+  const compareKeys = [1,2,3].map(i => addMonths(lastMonthKey, -i));
+  const byKey = await loadMonthsBatch([lastMonthKey, ...compareKeys]);
+  const lastMonthData = byKey[lastMonthKey];
   if(!lastMonthData){ card.style.display = 'none'; return; }
-  let compareLookup;
-  try{ compareLookup = await buildRollingAverageLookup(lastMonthKey, 3); }catch(e){ compareLookup = {}; }
+  const compareLookup = computeRollingAverageFromMonths(compareKeys.map(k => byKey[k]));
   const movers = [];
   lastMonthData.categories.forEach(cat => {
     cat.items.forEach(item => {
@@ -4590,15 +4619,20 @@ async function renderBiggestMovers(){
   }).join('');
 }
 async function renderDashboard(){
-  await renderBiggestMovers();
   let keys = existingMonths.slice().sort();
   if(dashboardTimeframe !== 'all'){
     const n = Number(dashboardTimeframe);
     keys = keys.slice(-n);
   }
+  // renderBiggestMovers() is self-contained (its own card, own data need) and the
+  // month-history fetch below doesn't depend on it, so run them together. The history
+  // fetch itself used to be one loadMonth() await per month in a loop - for "All time"
+  // (the default) that's a sequential request per month ever recorded. Now it's one
+  // batched request for every key at once.
+  const [, byKey] = await Promise.all([renderBiggestMovers(), loadMonthsBatch(keys)]);
   const rows = [];
   for(const k of keys){
-    const data = await loadMonth(k);
+    const data = byKey[k];
     if(!data) continue;
     const t = monthTotals(data);
     rows.push({key:k, notes:(data.notes||'').trim(), ...t});
@@ -4634,9 +4668,10 @@ async function renderInsights(){
     const n = Number(insightsTimeframe);
     keys = keys.slice(-n);
   }
+  const byKey = await loadMonthsBatch(keys);
   const rows = [];
   for(const k of keys){
-    const data = await loadMonth(k);
+    const data = byKey[k];
     if(!data) continue;
     rows.push({key:k, ...monthTotals(data), raw:data});
   }
