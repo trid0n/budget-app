@@ -279,8 +279,8 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .cat-emoji-picker-hdr{display:flex; align-items:center; gap:6px; margin-bottom:6px;}
 .cat-emoji-search{flex:1; min-width:0; font-family:'Inter',sans-serif; font-size:.8rem; color:var(--ink); background:var(--paper-dim); border:1px solid var(--rule); border-radius:6px; padding:5px 8px;}
 .cat-emoji-search:focus{outline:none; border-color:var(--gold);}
-.cat-emoji-grid{display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; max-height:220px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
-.cat-emoji-opt{font-size:1.1rem; line-height:1; padding:6px; border:none; background:none; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+.cat-emoji-grid{display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:2px; max-height:220px; overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
+.cat-emoji-opt{font-size:1.1rem; line-height:1; padding:6px; border:none; background:none; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; overflow:hidden; white-space:nowrap;}
 .cat-emoji-opt:hover{background:var(--paper-dim);}
 .cat-emoji-opt.cat-emoji-none{flex-shrink:0; font-size:.78rem; font-weight:600; color:var(--ink-soft); font-family:'Inter',sans-serif; padding:5px 10px; white-space:nowrap;}
 .cat-emoji-no-results{grid-column:1 / -1; text-align:center; padding:16px 8px; font-size:.8rem; color:var(--ink-faint); font-family:'Inter',sans-serif;}
@@ -451,6 +451,10 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .grocery-field input:focus{outline:none; border-color:var(--gold); background:var(--surface);}
 .grocery-field input[readonly]{cursor:default; color:var(--ink-soft); background:var(--paper);}
 .grocery-field input[readonly]:hover, .grocery-field input[readonly]:focus{border-color:var(--rule); background:var(--paper);}
+/* type="text" instead of type="password" deliberately - Chrome ignores autocomplete="off"
+   on real password fields and offers to save/autofill them anyway. Masked visually
+   here instead, since it's an API token, not a login credential. */
+.token-masked{-webkit-text-security:disc; text-security:disc;}
 .grocery-total{margin-left:auto; display:flex; flex-direction:column; gap:2px; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:600;}
 .grocery-total b{font-size:1rem; color:var(--ink); font-weight:800;}
 .sync-note{font-size:.72rem; color:var(--ink-faint); margin-top:12px; font-style:italic;}
@@ -879,7 +883,7 @@ input[type=file]{display:none;}
       <h2>Up Bank <span class="rc-sub">live accounts &amp; transactions</span></h2>
       <div class="rec-body">
         <div class="up-connect-row" id="upConnectRow">
-          <label class="grocery-field lb-field-wide">Personal access token<input type="password" id="upTokenInput" placeholder="up:yeah:..." autocomplete="off"></label>
+          <label class="grocery-field lb-field-wide">Personal access token<input type="text" id="upTokenInput" class="token-masked" placeholder="up:yeah:..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"></label>
           <button class="mini-btn gold" id="upConnectBtn">Connect</button>
           <button class="mini-btn" id="upDisconnectBtn" style="display:none;">Disconnect</button>
         </div>
