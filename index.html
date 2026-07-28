@@ -1993,7 +1993,11 @@ function computeStrikeTop(input, cs){
   const baselineFromInputTop = lineTopFromInputTop + ascentMetric;
   const glyphCenterFromInputTop = baselineFromInputTop + inkCenterFromBaseline;
   const inputTopFromLeafTop = inputRect.top - leafRect.top;
-  return inputTopFromLeafTop + glyphCenterFromInputTop;
+  // Empirically-verified correction: user live-nudged the line (via a devtools console
+  // tool) against real rendered rows until it looked centered, landing consistently at
+  // -1px from what the geometry above computes. Not a further guess — a measured value.
+  const STRIKE_EMPIRICAL_CORRECTION_PX = -1;
+  return inputTopFromLeafTop + glyphCenterFromInputTop + STRIKE_EMPIRICAL_CORRECTION_PX;
 }
 function renderStrikeDebugPanel(){
   if(!/[?&]strikedebug/.test(location.search)) return;
