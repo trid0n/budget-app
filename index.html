@@ -484,6 +484,9 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .timeframe-btn:disabled{opacity:.4; cursor:not-allowed;}
 .timeframe-btn:hover{border-color:var(--gold); color:var(--gold);}
 .timeframe-btn.active{background:var(--gold); border-color:var(--gold); color:#fff;}
+.tx-loading-bar{height:3px; background:var(--paper-dim); border-radius:2px; overflow:hidden; margin:2px 0 10px;}
+.tx-loading-bar-inner{height:100%; width:35%; background:linear-gradient(90deg, transparent, var(--gold), transparent); border-radius:2px; animation:tx-loading-slide 1.1s ease-in-out infinite;}
+@keyframes tx-loading-slide{0%{transform:translateX(-140%);} 100%{transform:translateX(385%);}}
 .insight-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:14px;}
 @media (max-width:700px){.insight-grid{grid-template-columns:1fr 1fr;}}
 .insight-card{background:var(--paper-dim); border:1px solid var(--rule); border-radius:10px; padding:14px 16px;}
@@ -939,6 +942,7 @@ input[type=file]{display:none;}
             <button class="mini-btn gold" id="upTxApplyRangeBtn">Apply</button>
           </div>
           <input type="text" id="upTxSearch" class="up-tx-search" placeholder="Search transactions by description...">
+          <div class="tx-loading-bar" id="upTxLoadingBar" style="display:none;"><div class="tx-loading-bar-inner"></div></div>
           <div class="up-tx-list" id="upTxList"></div>
           <div class="up-tx-loadmore-row"><button class="mini-btn" id="upLoadMoreBtn" style="display:none;">Load more</button></div>
           <div class="pc-faint" id="upMeta"></div>
@@ -3832,6 +3836,7 @@ function renderPayCycleRow(){
   }
   sinceBtn.classList.toggle('active', upPayCycleFilter === 'since');
   betweenBtn.classList.toggle('active', upPayCycleFilter === 'between');
+  document.getElementById('upTxLoadingBar').style.display = 'none';
 }
 function renderUpTxList(){
   autoApplyTxRules();
@@ -3924,6 +3929,15 @@ async function loadTransactionsForRange(sinceIso, untilIso){
 }
 async function applyPayCycleFilter(mode){
   if(!upIncomeSourceKey) return;
+  // Highlight the button and show a loading bar immediately, before the fetch even
+  // starts, instead of waiting for the data to come back — otherwise the button just
+  // sits unpressed for the whole fetch, which reads as "did my click even register?"
+  const sinceBtn = document.getElementById('upPayCycleSinceBtn');
+  const betweenBtn = document.getElementById('upPayCycleBetweenBtn');
+  sinceBtn.classList.toggle('active', mode === 'since');
+  betweenBtn.classList.toggle('active', mode === 'between');
+  sinceBtn.disabled = true; betweenBtn.disabled = true;
+  document.getElementById('upTxLoadingBar').style.display = '';
   const neededCount = mode === 'between' ? 2 : 1;
   let occurrences = getIncomeSourceOccurrences();
   const errEl = document.getElementById('upError');
