@@ -303,7 +303,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .income-card .lrow:hover{background:var(--paper-dim); background:color-mix(in srgb, var(--credit) 8%, var(--surface)); border-left-color:var(--credit);}
 .grow:hover{background:color-mix(in srgb, var(--cat-color, var(--gold)) 10%, var(--paper-dim)); border-left-color:var(--cat-color, var(--gold));}
 .leaf-name{display:flex; align-items:center; gap:8px; padding-left:14px; position:relative; overflow:hidden;}
-.leaf-name::after{content:''; position:absolute; left:14px; top:calc(50% + 2.5px); width:0; height:2px; background:var(--ink); opacity:.9; transition:width .38s cubic-bezier(.34,1.15,.64,1); pointer-events:none;}
+.leaf-name::after{content:''; position:absolute; left:14px; top:var(--strike-top, calc(50% + 2.5px)); width:0; height:2px; background:var(--ink); opacity:.9; transition:width .38s cubic-bezier(.34,1.15,.64,1); pointer-events:none;}
 .lrow.leaf{transition:opacity .3s ease;}
 .lrow.charged{opacity:.65;}
 .lrow.charged .leaf-name::after{width:var(--strike-w, 0px);}
@@ -1899,6 +1899,30 @@ function watchdogRecheckWidths(){
   });
 }
 setInterval(watchdogRecheckWidths, 1500);
+let _strikeCanvasCtx = null;
+function computeStrikeTop(input, cs){
+  const leafName = input.closest('.leaf-name');
+  if(!leafName) return null;
+  if(!_strikeCanvasCtx) _strikeCanvasCtx = document.createElement('canvas').getContext('2d');
+  const ctx = _strikeCanvasCtx;
+  ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const sample = (input.value && input.value.trim()) ? input.value : (input.placeholder || 'M');
+  const m = ctx.measureText(sample);
+  if(m.actualBoundingBoxAscent == null || m.actualBoundingBoxDescent == null) return null;
+  const inputRect = input.getBoundingClientRect();
+  const leafRect = leafName.getBoundingClientRect();
+  if(!inputRect.height || !leafRect.height) return null;
+  const paddingTop = parseFloat(cs.paddingTop)||0;
+  const paddingBottom = parseFloat(cs.paddingBottom)||0;
+  const contentHeight = inputRect.height - paddingTop - paddingBottom;
+  const fontSizePx = parseFloat(cs.fontSize)||14;
+  const halfLeading = Math.max(0, (contentHeight - fontSizePx) / 2);
+  const ascentMetric = m.fontBoundingBoxAscent != null ? m.fontBoundingBoxAscent : m.actualBoundingBoxAscent;
+  const baselineFromInputTop = paddingTop + halfLeading + ascentMetric;
+  const glyphCenterFromInputTop = baselineFromInputTop - (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+  const inputTopFromLeafTop = inputRect.top - leafRect.top;
+  return inputTopFromLeafTop + glyphCenterFromInputTop;
+}
 function updateStrikeWidth(row){
   const input = row.querySelector('.name-input');
   if(!input) return;
@@ -1906,6 +1930,8 @@ function updateStrikeWidth(row){
   const w = measureTextWidth(input.value, cs);
   const safeW = isWidthSane(input.value, w) ? w : Math.max(w, (input.value||'').length * 7);
   row.style.setProperty('--strike-w', Math.max(0, safeW + 3) + 'px');
+  const strikeTop = computeStrikeTop(input, cs);
+  if(strikeTop != null) row.style.setProperty('--strike-top', strikeTop + 'px');
   if(!isWidthSane(input.value, w)) requestAnimationFrame(() => requestAnimationFrame(() => updateStrikeWidth(row)));
 }
 function updateAllStrikeWidths(){
