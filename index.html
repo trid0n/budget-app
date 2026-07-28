@@ -553,23 +553,6 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-view-row-desc{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .tx-view-row-date{color:var(--ink-faint); font-size:.72rem;}
 .tx-view-row-amt{color:var(--ink); font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0;}
-.tx-debug-box{max-width:900px; width:95%; max-height:85vh; display:flex; flex-direction:column; gap:12px;}
-.tx-debug-list{overflow-y:auto; flex:1; border:1px solid var(--rule); border-radius:10px;}
-.tx-debug-row{display:grid; grid-template-columns:1.3fr 75px 1fr 1fr 1fr 1fr; gap:8px; padding:9px 14px; border-top:1px solid var(--rule); font-size:.74rem; align-items:center;}
-.tx-debug-row:first-child{border-top:none;}
-.tx-debug-row.header{background:var(--paper-dim); font-weight:700; text-transform:uppercase; font-size:.64rem; letter-spacing:.04em; color:var(--ink-faint); position:sticky; top:0;}
-.tx-debug-desc{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; color:var(--ink);}
-.tx-debug-amt{font-variant-numeric:tabular-nums; color:var(--ink-soft);}
-.tx-debug-key{font-family:monospace; color:var(--ink-faint); font-size:.7rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.tx-debug-state{font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.tx-debug-state.state-excluded{color:var(--ink-faint);}
-.tx-debug-state.state-assigned{color:var(--credit);}
-.tx-debug-state.state-guess{color:var(--gold);}
-.tx-debug-state.state-none{color:var(--debit);}
-.tx-debug-guess{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-soft);}
-.tx-debug-row.suspicious{background:var(--debit-bg);}
-.tx-debug-fix-btn{font-family:'Inter',sans-serif; font-size:.72rem; font-weight:700; color:var(--debit); background:none; border:1px solid color-mix(in srgb, var(--debit) 40%, var(--rule)); border-radius:6px; padding:3px 8px; cursor:pointer; white-space:nowrap;}
-.tx-debug-fix-btn:hover{background:var(--debit); color:#fff;}
 .income-item-wrap{display:flex; flex-direction:column;}
 .income-tx-expand{background:var(--paper-dim); border-bottom:1px solid var(--rule);}
 .income-tx-expand .tx-view-row{padding:8px 16px 8px 40px; border-top:1px solid var(--rule); font-size:.8rem;}
@@ -891,7 +874,7 @@ input[type=file]{display:none;}
         <button class="mini-btn" id="upChangeTokenBtn" style="display:none;">🔑 Connected — change token</button>
         <div id="upContent" style="display:none;">
           <div class="up-accounts" id="upAccounts"></div>
-          <div class="up-tx-hdr">Recent transactions <button class="mini-btn" id="upRefreshBtn">Refresh</button> <button class="mini-btn" id="upDebugBtn">🔍 Check guessing logic</button></div>
+          <div class="up-tx-hdr">Recent transactions <button class="mini-btn" id="upRefreshBtn">Refresh</button></div>
           <div class="timeframe-row" id="upTxTimeframeRow">
             <button class="timeframe-btn" data-tf="1">Last month</button>
             <button class="timeframe-btn" data-tf="3">3 months</button>
@@ -1155,19 +1138,6 @@ input[type=file]{display:none;}
     <div class="tx-view-list" id="txViewList"></div>
     <div class="modal-actions">
       <button class="mini-btn" id="txViewCloseBtn">Close</button>
-    </div>
-  </div>
-</div>
-<div class="modal-overlay" id="upDebugOverlay">
-  <div class="modal-box tx-debug-box">
-    <div class="tx-assign-hdr">Guessing logic checker</div>
-    <div class="tx-assign-sub">Shows exactly what the logic computes for each loaded transaction \u2014 useful for spotting where a guess is going wrong.</div>
-    <input type="text" id="upDebugSearch" class="up-tx-search" placeholder="Filter by description...">
-    <div class="tx-debug-list" id="upDebugList"></div>
-    <div class="modal-actions">
-      <button class="mini-btn danger-text" id="upDebugResetAllBtn">Reset ALL assignments &amp; rules</button>
-      <button class="mini-btn danger-text" id="upDebugFixAllBtn" style="display:none;"></button>
-      <button class="mini-btn" id="upDebugCloseBtn">Close</button>
     </div>
   </div>
 </div>
@@ -2132,9 +2102,27 @@ function updateItemNameWidthFor(input){
   const safeW = isWidthSane(text, w) ? w : Math.max(w, text.length * 7);
   const boxExtra = (parseFloat(cs.paddingLeft)||0) + (parseFloat(cs.paddingRight)||0) + (parseFloat(cs.borderLeftWidth)||0) + (parseFloat(cs.borderRightWidth)||0);
   let desired = safeW + boxExtra + 4;
+  // Cap against the row's actual leftover space: row width minus the OTHER children's
+  // own rendered widths (grip handle, amount, delete button - all sized independently
+  // of --item-name-w). Deliberately NOT measuring leaf-name's own rendered width for
+  // this: leaf-name is a flex container sized by its input child's current width, so
+  // using it to compute the input's NEXT width is circular - each pass would measure
+  // an already-shrunken container and shrink it further, spiraling down to the 20px
+  // floor. A fixed "-150px" guess (the previous approach) had the same kind of
+  // problem from a different angle: it went negative for the template editor's
+  // narrower two-column cards, flooring every name to ~40px.
+  const leafName = input.closest('.leaf-name');
   const row = input.closest('.lrow');
-  if(row){
-    const cap = Math.max(40, row.getBoundingClientRect().width - 150);
+  if(row && leafName){
+    let othersWidth = 0;
+    Array.from(row.children).forEach(child => {
+      if(child !== leafName) othersWidth += child.getBoundingClientRect().width;
+    });
+    const rowCs = getComputedStyle(row);
+    const gapPx = parseFloat(rowCs.columnGap || rowCs.gap) || 0;
+    const leafNamePadding = parseFloat(getComputedStyle(leafName).paddingLeft) || 0;
+    const reserved = othersWidth + gapPx * Math.max(0, row.children.length - 1) + leafNamePadding + 8;
+    const cap = Math.max(20, row.getBoundingClientRect().width - reserved);
     desired = Math.min(desired, cap);
   }
   input.style.setProperty('--item-name-w', Math.max(20, desired) + 'px');
@@ -2663,7 +2651,13 @@ function tplIncomeRowHtml(item){
 }
 function tplLeafRowHtml(catId, item){
   const source = tplSourceFor(item.name);
+  // .lrow.leaf's shared grid CSS expects 4 columns (grip | name | amount | delete);
+  // the ledger's leaf row always renders a grip-handle as its first child to hold that
+  // column even though template items aren't draggable, so leaf-name lands in the
+  // narrow first column instead of the wide name column - which was why names were
+  // getting cut down to a couple of characters here specifically.
   return `<div class="lrow leaf" data-tpl-item-row="${item.id}" data-tpl-cat="${catId}" data-tpl-item="${item.id}">
+    <span class="grip-handle"></span>
     <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. rent" value="${escapeAttr(item.name)}" data-tpl-cat="${catId}" data-tpl-item="${item.id}" data-tpl-field="name"></div>
     <div class="gcell">${source ? `<button class="tpl-source-link" data-jump-source="${source}" data-tip="Open the ${source==='tech'?'Tech Replacement':source==='grocery'?'Groceries':source==='ballet'?'Ballet':'Monthly Costs'} table">${LINK_SVG}</button>` : ''}<div class="amt-wrap"><span class="sign"></span><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-tpl-cat="${catId}" data-tpl-item="${item.id}" data-tpl-field="amount" ${source?'readonly':''}></div></div>
     <div class="del-cell"><button data-tpl-cat="${catId}" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
@@ -3874,7 +3868,10 @@ function autoApplyTxRules(){
       changed = true;
     }
     if(existing) return;
-    if(findCoverSourceForTx(t)){
+    if(isCoverTransferTx(t)){
+      // The incoming "Cover from X" transfer, not the actual expense — exclude the
+      // transfer itself so it never counts as budget income; the real cost transaction
+      // stays free to be guessed/assigned normally like any other expense.
       txAssignments[t.id] = {monthKey: settings.currentMonth, excluded: true};
       changed = true;
       return;
@@ -3915,6 +3912,27 @@ function findCoverSourceForTx(tx){
   const m = match.attributes.description.trim().match(/^cover from\s+(.+)$/i);
   return m ? m[1] : null;
 }
+// The other side of findCoverSourceForTx: true when tx IS the incoming "Cover from X"
+// transfer for some other tracked expense (not the expense itself). Used to hide the
+// transfer from the transaction list entirely — showing both the cost and its cover
+// transfer as separate rows was redundant, the cover icon on the cost row already
+// says "this was covered from X".
+function isCoverTransferTx(tx){
+  if(!tx || !upTransactions) return false;
+  const desc = (tx.attributes.description||'').trim();
+  const m = desc.match(/^cover from\s+(.+)$/i);
+  if(!m) return false;
+  const amt = Math.abs(parseFloat(tx.attributes.amount.value));
+  if(!amt) return false;
+  const txTime = new Date(tx.attributes.createdAt).getTime();
+  return upTransactions.some(other => {
+    if(other.id === tx.id) return false;
+    const otherAmt = Math.abs(parseFloat(other.attributes.amount.value));
+    if(Math.abs(otherAmt - amt) > 0.001) return false;
+    const otherTime = new Date(other.attributes.createdAt).getTime();
+    return Math.abs(otherTime - txTime) < 1000*60*60*48;
+  });
+}
 function renderPayCycleRow(){
   const lbl = document.getElementById('upPayCycleLbl');
   const sinceBtn = document.getElementById('upPayCycleSinceBtn');
@@ -3940,6 +3958,10 @@ function renderUpTxList(){
   renderPayCycleRow();
   const term = upTxSearchTerm.trim().toLowerCase();
   let filtered = term ? upTransactions.filter(t => (t.attributes.description||'').toLowerCase().includes(term)) : upTransactions;
+  // Hide the incoming "Cover from X" transfer as its own row — the cost transaction
+  // it covers already shows a cover icon, so listing both was just the same money
+  // shown twice (once as -, once as +).
+  filtered = filtered.filter(t => !isCoverTransferTx(t));
   if(upIncomeFilterActive) filtered = filtered.filter(t => parseFloat(t.attributes.amount.value) > 0);
   if(upPayCycleFilter){
     const occurrences = getIncomeSourceOccurrences();
@@ -4343,106 +4365,6 @@ document.getElementById('view-ledger').addEventListener('click', (e) => {
 });
 document.getElementById('txViewCloseBtn').addEventListener('click', () => document.getElementById('txViewOverlay').classList.remove('show'));
 document.getElementById('txViewOverlay').addEventListener('click', (e) => { if(e.target.id === 'txViewOverlay') document.getElementById('txViewOverlay').classList.remove('show'); });
-function renderDebugChecker(filterTerm){
-  const term = (filterTerm||'').trim().toLowerCase();
-  const filtered = term ? upTransactions.filter(t => (t.attributes.description||'').toLowerCase().includes(term)) : upTransactions;
-  const coverPattern = /^(cover|transfer)\s+(to|from)\s+/i;
-  const header = `<div class="tx-debug-row header"><div>Description</div><div>Amount</div><div>Merchant key</div><div>State</div><div>Guess if unassigned</div><div>Stored rule / action</div></div>`;
-  let suspiciousCount = 0;
-  const rows = filtered.map(t => {
-    const desc = t.attributes.description || '';
-    const amt = parseFloat(t.attributes.amount.value);
-    const merchantKey = extractMerchantKey(desc, amt);
-    const isCoverTransfer = coverPattern.test(desc.trim());
-    const assignment = txAssignments[t.id];
-    let stateLabel, stateClass;
-    if(assignment && assignment.excluded){ stateLabel = 'Excluded'; stateClass = 'state-excluded'; }
-    else if(assignment){ stateLabel = `Assigned: "${assignment.itemName}"`; stateClass = 'state-assigned'; }
-    else { stateLabel = 'Unassigned'; stateClass = 'state-none'; }
-    let guessLabel = '\u2014';
-    if(!assignment){
-      const guess = findGuessForTx(desc, amt, t);
-      guessLabel = guess ? `${guess.itemName} (${guess.reason})` : 'No guess';
-    }
-    const rule = txRules[merchantKey];
-    const isSuspicious = !!(assignment && !assignment.excluded && amt > 0 && assignment.catId !== 'income');
-    let lastColHtml;
-    if(isSuspicious){
-      suspiciousCount++;
-      lastColHtml = `<button class="tx-debug-fix-btn" data-tx-debug-fix="${t.id}">\u26a0\ufe0f Reset (credit \u2192 non-income)</button>`;
-    } else {
-      const ruleLabel = rule ? `${rule.itemName ? `"${rule.itemName}"` : '(nothing below threshold)'}${rule.threshold!=null ? ` / above $${rule.threshold}: "${rule.aboveItemName}"` : ''}` : '\u2014';
-      lastColHtml = escapeAttr(ruleLabel);
-    }
-    const coverNote = isCoverTransfer ? ' <span style="color:var(--gold);">[cover/transfer pattern]</span>' : '';
-    return `<div class="tx-debug-row${isSuspicious?' suspicious':''}">
-      <div class="tx-debug-desc" title="${escapeAttr(desc)}">${escapeAttr(desc)}${coverNote}</div>
-      <div class="tx-debug-amt">${amt<0?'-':'+'}${money(Math.abs(amt))}</div>
-      <div class="tx-debug-key" title="${escapeAttr(merchantKey)}">${escapeAttr(merchantKey)}</div>
-      <div class="tx-debug-state ${stateClass}">${escapeAttr(stateLabel)}</div>
-      <div class="tx-debug-guess">${escapeAttr(guessLabel)}</div>
-      <div class="tx-debug-guess">${lastColHtml}</div>
-    </div>`;
-  }).join('');
-  document.getElementById('upDebugList').innerHTML = header + (rows || '<div class="tx-assign-empty">No transactions loaded.</div>');
-  const fixAllBtn = document.getElementById('upDebugFixAllBtn');
-  if(suspiciousCount > 0){ fixAllBtn.style.display=''; fixAllBtn.textContent = `\u26a0\ufe0f Reset all ${suspiciousCount} suspicious assignment${suspiciousCount>1?'s':''}`; }
-  else fixAllBtn.style.display = 'none';
-}
-function resetSuspiciousAssignment(txId){
-  const a = txAssignments[txId];
-  if(!a) return;
-  if(monthData && a.monthKey === settings.currentMonth) reverseTxAssignmentIfSameMonth(txId);
-  delete txAssignments[txId];
-  saveTxAssignments();
-  if(monthData){ scheduleSave(); renderGroups(); updateSummary(); }
-}
-document.getElementById('upDebugBtn').addEventListener('click', () => {
-  document.getElementById('upDebugSearch').value = '';
-  renderDebugChecker('');
-  document.getElementById('upDebugOverlay').classList.add('show');
-});
-document.getElementById('upDebugSearch').addEventListener('input', (e) => renderDebugChecker(e.target.value));
-document.getElementById('upDebugList').addEventListener('click', (e) => {
-  const fixBtn = e.target.closest('[data-tx-debug-fix]');
-  if(!fixBtn) return;
-  resetSuspiciousAssignment(fixBtn.dataset.txDebugFix);
-  renderDebugChecker(document.getElementById('upDebugSearch').value);
-  renderUpTxList();
-});
-document.getElementById('upDebugFixAllBtn').addEventListener('click', async () => {
-  const suspiciousIds = Array.from(document.querySelectorAll('[data-tx-debug-fix]')).map(b => b.dataset.txDebugFix);
-  if(suspiciousIds.length === 0) return;
-  const ok = await customConfirm(`Reset ${suspiciousIds.length} suspicious assignment${suspiciousIds.length>1?'s':''} back to unassigned? Each will be re-guessed using the current logic next time transactions load.`);
-  if(!ok) return;
-  suspiciousIds.forEach(id => resetSuspiciousAssignment(id));
-  renderDebugChecker(document.getElementById('upDebugSearch').value);
-  renderUpTxList();
-});
-document.getElementById('upDebugResetAllBtn').addEventListener('click', async () => {
-  const ok = await customConfirm('This clears every transaction assignment and every remembered merchant rule, everywhere \u2014 not just what\u2019s currently loaded. Any amount those assignments added to a budget item in the month currently open will be subtracted back out first. This can\u2019t be undone. Continue?');
-  if(!ok) return;
-  if(monthData){
-    pushUndo('month', monthData, {monthKey: settings.currentMonth});
-    for(const txId in txAssignments){
-      const a = txAssignments[txId];
-      if(a && !a.excluded && a.monthKey === settings.currentMonth){
-        reverseTxAssignmentIfSameMonth(txId);
-      }
-    }
-    scheduleSave();
-    renderGroups(); updateSummary();
-  }
-  txAssignments = {};
-  txRules = {};
-  await saveTxAssignments();
-  await saveTxRules();
-  renderDebugChecker(document.getElementById('upDebugSearch').value);
-  renderUpTxList();
-  toast('All transaction assignments and rules cleared');
-});
-document.getElementById('upDebugCloseBtn').addEventListener('click', () => document.getElementById('upDebugOverlay').classList.remove('show'));
-document.getElementById('upDebugOverlay').addEventListener('click', (e) => { if(e.target.id === 'upDebugOverlay') document.getElementById('upDebugOverlay').classList.remove('show'); });
 document.getElementById('txAssignExcludeBtn').addEventListener('click', () => {
   if(!txAssignCurrent) return;
   const txId = txAssignCurrent.id;
