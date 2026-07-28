@@ -2611,6 +2611,42 @@ function ensureTemplateIds(){
   monthTemplate.income.forEach(i => { if(!i.id) i.id = uid(); });
   monthTemplate.categories.forEach(c => { if(!c.id) c.id = uid(); (c.items||[]).forEach(i => { if(!i.id) i.id = uid(); }); });
 }
+// A brand new account (self-service signup, RLS-scoped to their own empty rows) lands
+// on a completely blank ledger otherwise — no categories, no example of how the app is
+// structured. This seeds a generic starter template (all amounts left at $0, nothing
+// invented on the user's behalf financially) plus a first month built from it, once,
+// only when the account genuinely has nothing yet. Real users' data is never touched -
+// this never runs if any month or template content already exists.
+const STARTER_TEMPLATE_DATA = {
+  income: [
+    { name: 'Salary' },
+  ],
+  categories: [
+    { name: 'Housing', items: ['Rent / mortgage', 'Electricity', 'Water', 'Internet'] },
+    { name: 'Food', items: ['Groceries', 'Dining out'] },
+    { name: 'Transport', items: ['Fuel / public transport', 'Car insurance'] },
+    { name: 'Subscriptions', items: ['Streaming', 'Phone plan'] },
+    { name: 'Savings', items: ['Emergency fund'] },
+  ],
+};
+async function seedStarterDataIfNewAccount(currentMonthKey){
+  const isBrandNewAccount = existingMonths.length === 0 && !monthTemplate.income.length && !monthTemplate.categories.length;
+  if(!isBrandNewAccount) return;
+  monthTemplate = {
+    income: STARTER_TEMPLATE_DATA.income.map(i => ({ id: uid(), name: i.name, amount: 0 })),
+    categories: STARTER_TEMPLATE_DATA.categories.map((c, idx) => ({
+      id: uid(), name: c.name, col: idx % 2,
+      items: c.items.map(name => ({ id: uid(), name, amount: 0 })),
+    })),
+    goal: 0,
+  };
+  try{ await db.saveMonthTemplate(monthTemplate); }catch(e){ return; }
+  const firstMonth = buildFromTemplate();
+  try{
+    await db.saveMonth(currentMonthKey, firstMonth);
+    existingMonths = [currentMonthKey];
+  }catch(e){}
+}
 let templateSaveTimer = null;
 function scheduleTemplateSave(){
   clearTimeout(templateSaveTimer);
@@ -5243,6 +5279,7 @@ document.getElementById('darkModeSwitch').addEventListener('click', () => {
   renderMonthDropdown();
   const now = new Date();
   const realCurrentMonthKey = `${now.getFullYear()}-${pad2(now.getMonth()+1)}`;
+  await seedStarterDataIfNewAccount(realCurrentMonthKey);
   await switchToMonth(realCurrentMonthKey);
   renderTechRows();
   document.getElementById('groceryEatOut').value = grocery.eatOut || 0;
