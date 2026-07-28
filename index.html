@@ -3180,7 +3180,12 @@ function finishDrag(){
   if(dragMoved){
     if(dragMode === 'category') syncCategoryOrderFromDOM();
     else if(dragMode === 'item') syncItemOrderFromDOM(draggedItemCatId);
-    renderGroups(); updateSummary(); scheduleSave();
+    // Deliberately no renderGroups() here: the live drag already moved the real DOM
+    // elements into place (FLIP-animated), so they still carry their correct
+    // strikethrough/width styling. Rebuilding via innerHTML would throw those elements
+    // away and recreate fresh ones that start at --strike-w:0 until the next
+    // updateAllStrikeWidths() pass reapplies it, causing a visible uncross/recross flash.
+    updateSummary(); scheduleSave();
   }
   dragMode = null; draggedCategoryId = null; draggedItemId = null; draggedItemCatId = null; dragPointerId = null;
 }
