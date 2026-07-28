@@ -562,13 +562,16 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-tx-assign-btn.guess:hover{background:var(--gold); color:#fff; border-color:var(--gold);}
 .tx-assign-box{max-width:520px; width:92%; display:flex; flex-direction:column; gap:12px;}
 .tx-view-box{max-width:420px; width:92%; display:flex; flex-direction:column; gap:12px;}
-.tx-view-list{max-height:300px; overflow-y:auto; border:1px solid var(--rule); border-radius:10px;}
-.tx-view-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; border-top:1px solid var(--rule); font-size:.85rem;}
+.tx-view-list{max-height:300px; overflow-y:auto; overflow-x:hidden; border:1px solid var(--rule); border-radius:10px;}
+.tx-view-row{display:flex; align-items:center; gap:10px; padding:11px 14px; border-top:1px solid var(--rule); font-size:.85rem; transition:background-color .12s;}
+.tx-view-row:hover{background:var(--paper-dim);}
 .tx-view-row:first-child{border-top:none;}
-.tx-view-row-info{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.tx-view-row-info{display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;}
 .tx-view-row-desc{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .tx-view-row-date{color:var(--ink-faint); font-size:.72rem;}
+.tx-view-row-trailing{display:flex; align-items:center; gap:12px; flex-shrink:0;}
 .tx-view-row-amt{color:var(--ink); font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0;}
+.tx-view-sub-total{color:var(--ink); font-weight:700;}
 .income-item-wrap{display:flex; flex-direction:column;}
 .income-tx-expand{background:var(--paper-dim); border-bottom:1px solid var(--rule);}
 .income-tx-expand .tx-view-row{padding:8px 16px 8px 40px; border-top:1px solid var(--rule); font-size:.8rem;}
@@ -4599,10 +4602,10 @@ function openTxViewModal(catId, itemId){
   const txs = getTxsForItem(catId, itemId);
   document.getElementById('txViewItemName').textContent = `"${item.name}"`;
   const total = txs.reduce((s,t)=>s+(Number(t.amt)||0),0);
-  document.getElementById('txViewTotalSub').textContent = `${txs.length} transaction${txs.length!==1?'s':''} \u2014 ${money(total)} total`;
+  document.getElementById('txViewTotalSub').innerHTML = `${txs.length} transaction${txs.length!==1?'s':''} \u2014 <span class="tx-view-sub-total">${money(total)} total</span>`;
   document.getElementById('txViewList').innerHTML = txs.map(t => {
     const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-AU', {day:'numeric', month:'short'}) : '';
-    return `<div class="tx-view-row"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-amt">${money(t.amt)}</div><button class="up-tx-exclude-btn" data-tx-unassign-view="${t.txId}" data-tip="Unassign this transaction">\u00d7</button></div>`;
+    return `<div class="tx-view-row"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div><button class="up-tx-exclude-btn" data-tx-unassign-view="${t.txId}" data-tip="Unassign this transaction">\u00d7</button></div></div>`;
   }).join('') || '<div class="tx-assign-empty">No transactions linked yet.</div>';
   document.getElementById('txViewOverlay').classList.add('show');
 }
