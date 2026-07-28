@@ -1940,7 +1940,12 @@ function pixelScanGlyphCenterFromBaseline(text, cs){
 function computeStrikeTop(input, cs){
   const leafName = input.closest('.leaf-name');
   if(!leafName) return null;
-  const sample = (input.value && input.value.trim()) ? input.value : (input.placeholder || 'M');
+  // Deliberately NOT input.value: a per-row sample would shift the line depending on
+  // which letters happen to be in that row's text (e.g. "payment"'s descenders pull
+  // the ink bounding box down vs "rent"'s), so different item names would strike at
+  // different heights even at identical font size. A fixed calibration string gives
+  // every row the same font-relative line, like real text-decoration does.
+  const sample = 'xoncevrz';
   const inkCenterFromBaseline = pixelScanGlyphCenterFromBaseline(sample, cs);
   if(inkCenterFromBaseline == null) return null;
   const inputRect = input.getBoundingClientRect();
