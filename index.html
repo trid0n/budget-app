@@ -1900,15 +1900,49 @@ function watchdogRecheckWidths(){
 }
 setInterval(watchdogRecheckWidths, 1500);
 let _strikeCanvasCtx = null;
+let _strikeScanCanvas = null, _strikeScanCtx = null;
+// Ground-truth glyph center: actually renders the text to an offscreen canvas and scans
+// for where the ink pixels really are, rather than trusting font-metric APIs (which can
+// disagree with what's actually on screen if a font falls back or renders slightly
+// differently across platforms/browsers). Returns the ink's vertical center as an offset
+// from the text baseline (negative = above baseline), or null if nothing rendered.
+function pixelScanGlyphCenterFromBaseline(text, cs){
+  const fontSizePx = parseFloat(cs.fontSize) || 14;
+  if(!_strikeScanCanvas){
+    _strikeScanCanvas = document.createElement('canvas');
+    _strikeScanCtx = _strikeScanCanvas.getContext('2d', {willReadFrequently:true});
+  }
+  const scale = 2;
+  const padding = fontSizePx;
+  const canvasW = 320, canvasH = Math.ceil(fontSizePx + padding*2);
+  _strikeScanCanvas.width = canvasW*scale;
+  _strikeScanCanvas.height = canvasH*scale;
+  const ctx = _strikeScanCtx;
+  ctx.setTransform(scale,0,0,scale,0,0);
+  ctx.clearRect(0,0,canvasW,canvasH);
+  ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  ctx.fillStyle = '#000';
+  ctx.textBaseline = 'alphabetic';
+  const baselineY = padding + fontSizePx*0.8;
+  ctx.fillText(text, 4, baselineY);
+  let minY=null, maxY=null;
+  const w = canvasW*scale, h = canvasH*scale;
+  const img = ctx.getImageData(0,0,w,h).data;
+  for(let y=0; y<h; y++){
+    const rowStart = y*w*4;
+    for(let x=0;x<w;x++){
+      if(img[rowStart + x*4 + 3] > 20){ if(minY===null) minY=y; maxY=y; break; }
+    }
+  }
+  if(minY===null) return null;
+  return (minY+maxY)/2/scale - baselineY;
+}
 function computeStrikeTop(input, cs){
   const leafName = input.closest('.leaf-name');
   if(!leafName) return null;
-  if(!_strikeCanvasCtx) _strikeCanvasCtx = document.createElement('canvas').getContext('2d');
-  const ctx = _strikeCanvasCtx;
-  ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
   const sample = (input.value && input.value.trim()) ? input.value : (input.placeholder || 'M');
-  const m = ctx.measureText(sample);
-  if(m.actualBoundingBoxAscent == null || m.actualBoundingBoxDescent == null) return null;
+  const inkCenterFromBaseline = pixelScanGlyphCenterFromBaseline(sample, cs);
+  if(inkCenterFromBaseline == null) return null;
   const inputRect = input.getBoundingClientRect();
   const leafRect = leafName.getBoundingClientRect();
   if(!inputRect.height || !leafRect.height) return null;
@@ -1917,11 +1951,32 @@ function computeStrikeTop(input, cs){
   const contentHeight = inputRect.height - paddingTop - paddingBottom;
   const fontSizePx = parseFloat(cs.fontSize)||14;
   const halfLeading = Math.max(0, (contentHeight - fontSizePx) / 2);
-  const ascentMetric = m.fontBoundingBoxAscent != null ? m.fontBoundingBoxAscent : m.actualBoundingBoxAscent;
+  if(!_strikeCanvasCtx) _strikeCanvasCtx = document.createElement('canvas').getContext('2d');
+  _strikeCanvasCtx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const m = _strikeCanvasCtx.measureText(sample);
+  const ascentMetric = m.fontBoundingBoxAscent != null ? m.fontBoundingBoxAscent : fontSizePx*0.8;
   const baselineFromInputTop = paddingTop + halfLeading + ascentMetric;
-  const glyphCenterFromInputTop = baselineFromInputTop - (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+  const glyphCenterFromInputTop = baselineFromInputTop + inkCenterFromBaseline;
   const inputTopFromLeafTop = inputRect.top - leafRect.top;
   return inputTopFromLeafTop + glyphCenterFromInputTop;
+}
+function renderStrikeDebugPanel(){
+  if(!/[?&]strikedebug/.test(location.search)) return;
+  document.getElementById('strikeDebugPanel')?.remove();
+  const panel = document.createElement('div');
+  panel.id = 'strikeDebugPanel';
+  panel.style.cssText = 'position:fixed; top:8px; right:8px; z-index:99999; background:#111; color:#0f0; font:11px/1.4 monospace; padding:10px; max-height:90vh; overflow:auto; max-width:360px; border:1px solid #0f0;';
+  const rows = Array.from(document.querySelectorAll('#view-ledger .lrow.charged .leaf-name input')).slice(0,20);
+  const lines = rows.map(input => {
+    const row = input.closest('.lrow');
+    const cs = getComputedStyle(input);
+    const top = row.style.getPropertyValue('--strike-top');
+    const inputRect = input.getBoundingClientRect();
+    const leafRect = input.closest('.leaf-name').getBoundingClientRect();
+    return `${(input.value||'').slice(0,20).padEnd(20)} top=${top||'(css default)'} inH=${inputRect.height.toFixed(1)} leafH=${leafRect.height.toFixed(1)} font=${cs.fontSize}`;
+  });
+  panel.textContent = 'STRIKE DEBUG (' + rows.length + ' rows)\n' + lines.join('\n');
+  document.body.appendChild(panel);
 }
 function updateStrikeWidth(row){
   const input = row.querySelector('.name-input');
@@ -1936,6 +1991,7 @@ function updateStrikeWidth(row){
 }
 function updateAllStrikeWidths(){
   document.querySelectorAll('#view-ledger .lrow').forEach(updateStrikeWidth);
+  renderStrikeDebugPanel();
 }
 function updateCatNameWidth(input){
   if(!input || input.offsetParent === null) return;
