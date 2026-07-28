@@ -211,6 +211,13 @@ input.name-input:hover, input.name-input:focus{outline:none;}
 .tpl-source-link[data-tip]:hover::before{transform:translate(-50%,0);}
 .up-tx-assign-btn[data-tip]::before, .up-tx-exclude-btn[data-tip]::before{left:50%; right:auto; transform:translate(-50%,-4px);}
 .up-tx-assign-btn[data-tip]:hover::before, .up-tx-exclude-btn[data-tip]:hover::before{transform:translate(-50%,0);}
+/* This button sits right at the edge of the transaction-list modal, so a centered
+   tooltip would overflow past it and get clipped by the list's overflow-x:hidden
+   (needed to stop an unrelated horizontal-scrollbar bug). Anchor it to the button's
+   right edge and grow leftward instead, same fix already used below for
+   .up-tx-income-btn/.up-tx-cover-icon. */
+.tx-view-row-trailing .up-tx-exclude-btn[data-tip]::before{left:auto; right:0; transform:translateY(-4px);}
+.tx-view-row-trailing .up-tx-exclude-btn[data-tip]:hover::before{transform:translateY(0);}
 .tpl-source-link.open{opacity:1; background:var(--gold); color:#fff;}
 #inlinePanelHost{position:fixed; top:0; left:0; width:0; height:0; z-index:250;}
 .inline-source-panel{position:fixed; width:340px; max-width:min(340px, 90vw); background:var(--surface); border:1px solid var(--rule); border-radius:12px; box-shadow:0 16px 40px rgba(0,0,0,.35); padding:14px 16px; animation:popoverIn .16s cubic-bezier(.34,1.56,.64,1);}
