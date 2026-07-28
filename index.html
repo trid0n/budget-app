@@ -272,6 +272,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .group{transition:transform .22s ease;}
 #groupsWrap0.drag-over-col, #groupsWrap1.drag-over-col{background:color-mix(in srgb, var(--gold) 6%, transparent); border-radius:12px;}
 .grow-name .cat-dot{width:9px; height:9px; border-radius:50%; background:var(--cat-color, var(--gold)); flex-shrink:0;}
+.cat-emoji{flex-shrink:0; font-size:.95em; line-height:1;}
 .grow-name .chev{display:flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:6px; color:var(--ink-faint); background:var(--surface); transition:transform .22s ease, background-color .15s, color .15s; flex-shrink:0;}
 .grow:hover .grow-name .chev{background:var(--surface); color:var(--cat-color, var(--gold));}
 .group.collapsed .grow-name .chev{transform:rotate(-90deg);}
@@ -2425,6 +2426,42 @@ function renderInlineSourceTable(source){
   }
   return '';
 }
+// Category names are freeform text, not a fixed set, so emojis are picked by keyword
+// match against the name rather than a lookup table keyed by exact name. Falls back to
+// a generic folder emoji for anything unrecognized. Checked in order, first match wins.
+// Keywords are matched as whole words (not substrings) - short words like "car" or
+// "tax" would otherwise false-positive on "care"/"carpet" or "taxi".
+const CATEGORY_EMOJI_KEYWORDS = [
+  { emoji: '🏠', keywords: ['housing','rent','mortgage','home'] },
+  { emoji: '🍔', keywords: ['food','grocery','groceries','dining','restaurant','eating out','takeaway'] },
+  { emoji: '🚗', keywords: ['transport','transportation','car','fuel','petrol','commute','commuting'] },
+  { emoji: '🛡️', keywords: ['insurance'] },
+  { emoji: '💊', keywords: ['health','medical','doctor','pharmacy'] },
+  { emoji: '📺', keywords: ['subscription','subscriptions','streaming'] },
+  { emoji: '📱', keywords: ['phone','mobile'] },
+  { emoji: '🌐', keywords: ['internet','wifi','broadband'] },
+  { emoji: '⚡', keywords: ['electric','electricity','utility','utilities','power'] },
+  { emoji: '💧', keywords: ['water'] },
+  { emoji: '🎉', keywords: ['entertainment','hobby','hobbies'] },
+  { emoji: '🎓', keywords: ['education','school','tuition','course'] },
+  { emoji: '💅', keywords: ['personal care','beauty','grooming','hair'] },
+  { emoji: '🏋️', keywords: ['gym','fitness'] },
+  { emoji: '🐾', keywords: ['pet','pets','dog','cat'] },
+  { emoji: '👶', keywords: ['kid','kids','child','children','baby'] },
+  { emoji: '🎁', keywords: ['gift','gifts'] },
+  { emoji: '✈️', keywords: ['travel','holiday','vacation'] },
+  { emoji: '🛍️', keywords: ['shopping','clothes','clothing'] },
+  { emoji: '💳', keywords: ['debt','loan','credit card'] },
+  { emoji: '💰', keywords: ['saving','savings','emergency fund','investment','investing'] },
+  { emoji: '🧾', keywords: ['tax','taxes'] },
+];
+function categoryEmoji(name){
+  const lower = (name||'').trim().toLowerCase();
+  if(!lower) return '🗂️';
+  const wordBoundary = (k) => new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(lower);
+  const hit = CATEGORY_EMOJI_KEYWORDS.find(({keywords}) => keywords.some(wordBoundary));
+  return hit ? hit.emoji : '🗂️';
+}
 const CAT_COLORS = ['#3B6FE0','#8B5CF6','#0D9488','#D97706','#DB2777','#4F46E5','#16A34A','#EA580C'];
 function catColor(cat){
   let hash = 0;
@@ -2438,7 +2475,7 @@ function groupHtml(cat){
   return `<div class="group" data-group="${cat.id}" data-col="${cat.col===1?1:0}" style="--cat-color:${color}">
     <div class="grow" data-toggle="${cat.id}" data-drag-cat="${cat.id}">
       <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
-      <div class="grow-name"><span class="chev">${CHEV_SVG}</span><span class="cat-dot"></span><input class="sh-name-input" data-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
+      <div class="grow-name"><span class="chev">${CHEV_SVG}</span><span class="cat-dot"></span><span class="cat-emoji">${categoryEmoji(cat.name)}</span><input class="sh-name-input" data-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
       <div class="gcell" data-role="total">${money(gTotal)}</div>
       <div class="del-cell"><button class="sh-del" data-del-cat="${cat.id}" title="Delete category">${X_SVG}</button></div>
     </div>
@@ -2669,7 +2706,7 @@ function tplGroupHtml(cat, idx){
   return `<div class="group" data-tpl-group="${cat.id}" data-tpl-col="${cat.col===1?1:0}" style="--cat-color:${color}">
     <div class="grow" draggable="true" data-tpl-drag-cat="${cat.id}">
       <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
-      <div class="grow-name"><span class="cat-dot"></span><input class="sh-name-input" data-tpl-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
+      <div class="grow-name"><span class="cat-dot"></span><span class="cat-emoji">${categoryEmoji(cat.name)}</span><input class="sh-name-input" data-tpl-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
       <div class="gcell">${money(total)}</div>
       <div class="del-cell"><button class="tpl-del-cat" data-tpl-del-cat="${cat.id}" title="Delete category">${X_SVG}</button></div>
     </div>
@@ -2851,6 +2888,24 @@ document.getElementById('templateCard').addEventListener('touchcancel', () => {
 });
 document.getElementById('templateCard').addEventListener('input', (e) => {
   const t = e.target;
+  if(t.dataset.tplCatName){
+    // Renaming a template category wasn't actually being saved before - this input
+    // has no data-tpl-item, so it fell through the item-rename branch below and hit
+    // the early return with nothing handling it at all.
+    const cat = monthTemplate.categories.find(c => c.id === t.dataset.tplCatName);
+    if(cat){
+      cat.name = t.value;
+      scheduleTemplateSave();
+      const wrapper = t.closest('.grow-name');
+      if(wrapper){
+        updateNameTooltip(wrapper, t);
+        const emojiEl = wrapper.querySelector('.cat-emoji');
+        if(emojiEl) emojiEl.textContent = categoryEmoji(cat.name);
+      }
+      updateCatNameWidth(t);
+    }
+    return;
+  }
   if(!t.dataset.tplItem) return;
   const list = t.dataset.tplCat==='income' ? monthTemplate.income : (monthTemplate.categories.find(c=>c.id===t.dataset.tplCat)||{}).items;
   const item = list && list.find(i=>i.id===t.dataset.tplItem);
@@ -3132,7 +3187,11 @@ document.getElementById('view-ledger').addEventListener('input', (e) => {
       cat.name = t.value;
       scheduleSave(); refreshInsertDropdowns();
       const wrapper = t.closest('.grow-name');
-      if(wrapper) updateNameTooltip(wrapper, t);
+      if(wrapper){
+        updateNameTooltip(wrapper, t);
+        const emojiEl = wrapper.querySelector('.cat-emoji');
+        if(emojiEl) emojiEl.textContent = categoryEmoji(cat.name);
+      }
       updateCatNameWidth(t);
     }
   }
@@ -4157,7 +4216,7 @@ function renderTxAssignList(filterTerm){
   const matchingIncome = incomeItems.filter(i => !term || i.name.toLowerCase().includes(term) || 'income'.includes(term));
   if(matchingIncome.length > 0){
     anyShown = true;
-    html += `<div class="tx-assign-cat-hdr" data-cat-hdr="income">Income</div>`;
+    html += `<div class="tx-assign-cat-hdr" data-cat-hdr="income">💵 Income</div>`;
     html += matchingIncome.map(i => `<div class="tx-assign-item" data-assign-cat="income" data-assign-item="${i.id}" data-assign-name="${escapeAttr(i.name)}"><span class="tx-assign-item-name">${escapeAttr(i.name)}</span><span class="tx-assign-item-amt">${money(i.amount||0)}</span></div>`).join('');
   }
   monthData.categories.forEach(cat => {
@@ -4165,7 +4224,7 @@ function renderTxAssignList(filterTerm){
     const matching = items.filter(i => !term || i.name.toLowerCase().includes(term) || cat.name.toLowerCase().includes(term));
     if(matching.length === 0) return;
     anyShown = true;
-    html += `<div class="tx-assign-cat-hdr" data-cat-hdr="${cat.id}">${escapeAttr(cat.name)}</div>`;
+    html += `<div class="tx-assign-cat-hdr" data-cat-hdr="${cat.id}">${categoryEmoji(cat.name)} ${escapeAttr(cat.name)}</div>`;
     html += matching.map(i => `<div class="tx-assign-item" data-assign-cat="${cat.id}" data-assign-item="${i.id}" data-assign-name="${escapeAttr(i.name)}"><span class="tx-assign-item-name">${escapeAttr(i.name)}</span><span class="tx-assign-item-amt">${money(i.amount||0)}</span></div>`).join('');
   });
   list.innerHTML = anyShown ? html : '<div class="tx-assign-empty">No matching items.</div>';
@@ -4190,8 +4249,8 @@ function openTxAssignModal(txId, amt, desc, date){
   document.getElementById('txAssignMonthLbl').textContent = monthLabel(settings.currentMonth);
   document.getElementById('txAssignSearch').value = '';
   renderTxAssignList('');
-  const catOptionsByName = [{value:'Income', label:'Income'}, ...monthData.categories.map(c => ({value: c.name, label: c.name}))];
-  const catOptionsById = [{value:'income', label:'Income'}, ...monthData.categories.map(c => ({value: c.id, label: c.name}))];
+  const catOptionsByName = [{value:'Income', label:'💵 Income'}, ...monthData.categories.map(c => ({value: c.name, label: `${categoryEmoji(c.name)} ${c.name}`}))];
+  const catOptionsById = [{value:'income', label:'💵 Income'}, ...monthData.categories.map(c => ({value: c.id, label: `${categoryEmoji(c.name)} ${c.name}`}))];
   populateSimpleSelect('txAssignNewCat', catOptionsById);
   populateSimpleSelect('txAssignAboveCat', catOptionsByName);
   resetSimpleSelect('txAssignNewCat', 'Category');
@@ -4294,7 +4353,7 @@ document.getElementById('txAssignNameSuggestions').addEventListener('click', (e)
     const cat = monthData.categories.find(c => c.name.trim().toLowerCase() === suggestion.categoryName.trim().toLowerCase());
     if(cat){
       document.getElementById('txAssignNewCatWrap').dataset.value = cat.id;
-      document.getElementById('txAssignNewCatBtn').textContent = cat.name;
+      document.getElementById('txAssignNewCatBtn').textContent = `${categoryEmoji(cat.name)} ${cat.name}`;
     }
     container.style.display = 'none'; container.innerHTML = ''; container._suggestions = null;
   }
@@ -4582,7 +4641,7 @@ async function renderBiggestMovers(){
       <div class="mover-arrow ${cls}">${arrow.repeat(ind.arrowCount)}</div>
       <div class="mover-info">
         <div class="mover-name">${escapeAttr(item.name)}</div>
-        <div class="mover-cat">${escapeAttr(cat.name)}</div>
+        <div class="mover-cat">${categoryEmoji(cat.name)} ${escapeAttr(cat.name)}</div>
       </div>
       <div class="mover-figures">
         <div class="mover-pct ${cls}">${ind.isUp?'+':'-'}${Math.abs(ind.pctChange).toFixed(0)}%</div>
@@ -4682,7 +4741,7 @@ async function renderInsights(){
   let html = cards.map(c => `<div class="insight-card"><div class="ins-lbl">${c.lbl}</div><div class="ins-val">${c.val}</div>${c.sub?`<div class="ins-sub">${c.sub}</div>`:''}</div>`).join('');
   if(catAvgs.length){
     html += `<div class="insight-card insight-wide"><div class="ins-lbl">Biggest average categories</div>
-      ${catAvgs.map((c,i)=>`<div class="ins-rank"><span>${i+1}. ${escapeAttr(c.name)}</span><span>${money(c.avg)}/mo</span></div>`).join('')}
+      ${catAvgs.map((c,i)=>`<div class="ins-rank"><span>${i+1}. ${categoryEmoji(c.name)} ${escapeAttr(c.name)}</span><span>${money(c.avg)}/mo</span></div>`).join('')}
     </div>`;
   }
   grid.innerHTML = html;
