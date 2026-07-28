@@ -272,7 +272,12 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .group{transition:transform .22s ease;}
 #groupsWrap0.drag-over-col, #groupsWrap1.drag-over-col{background:color-mix(in srgb, var(--gold) 6%, transparent); border-radius:12px;}
 .grow-name .cat-dot{width:9px; height:9px; border-radius:50%; background:var(--cat-color, var(--gold)); flex-shrink:0;}
-.cat-emoji{flex-shrink:0; font-size:.95em; line-height:1;}
+.cat-emoji{flex-shrink:0; font-size:.95em; line-height:1; cursor:pointer; border-radius:5px; padding:2px; transition:background-color .12s;}
+.cat-emoji:hover{background:var(--paper-dim);}
+.cat-emoji-picker{position:fixed; z-index:200; background:var(--surface); border:1px solid var(--rule); border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,.3); padding:8px; display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; max-width:220px;}
+.cat-emoji-opt{font-size:1.1rem; line-height:1; padding:6px; border:none; background:none; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+.cat-emoji-opt:hover{background:var(--paper-dim);}
+.cat-emoji-opt.cat-emoji-none{grid-column:1 / -1; font-size:.78rem; font-weight:600; color:var(--ink-soft); font-family:'Inter',sans-serif;}
 .grow-name .chev{display:flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:6px; color:var(--ink-faint); background:var(--surface); transition:transform .22s ease, background-color .15s, color .15s; flex-shrink:0;}
 .grow:hover .grow-name .chev{background:var(--surface); color:var(--cat-color, var(--gold));}
 .group.collapsed .grow-name .chev{transform:rotate(-90deg);}
@@ -1659,7 +1664,7 @@ function blankMonth(){
 function duplicateMonth(src){
   return {
     income: src.income.map(i => ({id:uid(), name:i.name, amount:i.amount, charged:false})),
-    categories: src.categories.map(c => ({id:uid(), name:c.name, items:c.items.map(i=>({id:uid(), name:i.name, amount:i.amount, planned:i.amount, charged:false}))})),
+    categories: src.categories.map(c => ({id:uid(), name:c.name, ...(c.emoji!=null?{emoji:c.emoji}:{}), items:c.items.map(i=>({id:uid(), name:i.name, amount:i.amount, planned:i.amount, charged:false}))})),
     notes:'', goal: Number(src.goal)||0
   };
 }
@@ -2432,6 +2437,7 @@ function renderInlineSourceTable(source){
 // Keywords are matched as whole words (not substrings) - short words like "car" or
 // "tax" would otherwise false-positive on "care"/"carpet" or "taxi".
 const CATEGORY_EMOJI_KEYWORDS = [
+  { emoji: '💵', keywords: ['income'] },
   { emoji: '🏠', keywords: ['housing','rent','mortgage','home'] },
   { emoji: '🍔', keywords: ['food','grocery','groceries','dining','restaurant','eating out','takeaway'] },
   { emoji: '🚗', keywords: ['transport','transportation','car','fuel','petrol','commute','commuting'] },
@@ -2462,6 +2468,62 @@ function categoryEmoji(name){
   const hit = CATEGORY_EMOJI_KEYWORDS.find(({keywords}) => keywords.some(wordBoundary));
   return hit ? hit.emoji : '🗂️';
 }
+// cat.emoji is undefined until the user manually picks (auto-derived shown instead) -
+// '' specifically means "explicitly chose no emoji", distinct from "never touched".
+function getCategoryEmoji(cat){
+  if(!cat) return '';
+  return cat.emoji != null ? cat.emoji : categoryEmoji(cat.name);
+}
+const CATEGORY_EMOJI_CHOICES = [...new Set(CATEGORY_EMOJI_KEYWORDS.map(k => k.emoji)), '🗂️'];
+function closeCatEmojiPicker(){
+  document.getElementById('catEmojiPicker')?.remove();
+}
+function openCatEmojiPicker(anchorEl, catId, isTemplate){
+  closeCatEmojiPicker();
+  const panel = document.createElement('div');
+  panel.id = 'catEmojiPicker';
+  panel.className = 'cat-emoji-picker';
+  panel.dataset.catId = catId;
+  panel.dataset.isTemplate = isTemplate ? '1' : '0';
+  panel.innerHTML = `<button type="button" class="cat-emoji-opt cat-emoji-none" data-emoji-choice="">None</button>${CATEGORY_EMOJI_CHOICES.map(em => `<button type="button" class="cat-emoji-opt" data-emoji-choice="${em}">${em}</button>`).join('')}`;
+  document.body.appendChild(panel);
+  const rect = anchorEl.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  let left = rect.left;
+  if(left + panelRect.width > window.innerWidth - 8) left = window.innerWidth - panelRect.width - 8;
+  panel.style.top = (rect.bottom + 4) + 'px';
+  panel.style.left = Math.max(8, left) + 'px';
+}
+document.addEventListener('click', (e) => {
+  const trigger = e.target.closest('[data-cat-emoji-picker], [data-tpl-emoji-picker]');
+  if(trigger){
+    e.stopPropagation();
+    const existing = document.getElementById('catEmojiPicker');
+    const isTemplate = trigger.hasAttribute('data-tpl-emoji-picker');
+    const catId = isTemplate ? trigger.dataset.tplEmojiPicker : trigger.dataset.catEmojiPicker;
+    if(existing && existing.dataset.catId === catId){ closeCatEmojiPicker(); return; }
+    openCatEmojiPicker(trigger, catId, isTemplate);
+    return;
+  }
+  const choiceBtn = e.target.closest('.cat-emoji-opt');
+  if(choiceBtn){
+    const panel = choiceBtn.closest('#catEmojiPicker');
+    const catId = panel.dataset.catId;
+    const isTemplate = panel.dataset.isTemplate === '1';
+    const list = isTemplate ? monthTemplate?.categories : monthData?.categories;
+    const cat = list && list.find(c => c.id === catId);
+    if(cat){
+      cat.emoji = choiceBtn.dataset.emojiChoice;
+      const wrapper = document.querySelector(isTemplate ? `[data-tpl-group="${catId}"] .grow-name` : `[data-group="${catId}"] .grow-name`);
+      const emojiEl = wrapper && wrapper.querySelector('.cat-emoji');
+      if(emojiEl) emojiEl.textContent = getCategoryEmoji(cat);
+      if(isTemplate) scheduleTemplateSave(); else scheduleSave();
+    }
+    closeCatEmojiPicker();
+    return;
+  }
+  if(!e.target.closest('#catEmojiPicker')) closeCatEmojiPicker();
+});
 const CAT_COLORS = ['#3B6FE0','#8B5CF6','#0D9488','#D97706','#DB2777','#4F46E5','#16A34A','#EA580C'];
 function catColor(cat){
   let hash = 0;
@@ -2475,7 +2537,7 @@ function groupHtml(cat){
   return `<div class="group" data-group="${cat.id}" data-col="${cat.col===1?1:0}" style="--cat-color:${color}">
     <div class="grow" data-toggle="${cat.id}" data-drag-cat="${cat.id}">
       <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
-      <div class="grow-name"><span class="chev">${CHEV_SVG}</span><span class="cat-dot"></span><span class="cat-emoji">${categoryEmoji(cat.name)}</span><input class="sh-name-input" data-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
+      <div class="grow-name"><span class="chev">${CHEV_SVG}</span><span class="cat-dot"></span><span class="cat-emoji" data-cat-emoji-picker="${cat.id}" title="Change emoji">${getCategoryEmoji(cat)}</span><input class="sh-name-input" data-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
       <div class="gcell" data-role="total">${money(gTotal)}</div>
       <div class="del-cell"><button class="sh-del" data-del-cat="${cat.id}" title="Delete category">${X_SVG}</button></div>
     </div>
@@ -2588,7 +2650,7 @@ document.getElementById('pickerNextYear').addEventListener('click', () => {
 function buildFromTemplate(){
   return {
     income: monthTemplate.income.map(i => ({id:uid(), name:i.name, amount:i.amount, charged:false})),
-    categories: monthTemplate.categories.map(c => ({id:uid(), name:c.name, col:c.col, items:c.items.map(i=>({id:uid(), name:i.name, amount:i.amount, planned:i.amount, charged:false}))})),
+    categories: monthTemplate.categories.map(c => ({id:uid(), name:c.name, col:c.col, ...(c.emoji!=null?{emoji:c.emoji}:{}), items:c.items.map(i=>({id:uid(), name:i.name, amount:i.amount, planned:i.amount, charged:false}))})),
     notes:'', goal: Number(monthTemplate.goal)||0
   };
 }
@@ -2706,7 +2768,7 @@ function tplGroupHtml(cat, idx){
   return `<div class="group" data-tpl-group="${cat.id}" data-tpl-col="${cat.col===1?1:0}" style="--cat-color:${color}">
     <div class="grow" draggable="true" data-tpl-drag-cat="${cat.id}">
       <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
-      <div class="grow-name"><span class="cat-dot"></span><span class="cat-emoji">${categoryEmoji(cat.name)}</span><input class="sh-name-input" data-tpl-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
+      <div class="grow-name"><span class="cat-dot"></span><span class="cat-emoji" data-tpl-emoji-picker="${cat.id}" title="Change emoji">${getCategoryEmoji(cat)}</span><input class="sh-name-input" data-tpl-cat-name="${cat.id}" value="${escapeAttr(cat.name)}"></div>
       <div class="gcell">${money(total)}</div>
       <div class="del-cell"><button class="tpl-del-cat" data-tpl-del-cat="${cat.id}" title="Delete category">${X_SVG}</button></div>
     </div>
@@ -2900,7 +2962,7 @@ document.getElementById('templateCard').addEventListener('input', (e) => {
       if(wrapper){
         updateNameTooltip(wrapper, t);
         const emojiEl = wrapper.querySelector('.cat-emoji');
-        if(emojiEl) emojiEl.textContent = categoryEmoji(cat.name);
+        if(emojiEl) emojiEl.textContent = getCategoryEmoji(cat);
       }
       updateCatNameWidth(t);
     }
@@ -3190,7 +3252,7 @@ document.getElementById('view-ledger').addEventListener('input', (e) => {
       if(wrapper){
         updateNameTooltip(wrapper, t);
         const emojiEl = wrapper.querySelector('.cat-emoji');
-        if(emojiEl) emojiEl.textContent = categoryEmoji(cat.name);
+        if(emojiEl) emojiEl.textContent = getCategoryEmoji(cat);
       }
       updateCatNameWidth(t);
     }
@@ -3514,7 +3576,7 @@ document.getElementById('view-ledger').addEventListener('click', async (e) => {
     return;
   }
   const toggle = e.target.closest('[data-toggle]');
-  if(toggle && !e.target.closest('.sh-name-input') && !e.target.closest('.sh-del')){
+  if(toggle && !e.target.closest('.sh-name-input') && !e.target.closest('.sh-del') && !e.target.closest('.cat-emoji')){
     toggle.closest('.group').classList.toggle('collapsed');
     return;
   }
@@ -3571,7 +3633,7 @@ document.getElementById('useAsTemplateBtn').addEventListener('click', async () =
   if(!await customConfirm('This replaces your current template with this month\u2019s categories, items, and goal. Continue?')) return;
   monthTemplate = {
     income: monthData.income.map(i => ({id:uid(), name:i.name, amount:i.amount})),
-    categories: monthData.categories.map(c => ({id:uid(), name:c.name, items:c.items.map(i=>({id:uid(), name:i.name, amount:i.amount}))})),
+    categories: monthData.categories.map(c => ({id:uid(), name:c.name, ...(c.emoji!=null?{emoji:c.emoji}:{}), items:c.items.map(i=>({id:uid(), name:i.name, amount:i.amount}))})),
     goal: Number(monthData.goal)||0
   };
   try{
@@ -4044,7 +4106,12 @@ function renderUpTxList(){
     if(assignment && assignment.excluded){
       assignBtn = `<button class="up-tx-assign-btn excluded" data-tx-unexclude="${t.id}" data-tip="Excluded from budget categories. Click to undo.">Excluded</button>`;
     } else if(assignment && assignment.catId){
-      assignBtn = `<button class="up-tx-assign-btn assigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-tip="${escapeAttr(assignment.itemName)}">\u2713 <span class="up-tx-assign-btn-text">${escapeAttr(assignment.itemName)}</span></button>`;
+      // findCatById looks at the currently-open month, which may not be the month this
+      // transaction was actually assigned in (or the category could've since been
+      // deleted) - fall back to deriving from the saved category name in that case.
+      const assignedCat = findCatById(assignment.catId);
+      const catEmoji = assignedCat ? getCategoryEmoji(assignedCat) : categoryEmoji(assignment.categoryName);
+      assignBtn = `<button class="up-tx-assign-btn assigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-tip="${escapeAttr(assignment.itemName)}">\u2713 ${catEmoji} <span class="up-tx-assign-btn-text">${escapeAttr(assignment.itemName)}</span></button>`;
     } else {
       const guess = findGuessForTx(t.attributes.description, amt, t);
       if(guess){
@@ -4224,7 +4291,7 @@ function renderTxAssignList(filterTerm){
     const matching = items.filter(i => !term || i.name.toLowerCase().includes(term) || cat.name.toLowerCase().includes(term));
     if(matching.length === 0) return;
     anyShown = true;
-    html += `<div class="tx-assign-cat-hdr" data-cat-hdr="${cat.id}">${categoryEmoji(cat.name)} ${escapeAttr(cat.name)}</div>`;
+    html += `<div class="tx-assign-cat-hdr" data-cat-hdr="${cat.id}">${getCategoryEmoji(cat)} ${escapeAttr(cat.name)}</div>`;
     html += matching.map(i => `<div class="tx-assign-item" data-assign-cat="${cat.id}" data-assign-item="${i.id}" data-assign-name="${escapeAttr(i.name)}"><span class="tx-assign-item-name">${escapeAttr(i.name)}</span><span class="tx-assign-item-amt">${money(i.amount||0)}</span></div>`).join('');
   });
   list.innerHTML = anyShown ? html : '<div class="tx-assign-empty">No matching items.</div>';
@@ -4249,8 +4316,8 @@ function openTxAssignModal(txId, amt, desc, date){
   document.getElementById('txAssignMonthLbl').textContent = monthLabel(settings.currentMonth);
   document.getElementById('txAssignSearch').value = '';
   renderTxAssignList('');
-  const catOptionsByName = [{value:'Income', label:'💵 Income'}, ...monthData.categories.map(c => ({value: c.name, label: `${categoryEmoji(c.name)} ${c.name}`}))];
-  const catOptionsById = [{value:'income', label:'💵 Income'}, ...monthData.categories.map(c => ({value: c.id, label: `${categoryEmoji(c.name)} ${c.name}`}))];
+  const catOptionsByName = [{value:'Income', label:'💵 Income'}, ...monthData.categories.map(c => ({value: c.name, label: `${getCategoryEmoji(c)} ${c.name}`}))];
+  const catOptionsById = [{value:'income', label:'💵 Income'}, ...monthData.categories.map(c => ({value: c.id, label: `${getCategoryEmoji(c)} ${c.name}`}))];
   populateSimpleSelect('txAssignNewCat', catOptionsById);
   populateSimpleSelect('txAssignAboveCat', catOptionsByName);
   resetSimpleSelect('txAssignNewCat', 'Category');
@@ -4353,7 +4420,7 @@ document.getElementById('txAssignNameSuggestions').addEventListener('click', (e)
     const cat = monthData.categories.find(c => c.name.trim().toLowerCase() === suggestion.categoryName.trim().toLowerCase());
     if(cat){
       document.getElementById('txAssignNewCatWrap').dataset.value = cat.id;
-      document.getElementById('txAssignNewCatBtn').textContent = `${categoryEmoji(cat.name)} ${cat.name}`;
+      document.getElementById('txAssignNewCatBtn').textContent = `${getCategoryEmoji(cat)} ${cat.name}`;
     }
     container.style.display = 'none'; container.innerHTML = ''; container._suggestions = null;
   }
@@ -4641,7 +4708,7 @@ async function renderBiggestMovers(){
       <div class="mover-arrow ${cls}">${arrow.repeat(ind.arrowCount)}</div>
       <div class="mover-info">
         <div class="mover-name">${escapeAttr(item.name)}</div>
-        <div class="mover-cat">${categoryEmoji(cat.name)} ${escapeAttr(cat.name)}</div>
+        <div class="mover-cat">${getCategoryEmoji(cat)} ${escapeAttr(cat.name)}</div>
       </div>
       <div class="mover-figures">
         <div class="mover-pct ${cls}">${ind.isUp?'+':'-'}${Math.abs(ind.pctChange).toFixed(0)}%</div>
