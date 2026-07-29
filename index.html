@@ -3760,7 +3760,7 @@ document.getElementById('view-ledger').addEventListener('click', async (e) => {
     return;
   }
   const leafRow = e.target.closest('.lrow');
-  if(leafRow && leafRow.dataset.cat && leafRow.dataset.item && !e.target.closest('.name-input') && !e.target.closest('.amt-input') && !e.target.closest('.item-del') && !e.target.closest('.tpl-source-link')){
+  if(leafRow && leafRow.dataset.cat && leafRow.dataset.item && !e.target.closest('.name-input') && !e.target.closest('.amt-input') && !e.target.closest('.item-del') && !e.target.closest('.tpl-source-link') && !e.target.closest('.tx-link-badge')){
     toggleItemCharged(leafRow.dataset.cat, leafRow.dataset.item, leafRow);
     return;
   }
