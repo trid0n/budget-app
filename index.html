@@ -198,6 +198,7 @@ input.name-input:hover, input.name-input:focus{outline:none;}
 .price-change-ind{display:flex; flex-direction:column; align-items:center; gap:2px; cursor:default; font-weight:700; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:4; pointer-events:auto;}
 .tx-link-badge{position:absolute; right:135px; top:50%; transform:translateY(-50%); z-index:4; display:flex; align-items:center; color:var(--ink-faint); background:none; border:none; padding:2px; cursor:pointer; opacity:.6; transition:opacity .15s, color .15s;}
 .tx-link-badge:hover{opacity:1; color:var(--gold);}
+.tx-link-badge.open{opacity:1; color:var(--gold);}
 .tx-link-badge.tx-link-badge-inline{position:static; transform:none; flex-shrink:0;}
 .tx-link-badge[data-tip]::before{left:50%; right:auto; transform:translate(-50%,-4px);}
 .tx-link-badge[data-tip]:hover::before{transform:translate(-50%,0);}
@@ -568,7 +569,6 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-tx-exclude-btn:hover{border-color:var(--debit); color:var(--debit);}
 .up-tx-assign-btn.guess:hover{background:var(--gold); color:#fff; border-color:var(--gold);}
 .tx-assign-box{max-width:520px; width:92%; display:flex; flex-direction:column; gap:12px;}
-.tx-view-box{max-width:420px; width:92%; display:flex; flex-direction:column; gap:12px;}
 .tx-view-list{max-height:300px; overflow-y:auto; overflow-x:hidden; border:1px solid var(--rule); border-radius:10px; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
 .tx-view-row{display:flex; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid var(--rule); font-size:.85rem; transition:background-color .12s;}
 .tx-view-row:hover{background:var(--paper-dim);}
@@ -1154,16 +1154,6 @@ input[type=file]{display:none;}
     <div class="modal-actions">
       <button type="button" class="tx-assign-exclude-link" id="txAssignExcludeBtn">Exclude this transaction instead</button>
       <button class="mini-btn" id="txAssignCancel">Cancel</button>
-    </div>
-  </div>
-</div>
-<div class="modal-overlay" id="txViewOverlay">
-  <div class="modal-box tx-view-box">
-    <div class="tx-assign-hdr">Transactions for <span id="txViewItemName"></span></div>
-    <div class="tx-assign-sub" id="txViewTotalSub"></div>
-    <div class="tx-view-list" id="txViewList"></div>
-    <div class="modal-actions">
-      <button class="mini-btn" id="txViewCloseBtn">Close</button>
     </div>
   </div>
 </div>
@@ -2252,10 +2242,30 @@ function jumpToRecordCard(source){
 const CHEV_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
 const GRIP_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.6"/><circle cx="16" cy="6" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="18" r="1.6"/></svg>';
 let expandedInlineSources = new Set();
+// Same floating-panel mechanism as the Groceries/Tech/etc. source panels below, but for
+// an item's linked Up Bank transactions - keyed by "catId:itemId" since transactions
+// aren't tied to item name matching the way tplSourceFor's sources are, so a panel here
+// can be open independently of (or alongside) a source panel on the same row.
+let expandedTxPanels = new Set();
+function renderTxPanelHtml(catId, itemId){
+  const cat = findCatById(catId);
+  const item = cat && cat.items.find(i=>i.id===itemId);
+  if(!item) return '';
+  const txs = getTxsForItem(catId, itemId);
+  const total = txs.reduce((s,t)=>s+(Number(t.amt)||0),0);
+  const rows = txs.map(t => {
+    const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-AU', {day:'numeric', month:'short'}) : '';
+    return `<div class="tx-view-row"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div><button class="up-tx-exclude-btn" data-tx-unassign-view="${t.txId}" data-tip="Unassign this transaction">×</button></div></div>`;
+  }).join('') || '<div class="tx-assign-empty">No transactions linked yet.</div>';
+  return `<div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(item.name)}"</span></div>
+    <div class="tx-assign-sub">${txs.length} transaction${txs.length!==1?'s':''} — <span class="tx-view-sub-total">${money(total)} total</span></div>
+    <div class="tx-view-list">${rows}</div>`;
+}
 function renderOpenInlinePanels(){
   const host = document.getElementById('inlinePanelHost');
   [...host.children].forEach(panel => {
-    if(!expandedInlineSources.has(panel.dataset.inlinePanelFor)) panel.remove();
+    if(panel.dataset.inlinePanelFor && !expandedInlineSources.has(panel.dataset.inlinePanelFor)) panel.remove();
+    else if(panel.dataset.txPanelFor && !expandedTxPanels.has(panel.dataset.txPanelFor)) panel.remove();
   });
   expandedInlineSources.forEach(id => {
     let row = document.querySelector(`.lrow.leaf[data-item="${id}"]`);
@@ -2275,6 +2285,23 @@ function renderOpenInlinePanels(){
       row = document.querySelector(`.lrow.leaf[data-item="${id}"]`);
       if(!row) return;
     }
+    positionOneInlinePanel(row, panel);
+  });
+  expandedTxPanels.forEach(key => {
+    const [catId, itemId] = key.split(':');
+    const row = document.querySelector(`.lrow.leaf[data-item="${itemId}"]`);
+    if(!row) return;
+    let panel = host.querySelector(`[data-tx-panel-for="${key}"]`);
+    if(!panel){
+      panel = document.createElement('div');
+      panel.className = 'inline-source-panel';
+      panel.dataset.txPanelFor = key;
+      host.appendChild(panel);
+    }
+    // Rebuilt on every pass (not just creation) so unassigning a transaction, or the
+    // month changing underneath it, keeps the panel's contents in sync without a
+    // separate refresh path.
+    panel.innerHTML = renderTxPanelHtml(catId, itemId);
     positionOneInlinePanel(row, panel);
   });
 }
@@ -2298,23 +2325,26 @@ function positionOneInlinePanel(row, panel){
 }
 function repositionAllInlinePanels(){
   document.querySelectorAll('#inlinePanelHost .inline-source-panel').forEach(panel => {
-    const id = panel.dataset.inlinePanelFor;
-    const row = document.querySelector(`.lrow.leaf[data-item="${id}"]`);
+    const itemId = panel.dataset.inlinePanelFor || (panel.dataset.txPanelFor ? panel.dataset.txPanelFor.split(':')[1] : null);
+    if(!itemId) return;
+    const row = document.querySelector(`.lrow.leaf[data-item="${itemId}"]`);
     if(row) positionOneInlinePanel(row, panel);
   });
 }
-window.addEventListener('scroll', () => { if(expandedInlineSources.size) repositionAllInlinePanels(); }, true);
-window.addEventListener('resize', () => { if(expandedInlineSources.size) repositionAllInlinePanels(); });
+function anyInlinePanelsOpen(){ return expandedInlineSources.size > 0 || expandedTxPanels.size > 0; }
+window.addEventListener('scroll', () => { if(anyInlinePanelsOpen()) repositionAllInlinePanels(); }, true);
+window.addEventListener('resize', () => { if(anyInlinePanelsOpen()) repositionAllInlinePanels(); });
 (function inlinePanelPositionLoop(){
-  if(expandedInlineSources.size) repositionAllInlinePanels();
+  if(anyInlinePanelsOpen()) repositionAllInlinePanels();
   requestAnimationFrame(inlinePanelPositionLoop);
 })();
 document.addEventListener('click', (e) => {
-  if(expandedInlineSources.size === 0) return;
+  if(!anyInlinePanelsOpen()) return;
   const path = e.composedPath ? e.composedPath() : [];
-  const insideHostOrToggle = path.some(el => el.id === 'inlinePanelHost' || (el.matches && el.matches('[data-inline-toggle]')));
+  const insideHostOrToggle = path.some(el => el.id === 'inlinePanelHost' || (el.matches && el.matches('[data-inline-toggle], [data-tx-view-item]')));
   if(insideHostOrToggle) return;
   expandedInlineSources.clear();
+  expandedTxPanels.clear();
   renderOpenInlinePanels();
 });
 const INLINE_CAPABLE = ['grocery','monthlycost','ballet','tech'];
@@ -2403,7 +2433,8 @@ function leafRowHtml(catId, item){
     : `<button class="tpl-source-link" data-jump-source="${source}" data-tip="Open the ${sourceLabel} table">${LINK_SVG}</button>`
   ) : '';
   const linkedTxCount = getTxsForItem(catId, item.id).length;
-  const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge" data-tx-view-item="${item.id}" data-tx-view-cat="${catId}" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked \u2014 click to view"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></button>` : '';
+  const txPanelOpen = expandedTxPanels.has(`${catId}:${item.id}`);
+  const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}" data-tx-view-item="${item.id}" data-tx-view-cat="${catId}" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></button>` : '';
   return `<div class="lrow leaf ${charged?'charged':''}" data-leaf-row="${item.id}" data-cat="${catId}" data-item="${item.id}">
     <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
     ${priceChangeHtml(item)}
@@ -2730,7 +2761,7 @@ function renderGroups(){
   cats.forEach(cat => { cols[cat.col === 1 ? 1 : 0].push(cat); });
   document.getElementById('groupsWrap0').innerHTML = cols[0].map(groupHtml).join('') || '<div style="padding:20px;color:var(--ink-faint);font-size:.85rem;" data-drop-empty="0">No categories</div>';
   document.getElementById('groupsWrap1').innerHTML = cols[1].map(groupHtml).join('') || '<div style="padding:20px;color:var(--ink-faint);font-size:.85rem;" data-drop-empty="1"></div>';
-  if(expandedInlineSources.size) renderOpenInlinePanels();
+  if(anyInlinePanelsOpen()) renderOpenInlinePanels();
   updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths();
 }
 function renderLedger(){
@@ -3683,12 +3714,6 @@ document.getElementById('view-ledger').addEventListener('click', async (e) => {
     renderOpenInlinePanels();
     return;
   }
-  const inlineAddGrocery = e.target.closest('[data-inline-add-grocery]');
-  if(inlineAddGrocery){ addGroceryRow(); return; }
-  const inlineAddMc = e.target.closest('[data-inline-add-mc]');
-  if(inlineAddMc){ addMonthlyCostRow(); return; }
-  const inlineAddTech = e.target.closest('[data-inline-add-tech]');
-  if(inlineAddTech){ addTechRow(); return; }
   const jumpBtn = e.target.closest('[data-jump-source]');
   if(jumpBtn){ jumpToRecordCard(jumpBtn.dataset.jumpSource); return; }
   const uncrossBtn = e.target.closest('#uncrossAllBtn');
@@ -4600,37 +4625,17 @@ document.getElementById('txAssignNewBtn').addEventListener('click', () => {
   closeTxAssignModal();
 });
 document.getElementById('txAssignCancel').addEventListener('click', closeTxAssignModal);
-let txViewCurrent = null;
-function openTxViewModal(catId, itemId){
-  const cat = findCatById(catId);
-  const item = cat && cat.items.find(i=>i.id===itemId);
-  if(!item) return;
-  txViewCurrent = {catId, itemId};
-  const txs = getTxsForItem(catId, itemId);
-  document.getElementById('txViewItemName').textContent = `"${item.name}"`;
-  const total = txs.reduce((s,t)=>s+(Number(t.amt)||0),0);
-  document.getElementById('txViewTotalSub').innerHTML = `${txs.length} transaction${txs.length!==1?'s':''} \u2014 <span class="tx-view-sub-total">${money(total)} total</span>`;
-  document.getElementById('txViewList').innerHTML = txs.map(t => {
-    const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-AU', {day:'numeric', month:'short'}) : '';
-    return `<div class="tx-view-row"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div><button class="up-tx-exclude-btn" data-tx-unassign-view="${t.txId}" data-tip="Unassign this transaction">\u00d7</button></div></div>`;
-  }).join('') || '<div class="tx-assign-empty">No transactions linked yet.</div>';
-  document.getElementById('txViewOverlay').classList.add('show');
-}
-document.getElementById('txViewList').addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-tx-unassign-view]');
-  if(!btn || !txViewCurrent || !monthData) return;
-  const txId = btn.dataset.txUnassignView;
-  pushUndo('month', monthData, {monthKey: settings.currentMonth});
-  reverseTxAssignmentIfSameMonth(txId);
-  txAssignments[txId] = {monthKey: settings.currentMonth, unassignedManually: true};
-  saveTxAssignments();
-  scheduleSave();
-  renderGroups(); updateSummary(); renderUpTxList();
-  openTxViewModal(txViewCurrent.catId, txViewCurrent.itemId);
-});
 document.getElementById('view-ledger').addEventListener('click', (e) => {
   const badge = e.target.closest('[data-tx-view-item]');
-  if(badge){ openTxViewModal(badge.dataset.txViewCat, badge.dataset.txViewItem); return; }
+  if(badge){
+    const key = `${badge.dataset.txViewCat}:${badge.dataset.txViewItem}`;
+    const nowOpen = !expandedTxPanels.has(key);
+    if(nowOpen) expandedTxPanels.add(key); else expandedTxPanels.delete(key);
+    badge.classList.toggle('open', nowOpen);
+    badge.dataset.tip = `${badge.dataset.tip.replace(/click to (view|hide)$/, '')}click to ${nowOpen?'hide':'view'}`;
+    renderOpenInlinePanels();
+    return;
+  }
   const incomeToggle = e.target.closest('[data-income-tx-toggle]');
   if(incomeToggle){
     const id = incomeToggle.dataset.incomeTxToggle;
@@ -4638,8 +4643,28 @@ document.getElementById('view-ledger').addEventListener('click', (e) => {
     renderIncome();
   }
 });
-document.getElementById('txViewCloseBtn').addEventListener('click', () => document.getElementById('txViewOverlay').classList.remove('show'));
-document.getElementById('txViewOverlay').addEventListener('click', (e) => { if(e.target.id === 'txViewOverlay') document.getElementById('txViewOverlay').classList.remove('show'); });
+// Content rendered inside #inlinePanelHost's floating panels (transactions, and the
+// Groceries/Tech/Monthly-costs "+ Add item" buttons) isn't a descendant of
+// #view-ledger - it's a sibling, positioned to LOOK anchored to a row via JS. A click
+// listener on #view-ledger can never see these clicks, so it has to be document-level,
+// same as the rest of that content's row-edit/delete handlers already are.
+document.body.addEventListener('click', (e) => {
+  const unassignBtn = e.target.closest('[data-tx-unassign-view]');
+  if(unassignBtn){
+    if(!monthData) return;
+    const txId = unassignBtn.dataset.txUnassignView;
+    pushUndo('month', monthData, {monthKey: settings.currentMonth});
+    reverseTxAssignmentIfSameMonth(txId);
+    txAssignments[txId] = {monthKey: settings.currentMonth, unassignedManually: true};
+    saveTxAssignments();
+    scheduleSave();
+    renderGroups(); updateSummary(); renderUpTxList();
+    return;
+  }
+  if(e.target.closest('[data-inline-add-grocery]')){ addGroceryRow(); return; }
+  if(e.target.closest('[data-inline-add-mc]')){ addMonthlyCostRow(); return; }
+  if(e.target.closest('[data-inline-add-tech]')){ addTechRow(); return; }
+});
 document.getElementById('txAssignExcludeBtn').addEventListener('click', () => {
   if(!txAssignCurrent) return;
   const txId = txAssignCurrent.id;
