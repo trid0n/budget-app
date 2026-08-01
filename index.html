@@ -341,8 +341,9 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .balance-bar-amt{font-size:1.5rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums;}
 .balance-bar-sub{font-size:.74rem; color:var(--ink-faint); margin-top:2px;}
 .balance-bar-right{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
-.month-actions-panel{display:flex; align-items:center; gap:10px; max-width:0; opacity:0; overflow:hidden; white-space:nowrap; padding-left:8px; transition:max-width .32s ease, opacity .22s ease;}
+.month-actions-panel{display:flex; align-items:center; flex-wrap:wrap; gap:10px; max-width:0; opacity:0; overflow:hidden; padding-left:8px; transition:max-width .32s ease, opacity .22s ease;}
 .month-actions-panel.open{max-width:900px; opacity:1;}
+.period-mode-group{display:flex; align-items:center; gap:6px; flex-shrink:0;}
 .month-actions-gear{flex-shrink:0;}
 .month-actions-gear .btn-ic{display:inline-flex; transition:transform .3s ease;}
 .month-actions-gear.open .btn-ic{transform:rotate(75deg);}
@@ -839,6 +840,10 @@ input[type=file]{display:none;}
               <button class="chip-btn chip-teal" id="restoreTemplateOrderBtn"><span class="chip-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20V4M8 4 4 8M8 4l4 4"/><path d="M16 4v16m0 0 4-4m-4 4-4-4"/></svg></span>Restore template order</button>
               <button class="chip-btn chip-green" id="restoreFromTemplateBtn"><span class="chip-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 8 16 8"/></svg></span>Restore this month to template</button>
               <button class="chip-btn chip-red" id="clearMonthBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>Clear this month's data</button>
+              <div class="period-mode-group" id="periodModeGroup" data-tip="Calendar month resets on the 1st. Pay cycle rolls the current month over as soon as your linked Up Bank income lands, even mid-month.">
+                <button class="timeframe-btn period-mode-btn" data-period-mode="calendar">Calendar month</button>
+                <button class="timeframe-btn period-mode-btn" data-period-mode="paycycle">Pay cycle</button>
+              </div>
             </div>
             <button class="mini-btn month-actions-gear" id="monthActionsToggle" title="Month actions"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
           </div>
@@ -1463,7 +1468,11 @@ function toast(msg){
 
 /* ===================== state ===================== */
 const DEFAULT_MONTH = dateToKey(new Date());
-let settings = { currentMonth: DEFAULT_MONTH, theme: 'light', lastGoal: 0, balanceMode: 'live', manualBalance: 0 };
+let settings = { currentMonth: DEFAULT_MONTH, theme: 'light', lastGoal: 0, balanceMode: 'live', manualBalance: 0, periodMode: 'calendar' };
+// The calendar-month key "today" belongs to for budgeting purposes. Equal to the real
+// calendar month unless periodMode is 'paycycle', in which case it's the month after
+// the most recent detected payday - see recomputeEffectivePeriod().
+let todaysEffectiveMonthKey = DEFAULT_MONTH;
 let existingMonths = [];
 let monthData = null;
 let saveTimer = null;
@@ -1713,7 +1722,7 @@ function setSyncStatus(text, isErr){
   if(t) t.textContent = text;
   if(s) s.classList.toggle('err', !!isErr);
 }
-async function saveSettings(){ try{ await db.saveSettings({ current_month: settings.currentMonth, theme: settings.theme, last_goal: settings.lastGoal, balance_mode: settings.balanceMode, manual_balance: settings.manualBalance }); }catch(e){} }
+async function saveSettings(){ try{ await db.saveSettings({ current_month: settings.currentMonth, theme: settings.theme, last_goal: settings.lastGoal, balance_mode: settings.balanceMode, manual_balance: settings.manualBalance, period_mode: settings.periodMode }); }catch(e){} }
 async function saveCurrentMonth(){
   if(!monthData) return;
   setSyncStatus('Saving…');
@@ -1792,7 +1801,7 @@ async function loadEverything(){
     db.loadPriceChangeNotes().catch(() => ({}))
   ]);
   if(settingsRow){
-    settings = { currentMonth: settingsRow.current_month || settings.currentMonth, theme: settingsRow.theme || 'light', lastGoal: Number(settingsRow.last_goal)||0, balanceMode: settingsRow.balance_mode || 'live', manualBalance: Number(settingsRow.manual_balance)||0 };
+    settings = { currentMonth: settingsRow.current_month || settings.currentMonth, theme: settingsRow.theme || 'light', lastGoal: Number(settingsRow.last_goal)||0, balanceMode: settingsRow.balance_mode || 'live', manualBalance: Number(settingsRow.manual_balance)||0, periodMode: settingsRow.period_mode || 'calendar' };
     upToken = settingsRow.up_token || '';
     lastKnownUpBalance = typeof settingsRow.last_up_balance === 'number' ? settingsRow.last_up_balance : (settingsRow.last_up_balance != null ? Number(settingsRow.last_up_balance) : null);
   }
@@ -1825,7 +1834,12 @@ function updateSummary(){
     : typeof lastKnownUpBalance === 'number' ? lastKnownUpBalance
     : null;
   const goal = Number(monthData.goal)||0;
-  const rawProjected = effectiveBalance != null ? (effectiveBalance + t.unreceivedIncome - t.remaining) : (t.unreceivedIncome - t.remaining);
+  // The live/manual balance is a snapshot of right now - it only makes sense to fold
+  // into "left over" for whichever month is currently the active budgeting period.
+  // Browsing a past or future month still shows the balance for context (below), but
+  // doesn't let today's number distort that month's own numbers.
+  const applyBalanceToTotal = effectiveBalance != null && isCurrentPeriod(settings.currentMonth);
+  const rawProjected = applyBalanceToTotal ? (effectiveBalance + t.unreceivedIncome - t.remaining) : (t.unreceivedIncome - t.remaining);
   const inHand = rawProjected - goal;
   document.getElementById('rtaAmt').textContent = money(inHand);
   const anyChargedNow = t.charged > 0 || t.receivedIncome > 0;
@@ -1835,7 +1849,7 @@ function updateSummary(){
   const balSubEl = document.getElementById('balanceBarSub');
   if(effectiveBalance != null){
     balAmtEl.textContent = money(effectiveBalance);
-    balSubEl.textContent = usingManual ? 'Entered manually' : (usingRememberedUp ? 'Last known balance — reconnecting…' : '');
+    balSubEl.textContent = usingManual ? 'Entered manually' : (usingRememberedUp ? 'Last known balance — reconnecting…' : (!isCurrentPeriod(settings.currentMonth) ? 'Not counted — viewing a different month' : ''));
   } else {
     balAmtEl.textContent = '—';
     balSubEl.textContent = upToken ? 'Fetching…' : 'Connect Up Bank on the Dashboard tab, or switch to Manual';
@@ -1844,8 +1858,8 @@ function updateSummary(){
   const card = document.getElementById('assignCard');
   const lbl = document.getElementById('rtaLabel');
   card.classList.remove('over','zero');
-  if(Math.abs(inHand) < 0.5){ card.classList.add('zero'); lbl.textContent = effectiveBalance != null ? 'Projected to break even (after your goal)' : 'Spent exactly what you\u2019ve earned, after your goal'; }
-  else if(inHand < 0){ card.classList.add('over'); lbl.textContent = effectiveBalance != null ? 'Projected to go over, after your goal' : 'Over budget once your goal is set aside'; }
+  if(Math.abs(inHand) < 0.5){ card.classList.add('zero'); lbl.textContent = applyBalanceToTotal ? 'Projected to break even (after your goal)' : 'Spent exactly what you\u2019ve earned, after your goal'; }
+  else if(inHand < 0){ card.classList.add('over'); lbl.textContent = applyBalanceToTotal ? 'Projected to go over, after your goal' : 'Over budget once your goal is set aside'; }
   else { lbl.textContent = goal > 0 ? 'Left over after your goal' : 'Left over right now'; }
   const goalEl = document.getElementById('goalInput');
   const goalDisplayEl = document.getElementById('goalDisplay');
@@ -2863,6 +2877,7 @@ async function finishLoadMonth(){
   document.getElementById('monthContent').style.display='block';
   document.getElementById('notesArea').value = monthData.notes || '';
   renderBalanceModeToggle();
+  renderPeriodModeToggle();
   renderLedger();
   refreshInsertDropdowns();
   updateTemplateStatus();
@@ -3827,8 +3842,7 @@ document.getElementById('useAsTemplateBtn').addEventListener('click', async () =
 document.getElementById('prevMonthBtn').addEventListener('click', () => switchToMonth(addMonths(settings.currentMonth,-1)));
 document.getElementById('nextMonthBtn').addEventListener('click', () => switchToMonth(addMonths(settings.currentMonth,1)));
 document.getElementById('jumpToCurrentMonthBtn').addEventListener('click', () => {
-  const now = new Date();
-  switchToMonth(`${now.getFullYear()}-${pad2(now.getMonth()+1)}`);
+  switchToMonth(todaysEffectiveMonthKey);
 });
 document.getElementById('monthDropdownBtn').addEventListener('click', () => {
   const list = document.getElementById('monthDropdownList');
@@ -3993,6 +4007,24 @@ function renderBalanceModeToggle(){
   const linkEl = document.getElementById('balanceUseLiveLink');
   linkEl.style.display = settings.balanceMode === 'manual' ? '' : 'none';
 }
+function renderPeriodModeToggle(){
+  document.querySelectorAll('.period-mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.periodMode === settings.periodMode);
+  });
+}
+document.getElementById('periodModeGroup').addEventListener('click', (e) => {
+  const btn = e.target.closest('.period-mode-btn');
+  if(!btn) return;
+  e.stopPropagation();
+  const mode = btn.dataset.periodMode;
+  if(mode === settings.periodMode) return;
+  settings.periodMode = mode;
+  saveSettings();
+  renderPeriodModeToggle();
+  recomputeEffectivePeriod();
+  updateSummary();
+  toast(mode === 'paycycle' ? 'Now budgeting between pays — the current month rolls over as soon as your linked income lands' : 'Now budgeting by calendar month');
+});
 document.getElementById('balanceBarAmt').addEventListener('click', async () => {
   const ok = await customConfirm('Enter this balance manually? It\u2019ll be used instead of your live Up balance until you switch back.');
   if(!ok) return;
@@ -4144,6 +4176,41 @@ function getIncomeSourceOccurrences(){
   });
   return matches.map(t => new Date(t.attributes.createdAt).getTime()).sort((a,b) => b-a);
 }
+// Recomputes which calendar month "today" belongs to for budgeting purposes. In
+// calendar mode this is just the real current month. In paycycle mode, it's the month
+// after the most recent Up Bank transaction matching your linked income source - so a
+// pay landing on 28 July immediately rolls the current month over to August, even
+// though the calendar won't flip for a few more days. Relies on upTransactions already
+// having recent data in memory (from whatever range the Up Bank tab last fetched)
+// rather than firing its own network request, so it's cheap to call liberally.
+function recomputeEffectivePeriod(){
+  if(settings.periodMode !== 'paycycle'){ todaysEffectiveMonthKey = dateToKey(new Date()); return; }
+  const occurrences = getIncomeSourceOccurrences();
+  if(!occurrences.length){ todaysEffectiveMonthKey = dateToKey(new Date()); return; }
+  todaysEffectiveMonthKey = addMonths(dateToKey(new Date(occurrences[0])), 1);
+}
+function isCurrentPeriod(monthKey){ return monthKey === todaysEffectiveMonthKey; }
+// recomputeEffectivePeriod() only looks at whatever's already in upTransactions, which
+// is empty until the user visits the Up Bank tab - so on a fresh page load, paycycle
+// mode wouldn't actually kick in until then. This runs once at boot, only when paycycle
+// mode + an income source are both already set, to fetch just enough recent history to
+// get the right answer before the app picks which month to open on. No-op (no network
+// call) for the default calendar-mode users.
+async function detectEffectivePeriodAtBoot(){
+  if(settings.periodMode !== 'paycycle' || !upToken || !upIncomeSourceKey) return;
+  try{
+    const since = new Date(); since.setDate(since.getDate() - 40);
+    const recentTxs = await loadTransactionsForRange(since.toISOString());
+    let mostRecent = null;
+    recentTxs.forEach(t => {
+      const amt = parseFloat(t.attributes.amount.value);
+      if(extractMerchantKey(t.attributes.description, amt) !== upIncomeSourceKey) return;
+      const d = new Date(t.attributes.createdAt);
+      if(!mostRecent || d > mostRecent) mostRecent = d;
+    });
+    if(mostRecent) todaysEffectiveMonthKey = addMonths(dateToKey(mostRecent), 1);
+  }catch(e){ /* silent - keeps the calendar-month fallback recomputeEffectivePeriod() already set */ }
+}
 function autoApplyTxRules(){
   let changed = false;
   const coverPattern = /^(cover|transfer)\s+(to|from)\s+/i;
@@ -4260,6 +4327,9 @@ function renderPayCycleRow(){
 function renderUpTxList(){
   autoApplyTxRules();
   renderPayCycleRow();
+  const prevEffectiveMonthKey = todaysEffectiveMonthKey;
+  recomputeEffectivePeriod();
+  if(todaysEffectiveMonthKey !== prevEffectiveMonthKey && monthData) updateSummary();
   const term = upTxSearchTerm.trim().toLowerCase();
   let filtered = term ? upTransactions.filter(t => (t.attributes.description||'').toLowerCase().includes(term)) : upTransactions;
   // Hide the incoming "Cover from X" transfer as its own row — the cost transaction
@@ -5508,10 +5578,10 @@ document.getElementById('darkModeSwitch').addEventListener('click', () => {
   await loadEverything();
   applyTheme();
   renderMonthDropdown();
-  const now = new Date();
-  const realCurrentMonthKey = `${now.getFullYear()}-${pad2(now.getMonth()+1)}`;
-  await seedStarterDataIfNewAccount(realCurrentMonthKey);
-  await switchToMonth(realCurrentMonthKey);
+  recomputeEffectivePeriod();
+  await detectEffectivePeriodAtBoot();
+  await seedStarterDataIfNewAccount(todaysEffectiveMonthKey);
+  await switchToMonth(todaysEffectiveMonthKey);
   renderTechRows();
   document.getElementById('groceryEatOut').value = grocery.eatOut || 0;
   renderGroceryRows(); updateGroceryTotal();

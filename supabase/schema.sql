@@ -29,6 +29,7 @@ create table if not exists public.user_settings (
   last_goal      numeric not null default 0,
   balance_mode   text not null default 'live',
   manual_balance numeric not null default 0,
+  period_mode    text not null default 'calendar',  -- 'calendar' or 'paycycle' — see index.html's recomputeEffectivePeriod()
   up_token       text,  -- Phase 1 only: client still calls Up Bank directly. Moves to an Edge Function secret in a later phase.
   last_up_balance numeric,  -- most recent successfully-fetched Up Bank balance, remembered across sessions/devices for when a live fetch isn't available
   updated_at     timestamptz not null default now()
