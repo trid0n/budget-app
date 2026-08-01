@@ -586,6 +586,10 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-assign-hdr{font-weight:800; font-size:1rem; color:var(--ink);}
 .tx-assign-hdr span{color:var(--gold);}
 .tx-assign-sub{font-size:.8rem; color:var(--ink-faint); margin-top:-8px;}
+/* .tx-assign-hdr/.tx-assign-sub are shared with the assign-transaction modal (.tx-assign-box),
+   whose flex gap:12px is what the -8px above is calibrated against; .inline-source-panel has
+   no such gap, so it needs its own positive spacing instead. */
+.inline-source-panel .tx-assign-sub{margin-top:4px; margin-bottom:10px;}
 .tx-assign-list{max-height:260px; overflow-y:auto; border:1px solid var(--rule); border-radius:10px; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
 .tx-assign-cat-hdr{padding:8px 14px 4px; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:700; background:var(--paper-dim);}
 .tx-assign-item{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 14px; cursor:pointer; font-size:.85rem; border-top:1px solid var(--rule);}
@@ -4077,6 +4081,11 @@ async function upFetch(path){
   return res.json();
 }
 let upTransactions = [];
+// Up's API should always return attributes.amount on every transaction resource, but
+// this app has no control over what comes back over the wire - guarding the ingestion
+// points once here means every downstream t.attributes.amount.value read (there are
+// several) can't be handed something malformed and crash the whole tab.
+function isValidUpTx(t){ return !!(t && t.attributes && t.attributes.amount && typeof t.attributes.amount.value === 'string'); }
 let upTxNextUrl = null;
 let upTxTimeframe = 'all';
 function upTxSinceParam(){
@@ -4106,7 +4115,7 @@ async function fetchUpTransactionsFresh(){
   try{
     document.getElementById('upTxList').innerHTML = '<div class="pc-faint" style="padding:12px; text-align:center;">Loading transactions\u2026</div>';
     const txRes = await upFetch(`${upSpendingAccountId ? `/accounts/${upSpendingAccountId}/transactions` : '/transactions'}?page[size]=50${upTxSinceParam()}`);
-    upTransactions = txRes.data;
+    upTransactions = (txRes.data||[]).filter(isValidUpTx);
     upTxNextUrl = (txRes.links && txRes.links.next) || null;
     if(upTxTimeframe === 'lastmonth' || upTxTimeframe === '3'){
       let pagesLoaded = 1;
@@ -4114,7 +4123,7 @@ async function fetchUpTransactionsFresh(){
       while(upTxNextUrl && pagesLoaded < maxPages){
         document.getElementById('upTxList').innerHTML = `<div class="pc-faint" style="padding:12px; text-align:center;">Loading transactions\u2026 (${upTransactions.length} so far)</div>`;
         const nextRes = await upFetch(upTxNextUrl);
-        upTransactions = upTransactions.concat(nextRes.data);
+        upTransactions = upTransactions.concat((nextRes.data||[]).filter(isValidUpTx));
         upTxNextUrl = (nextRes.links && nextRes.links.next) || null;
         pagesLoaded++;
       }
@@ -4315,7 +4324,7 @@ async function loadMoreUpTransactions(){
   btn.disabled = true; btn.textContent = 'Loading…';
   try{
     const res = await upFetch(upTxNextUrl);
-    upTransactions = upTransactions.concat(res.data);
+    upTransactions = upTransactions.concat((res.data||[]).filter(isValidUpTx));
     upTxNextUrl = (res.links && res.links.next) || null;
     renderUpTxList();
   }catch(e){
@@ -4340,7 +4349,7 @@ async function loadTransactionsForRange(sinceIso, untilIso){
   let pages = 0;
   while(nextUrl && pages < 20){
     const res = await upFetch(nextUrl);
-    all = all.concat(res.data);
+    all = all.concat((res.data||[]).filter(isValidUpTx));
     nextUrl = (res.links && res.links.next) || null;
     pages++;
   }
