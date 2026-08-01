@@ -1504,12 +1504,12 @@ function findCatItemByName(categoryName, itemName){
   if(categoryName.trim().toLowerCase() === 'income'){
     const cat = {id:'income', name:'Income', items: monthData.income};
     const item = monthData.income.find(i => (i.name||'').trim().toLowerCase() === itemName.trim().toLowerCase());
-    return {cat, item};
+    return item ? {cat, item} : null;
   }
   const cat = monthData.categories.find(c => c.name.trim().toLowerCase() === categoryName.trim().toLowerCase());
   if(!cat) return null;
   const item = cat.items.find(i => (i.name||'').trim().toLowerCase() === itemName.trim().toLowerCase());
-  return {cat, item};
+  return item ? {cat, item} : null;
 }
 function getRuleTargetForTx(desc, amt){
   const key = extractMerchantKey(desc, amt);
