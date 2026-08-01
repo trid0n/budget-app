@@ -9,9 +9,17 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
+      # Hardcoded rather than pulled from repo secrets: every run since #1 failed with
+      # curl exit code 3 ("malformed URL") because SUPABASE_URL/SUPABASE_ANON_KEY were
+      # never actually set in the repo's Settings > Secrets - a manual step that's easy
+      # to forget and has no error surfaced anywhere except a daily failure email. These
+      # are the Supabase anon key/URL, the same ones already hardcoded client-side in
+      # index.html - RLS is what actually protects the data, so there's nothing gained
+      # by keeping them out of the workflow file, and a lot lost (silent breakage) by
+      # depending on a one-time manual setup step nobody's around to redo.
       - name: Ping Supabase REST API
         run: |
-          curl -sf "${{ secrets.SUPABASE_URL }}/rest/v1/user_settings?select=user_id&limit=1" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+          curl -sf "https://ajhsebrgpcsvkefcezdz.supabase.co/rest/v1/user_settings?select=user_id&limit=1" \
+            -H "apikey: sb_publishable_qlVUSyU1inxJIfV6DTkpVA_t8dWVpqH" \
+            -H "Authorization: Bearer sb_publishable_qlVUSyU1inxJIfV6DTkpVA_t8dWVpqH" \
             -o /dev/null
