@@ -347,6 +347,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .month-actions-gear{flex-shrink:0;}
 .month-actions-gear .btn-ic{display:inline-flex; transition:transform .3s ease;}
 .month-actions-gear.open .btn-ic{transform:rotate(75deg);}
+.month-actions-gear.has-active-filter{border-color:var(--gold); color:var(--gold);}
 .chip-btn{position:relative; display:inline-flex; align-items:center; border:none; border-radius:999px; padding:7px 14px 7px 20px; margin-left:8px; font-family:'Inter',sans-serif; font-size:.8rem; font-weight:500; cursor:pointer; flex-shrink:0;}
 .chip-ic{position:absolute; left:-8px; top:50%; transform:translateY(-50%); width:26px; height:26px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; border:2px solid var(--surface);}
 .chip-blue{background:var(--gold-bg); color:var(--gold);}
@@ -736,6 +737,14 @@ input[type=file]{display:none;}
 </style>
 </head>
 <body>
+<script>
+// Applying the theme happens after the async Supabase settings load, which is too late
+// to avoid a light-mode flash for anyone using dark mode - localStorage is readable
+// synchronously before first paint, so cache the last-known theme there and apply it
+// immediately; applyTheme() below still runs once real settings load, correcting this
+// if it was ever wrong (e.g. changed on another device) and keeping the cache in sync.
+try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('dark'); }catch(e){}
+</script>
 <div class="auth-overlay hidden" id="authOverlay">
   <div class="auth-box">
     <div class="auth-brand"><span class="mark">$</span>Budget</div>
@@ -914,6 +923,9 @@ input[type=file]{display:none;}
             <button class="timeframe-btn" data-tf="1">Last month</button>
             <button class="timeframe-btn" data-tf="3">3 months</button>
             <button class="timeframe-btn" data-tf="6">6 months</button>
+            <button class="mini-btn month-actions-gear" id="upTxMoreToggle" title="More options"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
+          </div>
+          <div class="month-actions-panel timeframe-row" id="upTxMorePanel">
             <button class="timeframe-btn" data-tf="12">1 year</button>
             <button class="timeframe-btn active" data-tf="all">All time</button>
             <button class="timeframe-btn" data-tf="custom">Custom range</button>
@@ -3905,13 +3917,27 @@ document.getElementById('insightTimeframeRow').addEventListener('click', (e) => 
 function isoDateStr(d){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-document.getElementById('upTxTimeframeRow').addEventListener('click', (e) => {
+// "1 year"/"All time"/"Custom range"/"Since last pay"/"Between last 2 pays" live in the
+// collapsible #upTxMorePanel rather than the always-visible #upTxTimeframeRow, so
+// "active" has to be cleared across both containers together regardless of which one
+// was clicked, or two buttons (one per container) could end up marked active at once.
+function clearAllTimeframeActive(){
+  document.querySelectorAll('#upTxTimeframeRow .timeframe-btn, #upTxMorePanel .timeframe-btn').forEach(b => b.classList.remove('active'));
+}
+const HIDDEN_TIMEFRAME_TFS = ['12','all','custom','since_last_pay','between_last_2_pays'];
+function updateUpTxMoreToggleIndicator(){
+  const toggle = document.getElementById('upTxMoreToggle');
+  const activeInPanel = document.querySelector('#upTxMorePanel .timeframe-btn.active');
+  toggle.classList.toggle('has-active-filter', !!activeInPanel);
+}
+function handleTimeframeBtnClick(e){
   const btn = e.target.closest('.timeframe-btn');
   if(!btn) return;
   if(btn.id === 'upPayCycleSinceBtn' || btn.id === 'upPayCycleBetweenBtn') return;
   upPayCycleFilter = null;
-  btn.closest('.timeframe-row').querySelectorAll('.timeframe-btn').forEach(b=>b.classList.remove('active'));
+  clearAllTimeframeActive();
   btn.classList.add('active');
+  updateUpTxMoreToggleIndicator();
   upTxTimeframe = btn.dataset.tf;
   const rangeRow = document.getElementById('upTxCustomRange');
   if(upTxTimeframe === 'custom'){
@@ -3930,7 +3956,20 @@ document.getElementById('upTxTimeframeRow').addEventListener('click', (e) => {
     rangeRow.style.display = 'none';
     fetchUpTransactionsFresh();
   }
+}
+document.getElementById('upTxTimeframeRow').addEventListener('click', handleTimeframeBtnClick);
+document.getElementById('upTxMorePanel').addEventListener('click', handleTimeframeBtnClick);
+document.getElementById('upTxMorePanel').addEventListener('click', (e) => {
+  if(e.target.closest('.timeframe-btn')){
+    document.getElementById('upTxMorePanel').classList.remove('open');
+    document.getElementById('upTxMoreToggle').classList.remove('open');
+  }
 });
+document.getElementById('upTxMoreToggle').addEventListener('click', () => {
+  const open = document.getElementById('upTxMorePanel').classList.toggle('open');
+  document.getElementById('upTxMoreToggle').classList.toggle('open', open);
+});
+updateUpTxMoreToggleIndicator();
 document.getElementById('upTxApplyRangeBtn').addEventListener('click', fetchUpTransactionsFresh);
 document.getElementById('dashTimeframeRow').addEventListener('click', (e) => {
   const btn = e.target.closest('.timeframe-btn');
@@ -4322,6 +4361,7 @@ function renderPayCycleRow(){
   }
   sinceBtn.classList.toggle('active', upPayCycleFilter === 'since');
   betweenBtn.classList.toggle('active', upPayCycleFilter === 'between');
+  updateUpTxMoreToggleIndicator();
   document.getElementById('upTxLoadingBar').style.display = 'none';
 }
 function renderUpTxList(){
@@ -4478,7 +4518,7 @@ async function applyPayCycleFilter(mode){
     return;
   }
   upPayCycleFilter = mode;
-  document.querySelectorAll('#upTxTimeframeRow .timeframe-btn').forEach(b => b.classList.remove('active'));
+  clearAllTimeframeActive();
   renderUpTxList();
 }
 document.getElementById('upPayCycleSinceBtn').addEventListener('click', () => {
@@ -5556,6 +5596,7 @@ document.body.addEventListener('click', (e) => {
 function applyTheme(){
   document.body.classList.toggle('dark', settings.theme==='dark');
   document.getElementById('darkModeSwitch').classList.toggle('on', settings.theme==='dark');
+  try{ localStorage.setItem('theme', settings.theme); }catch(e){}
 }
 document.getElementById('darkModeSwitch').addEventListener('click', () => {
   settings.theme = settings.theme==='dark' ? 'light' : 'dark';
