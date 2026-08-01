@@ -545,6 +545,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-goal-flag{display:inline-block; background:rgba(255,255,255,.22); color:#fff; border-radius:20px; padding:2px 8px; font-size:.6rem; text-transform:none; letter-spacing:0; font-weight:700; margin-left:6px; vertical-align:middle;}
 .up-acc-bal{font-size:1rem; font-weight:800; color:var(--ink); font-variant-numeric:tabular-nums;}
 .up-tx-hdr{display:flex; align-items:center; justify-content:space-between; font-size:.8rem; font-weight:700; color:var(--ink-soft); margin-bottom:8px;}
+.up-tx-hdr-actions{display:flex; align-items:center; gap:8px;}
 .up-tx-search{width:100%; box-sizing:border-box; border:1px solid var(--rule); border-radius:8px; background:var(--paper-dim); padding:8px 12px; font-family:'Inter',sans-serif; font-size:.85rem; color:var(--ink); margin-bottom:10px;}
 .up-tx-search:focus{outline:none; border-color:var(--gold); background:var(--surface);}
 .up-tx-list{border:1px solid var(--rule); border-radius:10px; overflow:hidden; max-height:420px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
@@ -593,26 +594,36 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
    no such gap, so it needs its own positive spacing instead. */
 .inline-source-panel .tx-assign-sub{margin-top:4px; margin-bottom:10px;}
 .tx-assign-list{max-height:260px; overflow-y:auto; border:1px solid var(--rule); border-radius:10px; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
+.tx-rules-box{max-width:420px;}
+.tx-rules-list{max-height:320px; overflow-y:auto; border:1px solid var(--rule); border-radius:10px; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim); margin-top:14px;}
+.tx-rule-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; border-top:1px solid var(--rule); font-size:.85rem;}
+.tx-rule-row:first-child{border-top:none;}
+.tx-rule-merchant{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.tx-rule-target{color:var(--ink-faint); font-size:.78rem;}
+.tx-rule-del{flex-shrink:0; width:24px; height:24px; border-radius:50%; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-faint); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s, color .15s;}
+.tx-rule-del:hover{border-color:var(--debit); color:var(--debit);}
 .tx-assign-cat-hdr{padding:8px 14px 4px; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:700; background:var(--paper-dim);}
 .tx-assign-item{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 14px; cursor:pointer; font-size:.85rem; border-top:1px solid var(--rule);}
 .tx-assign-item:hover{background:var(--paper-dim);}
 .tx-assign-item-name{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .tx-assign-item-amt{color:var(--ink-faint); flex-shrink:0; font-variant-numeric:tabular-nums;}
 .tx-assign-empty{padding:20px 14px; color:var(--ink-faint); font-size:.85rem; text-align:center;}
+.tx-remember-popup{width:280px; max-width:min(280px, 90vw);}
+.tx-remember-text{font-size:.85rem; color:var(--ink); line-height:1.4;}
+.tx-remember-text strong{color:var(--gold);}
+.tx-remember-actions{display:flex; gap:8px; margin-top:12px;}
+.tx-remember-btn{flex:1; display:flex; align-items:center; justify-content:center; height:34px; border-radius:8px; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-soft); cursor:pointer; transition:background-color .15s, color .15s, border-color .15s;}
+.tx-remember-yes:hover{background:var(--credit); border-color:var(--credit); color:#fff;}
+.tx-remember-no:hover{background:var(--debit); border-color:var(--debit); color:#fff;}
+.tx-remember-threshold:hover{background:var(--gold); border-color:var(--gold); color:#fff;}
+.tx-remember-threshold-row{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:.82rem; color:var(--ink-soft);}
+.tx-remember-threshold-row input{width:70px; font-family:'Inter',sans-serif; font-size:.82rem; color:var(--ink); background:var(--paper-dim); border:1px solid var(--rule); border-radius:7px; padding:6px 8px;}
 .tx-assign-new{border-top:1px solid var(--rule); padding-top:12px;}
 .tx-assign-new-lbl{font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:700; margin-bottom:8px;}
 .tx-assign-new-row{display:flex; gap:8px; flex-wrap:wrap;}
 .tx-assign-cat-select{font-family:'Inter',sans-serif; font-size:.82rem; color:var(--ink); background:var(--paper-dim); border:1px solid var(--rule); border-radius:7px; padding:7px 10px;}
 .tx-assign-new-row input{flex:1; min-width:120px; font-family:'Inter',sans-serif; font-size:.82rem; color:var(--ink); background:var(--paper-dim); border:1px solid var(--rule); border-radius:7px; padding:7px 10px;}
-.tx-assign-remember{border-top:1px solid var(--rule); padding-top:12px; display:flex; flex-direction:column; gap:8px;}
-.tx-assign-checkbox{display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--ink-soft); cursor:pointer;}
-.tx-assign-checkbox input{width:15px; height:15px; accent-color:var(--gold); cursor:pointer;}
-.tx-assign-threshold-link{background:none; border:none; color:var(--ink-faint); font-size:.76rem; font-weight:600; cursor:pointer; text-align:left; padding:0; text-decoration:underline; text-underline-offset:3px; width:fit-content;}
-.tx-assign-threshold-link:hover{color:var(--gold);}
-.tx-assign-threshold-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:.8rem; color:var(--ink-soft); background:var(--paper-dim); border:1px solid var(--rule); border-radius:8px; padding:10px 12px;}
-.tx-assign-threshold-row .tx-assign-threshold-only{flex-basis:100%; margin-top:2px;}
 .tx-assign-threshold-amt{width:70px; font-family:'Inter',sans-serif; font-size:.82rem; color:var(--ink); background:var(--surface); border:1px solid var(--rule); border-radius:7px; padding:6px 8px;}
-.tx-assign-above-item{flex:1; min-width:100px; font-family:'Inter',sans-serif; font-size:.82rem; color:var(--ink); background:var(--surface); border:1px solid var(--rule); border-radius:7px; padding:6px 8px;}
 .tx-assign-name-suggestions{display:flex; flex-direction:column; border:1px solid var(--rule); border-radius:8px; overflow:hidden; background:var(--paper-dim); margin-top:8px;}
 .tx-assign-suggestion{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; cursor:pointer; font-size:.8rem; border-top:1px solid var(--rule);}
 .tx-assign-suggestion:first-child{border-top:none;}
@@ -918,7 +929,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         <button class="mini-btn" id="upChangeTokenBtn" style="display:none;">🔑 Connected — change token</button>
         <div id="upContent" style="display:none;">
           <div class="up-accounts" id="upAccounts"></div>
-          <div class="up-tx-hdr">Recent transactions <button class="mini-btn" id="upRefreshBtn">Refresh</button></div>
+          <div class="up-tx-hdr">Recent transactions <span class="up-tx-hdr-actions"><button class="mini-btn" id="manageTxRulesBtn">Manage merchant rules</button><button class="mini-btn" id="upRefreshBtn">Refresh</button></span></div>
           <div class="timeframe-row" id="upTxTimeframeRow">
             <button class="timeframe-btn" data-tf="1">Last month</button>
             <button class="timeframe-btn" data-tf="3">3 months</button>
@@ -1157,24 +1168,19 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
       </div>
       <div class="tx-assign-name-suggestions" id="txAssignNameSuggestions" style="display:none;"></div>
     </div>
-    <div class="tx-assign-remember">
-      <label class="tx-assign-checkbox"><input type="checkbox" id="txAssignRemember" checked> Remember this merchant next time</label>
-      <button type="button" class="tx-assign-threshold-link" id="txAssignThresholdLink">+ Use a different item above an amount</button>
-      <div class="tx-assign-threshold-row" id="txAssignThresholdRow" style="display:none;">
-        <span>Above $</span>
-        <input type="number" id="txAssignThresholdAmt" placeholder="0" class="tx-assign-threshold-amt">
-        <span>use</span>
-        <div class="custom-select tx-assign-select" id="txAssignAboveCatWrap">
-          <button type="button" class="custom-select-btn date-select tx-assign-select-btn" id="txAssignAboveCatBtn">Category</button>
-          <div class="custom-select-list" id="txAssignAboveCatList"></div>
-        </div>
-        <input type="text" id="txAssignAboveItem" placeholder="Item name" class="tx-assign-above-item">
-        <label class="tx-assign-checkbox tx-assign-threshold-only"><input type="checkbox" id="txAssignThresholdOnly">Only auto-assign above this amount — leave smaller ones for me to assign manually</label>
-      </div>
-    </div>
     <div class="modal-actions">
       <button type="button" class="tx-assign-exclude-link" id="txAssignExcludeBtn">Exclude this transaction instead</button>
       <button class="mini-btn" id="txAssignCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="txRulesOverlay">
+  <div class="modal-box tx-rules-box">
+    <div class="tx-assign-hdr">Merchant rules</div>
+    <div class="tx-assign-sub">Transactions matched to these are auto-attributed without asking</div>
+    <div class="tx-rules-list" id="txRulesList"></div>
+    <div class="modal-actions">
+      <button class="mini-btn" id="txRulesCloseBtn">Close</button>
     </div>
   </div>
 </div>
@@ -1536,10 +1542,10 @@ function getRuleTargetForTx(desc, amt){
   const key = extractMerchantKey(desc, amt);
   const rule = txRules[key];
   if(!rule) return null;
-  const useAbove = rule.threshold != null && Math.abs(amt) >= rule.threshold && rule.aboveItemName;
-  const categoryName = useAbove ? rule.aboveCategoryName : rule.categoryName;
-  const itemName = useAbove ? rule.aboveItemName : rule.itemName;
-  return {categoryName, itemName};
+  // threshold, when set, is a minimum: below it, this rule simply doesn't apply and the
+  // transaction is left for manual assignment rather than falling back to some default.
+  if(rule.threshold != null && Math.abs(amt) < rule.threshold) return null;
+  return {categoryName: rule.categoryName, itemName: rule.itemName};
 }
 function wordsMatchClosely(w1, w2){
   if(w1 === w2) return true;
@@ -2216,6 +2222,8 @@ window.addEventListener('resize', () => {
   overflowResizeTimer = setTimeout(() => { updateAllNameTooltips(); updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths(); }, 150);
 });
 const X_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>';
+const CHECK_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+const DOLLAR_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
 const LINK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
 function tplSourceFor(name){
   const n = (name||'').trim().toLowerCase();
@@ -4609,19 +4617,11 @@ function openTxAssignModal(txId, amt, desc, date){
   document.getElementById('txAssignMonthLbl').textContent = monthLabel(settings.currentMonth);
   document.getElementById('txAssignSearch').value = '';
   renderTxAssignList('');
-  const catOptionsByName = [{value:'Income', label:'💵 Income'}, ...monthData.categories.map(c => ({value: c.name, label: `${getCategoryEmoji(c)} ${c.name}`}))];
   const catOptionsById = [{value:'income', label:'💵 Income'}, ...monthData.categories.map(c => ({value: c.id, label: `${getCategoryEmoji(c)} ${c.name}`}))];
   populateSimpleSelect('txAssignNewCat', catOptionsById);
-  populateSimpleSelect('txAssignAboveCat', catOptionsByName);
   resetSimpleSelect('txAssignNewCat', 'Category');
-  resetSimpleSelect('txAssignAboveCat', 'Category');
   document.getElementById('txAssignNewName').value = desc;
   renderTxAssignNameSuggestions(desc);
-  document.getElementById('txAssignRemember').checked = true;
-  document.getElementById('txAssignThresholdRow').style.display = 'none';
-  document.getElementById('txAssignThresholdAmt').value = '';
-  document.getElementById('txAssignAboveItem').value = '';
-  document.getElementById('txAssignThresholdOnly').checked = false;
   document.getElementById('txAssignOverlay').classList.add('show');
 }
 function closeTxAssignModal(){
@@ -4653,50 +4653,91 @@ function completeTxAssignment(catId, itemId, itemName){
   const merchantKey = extractMerchantKey(txAssignCurrent.desc, txAssignCurrent.amt);
   txAssignments[txAssignCurrent.id] = {monthKey: settings.currentMonth, catId, itemId, itemName, categoryName: cat.name, merchantKey, txAmt: Math.abs(txAssignCurrent.amt), desc: txAssignCurrent.desc, date: txAssignCurrent.date};
   saveTxAssignments();
-  maybeSaveTxRule(merchantKey, cat.name, itemName);
   scheduleSave();
   renderGroups(); updateSummary(); renderUpTxList();
   toast(`Added ${money(Math.abs(txAssignCurrent.amt))} to "${itemName}"`);
+  const txId = txAssignCurrent.id, desc = txAssignCurrent.desc;
   closeTxAssignModal();
+  maybeShowRememberPopup(txId, merchantKey, desc, cat.name, itemName);
 }
-function maybeSaveTxRule(merchantKey, categoryName, itemName){
+// Shows the remember-this-merchant popup unless a rule already exists that agrees with
+// this exact assignment (nothing new to learn). If a rule exists but points somewhere
+// else, this still prompts - confirming here either updates it (tick) or leaves the
+// stale rule in place for the user to clear from Manage merchant rules (cross).
+function maybeShowRememberPopup(txId, merchantKey, merchantDesc, categoryName, itemName){
   if(!merchantKey) return;
-  const remember = document.getElementById('txAssignRemember');
-  if(!remember || !remember.checked) return;
-  const thresholdRow = document.getElementById('txAssignThresholdRow');
-  const thresholdOn = thresholdRow && thresholdRow.style.display !== 'none';
   const existing = txRules[merchantKey];
-  let rule;
-  if(thresholdOn){
-    rule = {categoryName, itemName};
-    const amt = Number(document.getElementById('txAssignThresholdAmt').value)||0;
-    const aboveCat = getSimpleSelectValue('txAssignAboveCat');
-    const aboveItem = document.getElementById('txAssignAboveItem').value.trim();
-    if(amt > 0 && aboveCat && aboveItem){
-      rule.threshold = amt;
-      rule.aboveCategoryName = aboveCat;
-      rule.aboveItemName = aboveItem;
-      // "Threshold-only": the item picked for THIS transaction (above) is not meant
-      // to become the catch-all default for every future transaction from this
-      // merchant — below-threshold ones should just stay unassigned for manual review.
-      if(document.getElementById('txAssignThresholdOnly').checked){
-        delete rule.categoryName;
-        delete rule.itemName;
-      }
+  if(existing && existing.categoryName === categoryName && existing.itemName === itemName) return;
+  showTxRememberPopup(txId, merchantKey, merchantDesc, categoryName, itemName);
+}
+// Small anchored popover, not a modal - fires after every manual assignment (both the
+// full assign-modal path and confirming a guess badge) asking whether to always send
+// future transactions from this merchant to the same item. Tick remembers it outright,
+// the $ icon reveals a minimum-amount field first, cross/outside-click/timeout leave it
+// as a one-off. Saved rules can be reviewed or removed later from Manage merchant rules.
+function showTxRememberPopup(txId, merchantKey, merchantDesc, categoryName, itemName){
+  const anchorBtn = document.querySelector(`[data-tx-assign="${CSS.escape(txId)}"]`);
+  const row = anchorBtn ? anchorBtn.closest('.up-tx-row') : null;
+  if(!row) return;
+  document.querySelectorAll('.tx-remember-popup').forEach(p => p.remove());
+  const host = document.getElementById('inlinePanelHost');
+  const panel = document.createElement('div');
+  panel.className = 'inline-source-panel tx-remember-popup';
+  panel.innerHTML = `
+    <div class="tx-remember-text">Always attribute <strong>"${escapeAttr(merchantDesc)}"</strong> to <strong>"${escapeAttr(itemName)}"</strong>?</div>
+    <div class="tx-remember-actions">
+      <button class="tx-remember-btn tx-remember-yes" data-tip="Always">${CHECK_SVG}</button>
+      <button class="tx-remember-btn tx-remember-threshold" data-tip="Only above an amount">${DOLLAR_SVG}</button>
+      <button class="tx-remember-btn tx-remember-no" data-tip="Just this once">${X_SVG}</button>
+    </div>
+    <div class="tx-remember-threshold-row" id="txRememberThresholdRow" style="display:none;">
+      <span>Min</span>
+      <input type="number" step="0.01" id="txRememberThresholdAmt" placeholder="0" class="tx-assign-threshold-amt">
+      <button class="mini-btn gold" id="txRememberThresholdConfirm">Save</button>
+    </div>`;
+  host.appendChild(panel);
+  positionOneInlinePanel(row, panel);
+  let dismissed = false;
+  const dismiss = () => {
+    if(dismissed) return;
+    dismissed = true;
+    panel.remove();
+    document.removeEventListener('click', onOutsideClick, true);
+    clearTimeout(autoTimer);
+  };
+  const onOutsideClick = (e) => { if(!panel.contains(e.target)) dismiss(); };
+  const autoTimer = setTimeout(dismiss, 9000);
+  setTimeout(() => document.addEventListener('click', onOutsideClick, true), 0);
+  panel.querySelector('.tx-remember-yes').addEventListener('click', () => {
+    txRules[merchantKey] = {categoryName, itemName};
+    saveTxRules();
+    toast(`Got it — "${merchantDesc}" will always go to "${itemName}"`);
+    dismiss();
+  });
+  panel.querySelector('.tx-remember-no').addEventListener('click', () => {
+    // Assigning somewhere new after an existing (now-contradicted) rule is exactly the
+    // "re-choose" case - clear the stale rule rather than leaving it to keep firing.
+    const existing = txRules[merchantKey];
+    if(existing && (existing.categoryName !== categoryName || existing.itemName !== itemName)){
+      delete txRules[merchantKey];
+      saveTxRules();
     }
-  } else if(existing && existing.threshold != null){
-    // Don't clobber an existing above-threshold override just because the user
-    // assigned another transaction for this merchant without touching the threshold
-    // section. If the existing rule was deliberately left threshold-only (no
-    // below-threshold default), keep it that way rather than adopting whatever this
-    // one transaction happened to be assigned to as the new catch-all default.
-    rule = {threshold: existing.threshold, aboveCategoryName: existing.aboveCategoryName, aboveItemName: existing.aboveItemName};
-    if(existing.categoryName){ rule.categoryName = categoryName; rule.itemName = itemName; }
-  } else {
-    rule = {categoryName, itemName};
-  }
-  txRules[merchantKey] = rule;
-  saveTxRules();
+    dismiss();
+  });
+  panel.querySelector('.tx-remember-threshold').addEventListener('click', () => {
+    panel.querySelector('#txRememberThresholdRow').style.display = 'flex';
+    panel.querySelector('#txRememberThresholdAmt').focus();
+  });
+  const confirmThreshold = () => {
+    const amt = Number(panel.querySelector('#txRememberThresholdAmt').value)||0;
+    if(amt <= 0){ toast('Enter an amount above zero'); return; }
+    txRules[merchantKey] = {categoryName, itemName, threshold: amt};
+    saveTxRules();
+    toast(`Got it — "${merchantDesc}" above ${money(amt)} will go to "${itemName}"`);
+    dismiss();
+  };
+  panel.querySelector('#txRememberThresholdConfirm').addEventListener('click', confirmThreshold);
+  panel.querySelector('#txRememberThresholdAmt').addEventListener('keydown', (e) => { if(e.key === 'Enter') confirmThreshold(); });
 }
 document.getElementById('txAssignSearch').addEventListener('input', (e) => renderTxAssignList(e.target.value));
 document.getElementById('txAssignNewName').addEventListener('input', (e) => renderTxAssignNameSuggestions(e.target.value));
@@ -4737,11 +4778,12 @@ document.getElementById('txAssignNewBtn').addEventListener('click', () => {
   const merchantKey = extractMerchantKey(txAssignCurrent.desc, txAssignCurrent.amt);
   txAssignments[txAssignCurrent.id] = {monthKey: settings.currentMonth, catId, itemId: newItem.id, itemName: name, categoryName: cat.name, merchantKey, txAmt: Math.abs(txAssignCurrent.amt), desc: txAssignCurrent.desc, date: txAssignCurrent.date};
   saveTxAssignments();
-  maybeSaveTxRule(merchantKey, cat.name, name);
   scheduleSave();
   renderGroups(); updateSummary(); renderUpTxList();
   toast(`Created "${name}" with ${money(Math.abs(txAssignCurrent.amt))}`);
+  const txId = txAssignCurrent.id, desc = txAssignCurrent.desc;
   closeTxAssignModal();
+  maybeShowRememberPopup(txId, merchantKey, desc, cat.name, name);
 });
 document.getElementById('txAssignCancel').addEventListener('click', closeTxAssignModal);
 document.getElementById('view-ledger').addEventListener('click', (e) => {
@@ -4800,10 +4842,6 @@ document.getElementById('txAssignExcludeBtn').addEventListener('click', () => {
   toast('Transaction excluded');
   closeTxAssignModal();
 });
-document.getElementById('txAssignThresholdLink').addEventListener('click', () => {
-  const row = document.getElementById('txAssignThresholdRow');
-  row.style.display = row.style.display === 'none' ? 'flex' : 'none';
-});
 document.getElementById('txAssignOverlay').addEventListener('click', (e) => { if(e.target.id === 'txAssignOverlay') closeTxAssignModal(); });
 function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date){
   if(!monthData) return;
@@ -4815,30 +4853,41 @@ function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date){
   const merchantKey = extractMerchantKey(desc, amt);
   txAssignments[txId] = {monthKey: settings.currentMonth, catId: found.cat.id, itemId: found.item.id, itemName: found.item.name, categoryName: found.cat.name, merchantKey, txAmt: Math.abs(Number(amt)), desc, date};
   saveTxAssignments();
-  if(reason === 'merchant'){
-    const existingRule = txRules[merchantKey];
-    if(existingRule && existingRule.threshold != null){
-      // This guess came from the rule engine (findGuessForTx now defers to
-      // getRuleTargetForTx for merchants with a saved rule), so it matched either the
-      // below- or above-threshold side. Only update the side that actually matched —
-      // confirming an above-threshold guess must not overwrite the below-threshold
-      // default (or the lack of one, for a threshold-only rule) and vice versa.
-      const useAbove = Math.abs(Number(amt)) >= existingRule.threshold;
-      const rule = {threshold: existingRule.threshold, categoryName: existingRule.categoryName, itemName: existingRule.itemName, aboveCategoryName: existingRule.aboveCategoryName, aboveItemName: existingRule.aboveItemName};
-      if(useAbove){ rule.aboveCategoryName = found.cat.name; rule.aboveItemName = found.item.name; }
-      else { rule.categoryName = found.cat.name; rule.itemName = found.item.name; }
-      txRules[merchantKey] = rule;
-    } else {
-      txRules[merchantKey] = {categoryName: found.cat.name, itemName: found.item.name};
-    }
-    saveTxRules();
-    toast(`Confirmed \u2014 added ${money(Math.abs(Number(amt)))} to "${found.item.name}". We'll remember this merchant.`);
-  } else {
-    toast(`Confirmed \u2014 added ${money(Math.abs(Number(amt)))} to "${found.item.name}".`);
-  }
   scheduleSave();
   renderGroups(); updateSummary(); renderUpTxList();
+  toast(`Confirmed — added ${money(Math.abs(Number(amt)))} to "${found.item.name}".`);
+  // A 'merchant' guess already came straight from an existing rule matching this exact
+  // item (findGuessForTx defers to getRuleTargetForTx for merchants with a saved rule),
+  // so there's nothing new to ask about remembering.
+  if(reason !== 'merchant') maybeShowRememberPopup(txId, merchantKey, desc, found.cat.name, found.item.name);
 }
+function humanizeMerchantKey(key){
+  const direction = key.endsWith('__in') ? ' (incoming)' : key.endsWith('__out') ? ' (outgoing)' : '';
+  return key.replace(/__(in|out)$/, '').replace(/_/g, ' ') + direction;
+}
+function renderTxRulesList(){
+  const list = document.getElementById('txRulesList');
+  const keys = Object.keys(txRules);
+  if(!keys.length){ list.innerHTML = '<div class="tx-assign-empty">No merchant rules yet — tick "always" on the popup after assigning a transaction.</div>'; return; }
+  list.innerHTML = keys.map(key => {
+    const r = txRules[key];
+    const targetLbl = `${categoryEmoji(r.categoryName)} ${escapeAttr(r.itemName)}${r.threshold!=null ? ` — above ${money(r.threshold)}` : ''}`;
+    return `<div class="tx-rule-row"><div><div class="tx-rule-merchant">${escapeAttr(humanizeMerchantKey(key))}</div><div class="tx-rule-target">${targetLbl}</div></div><button class="tx-rule-del" data-tx-rule-del="${escapeAttr(key)}" title="Remove this rule">${X_SVG}</button></div>`;
+  }).join('');
+}
+document.getElementById('manageTxRulesBtn').addEventListener('click', () => {
+  renderTxRulesList();
+  document.getElementById('txRulesOverlay').classList.add('show');
+});
+document.getElementById('txRulesCloseBtn').addEventListener('click', () => document.getElementById('txRulesOverlay').classList.remove('show'));
+document.getElementById('txRulesOverlay').addEventListener('click', (e) => { if(e.target.id === 'txRulesOverlay') document.getElementById('txRulesOverlay').classList.remove('show'); });
+document.getElementById('txRulesList').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-tx-rule-del]');
+  if(!btn) return;
+  delete txRules[btn.dataset.txRuleDel];
+  saveTxRules();
+  renderTxRulesList();
+});
 document.getElementById('upTxList').addEventListener('click', (e) => {
   const incomeSelectChip = e.target.closest('[data-tx-income-select]');
   if(incomeSelectChip){
@@ -5445,7 +5494,7 @@ function getCustomDatePrefixFromWrapId(wrapId){
   return null;
 }
 const CUSTOM_DATE_WRAP_IDS = CUSTOM_DATE_PREFIXES.flatMap(p => [p+'DayWrap', p+'MonthWrap', p+'YearWrap']);
-const SIMPLE_SELECT_WRAP_IDS = ['txAssignNewCatWrap', 'txAssignAboveCatWrap'];
+const SIMPLE_SELECT_WRAP_IDS = ['txAssignNewCatWrap'];
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.custom-select-btn');
   const btnWrapId = btn ? btn.closest('.custom-select')?.id : null;
