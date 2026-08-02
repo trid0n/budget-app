@@ -395,6 +395,8 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 #templateCard{width:100%; box-sizing:border-box;}
 .template-top-row{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:18px; flex-wrap:wrap; width:100%; box-sizing:border-box;}
 .template-top-row h2{margin:0 0 2px; font-size:1.3rem;}
+.tpl-info-btn{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; margin-left:4px; padding:0; border:1px solid var(--rule); border-radius:50%; background:var(--paper-dim); color:var(--ink-soft); font-size:.72rem; line-height:1; cursor:pointer; vertical-align:middle;}
+.tpl-info-btn:hover{border-color:var(--gold); color:var(--gold);}
 .template-income-card{background:var(--surface); border:1px solid var(--rule); border-radius:10px; margin-bottom:14px; border-top:3px solid var(--credit); width:100%; box-sizing:border-box;}
 .template-cats{display:grid; grid-template-columns:1fr 1fr; gap:14px; width:100%; box-sizing:border-box; align-items:start;}
 @media (max-width:700px){.template-cats{grid-template-columns:1fr;}}
@@ -924,7 +926,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <!-- ================= TEMPLATE VIEW ================= -->
     <div class="view" id="view-template">
       <div class="template-top-row">
-        <div><h2>My template</h2><span class="review-sub" id="templateStatus"></span></div>
+        <div><h2>My template <button class="tpl-info-btn" id="templateInfoBtn" data-tip="Your template is the default set of income lines and categories new months are built from. Edit it here any time — then use “Restore this month to template” on any month to reset it back to this layout.">ⓘ</button></h2><span class="review-sub" id="templateStatus"></span></div>
         <div class="tpl-goal-card">
           <div class="tpl-goal-label">Default monthly goal</div>
           <div class="tpl-goal-value"><span>$</span><input type="number" step="0.01" id="tplGoalInput" placeholder="0"></div>
@@ -4155,6 +4157,22 @@ function renderPeriodModeToggle(){
   document.querySelectorAll('.period-mode-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.periodMode === settings.periodMode);
   });
+  updatePeriodToggleVisibility();
+}
+// Pay-cycle mode only means anything once Up Bank is linked (it rolls the month over as
+// soon as a linked income transaction lands) - hide just that button, not the whole
+// toggle, when there's no token. If Up gets disconnected while already in pay-cycle
+// mode, fall back to calendar so the UI never leaves a hidden button as "active."
+function updatePeriodToggleVisibility(){
+  const payCycleBtn = document.querySelector('.period-mode-btn[data-period-mode="paycycle"]');
+  if(payCycleBtn) payCycleBtn.style.display = upToken ? '' : 'none';
+  if(!upToken && settings.periodMode === 'paycycle'){
+    settings.periodMode = 'calendar';
+    saveSettings();
+    document.querySelectorAll('.period-mode-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.periodMode === 'calendar'));
+    recomputeEffectivePeriod();
+    updateSummary();
+  }
 }
 document.getElementById('periodModeGroup').addEventListener('click', (e) => {
   const btn = e.target.closest('.period-mode-btn');
@@ -4240,6 +4258,7 @@ function renderUpConnectState(){
     connectRow.style.display = '';
     changeBtn.style.display = 'none';
   }
+  updatePeriodToggleVisibility();
 }
 document.getElementById('upChangeTokenBtn').addEventListener('click', () => {
   upTokenRowExpanded = true;
@@ -5293,6 +5312,7 @@ function bindTapReveal(container, selector){
   });
 }
 bindTapReveal(document.getElementById('insightGrid'), '[data-donut-slice]');
+bindTapReveal(document.body, '.tpl-info-btn');
 document.getElementById('insightGrid').addEventListener('mouseover', (e) => {
   const el = e.target.closest('[data-donut-slice]');
   if(!el) return;
