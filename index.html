@@ -344,6 +344,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .month-actions-panel{display:flex; align-items:center; flex-wrap:wrap; gap:10px; max-width:0; opacity:0; overflow:hidden; padding-left:8px; transition:max-width .32s ease, opacity .22s ease;}
 .month-actions-panel.open{max-width:900px; opacity:1;}
 .period-mode-group{display:flex; align-items:center; gap:6px; flex-shrink:0;}
+.ledger-top-toggle-row{display:flex; margin-bottom:14px;}
 .month-actions-gear{flex-shrink:0;}
 .month-actions-gear .btn-ic{display:inline-flex; transition:transform .3s ease;}
 .month-actions-gear.open .btn-ic{transform:rotate(75deg);}
@@ -837,6 +838,12 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
       <div id="monthEmptyState" style="display:none;"></div>
 
       <div id="monthContent" style="display:none;">
+        <div class="ledger-top-toggle-row">
+          <div class="period-mode-group" id="periodModeGroup" data-tip="Calendar month resets on the 1st. Pay cycle rolls the current month over as soon as your linked Up Bank income lands, even mid-month.">
+            <button class="timeframe-btn period-mode-btn" data-period-mode="calendar">Calendar month</button>
+            <button class="timeframe-btn period-mode-btn" data-period-mode="paycycle">Pay cycle</button>
+          </div>
+        </div>
         <div class="topbar">
           <div class="assign-card" id="assignCard">
             <div><div class="amt" id="rtaAmt">$0.00</div><div class="lbl" id="rtaLabel">Left over</div>
@@ -875,10 +882,6 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
               <button class="chip-btn chip-teal" id="restoreTemplateOrderBtn"><span class="chip-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20V4M8 4 4 8M8 4l4 4"/><path d="M16 4v16m0 0 4-4m-4 4-4-4"/></svg></span>Restore template order</button>
               <button class="chip-btn chip-green" id="restoreFromTemplateBtn"><span class="chip-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 8 16 8"/></svg></span>Restore this month to template</button>
               <button class="chip-btn chip-red" id="clearMonthBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>Clear this month's data</button>
-              <div class="period-mode-group" id="periodModeGroup" data-tip="Calendar month resets on the 1st. Pay cycle rolls the current month over as soon as your linked Up Bank income lands, even mid-month.">
-                <button class="timeframe-btn period-mode-btn" data-period-mode="calendar">Calendar month</button>
-                <button class="timeframe-btn period-mode-btn" data-period-mode="paycycle">Pay cycle</button>
-              </div>
             </div>
             <button class="mini-btn month-actions-gear" id="monthActionsToggle" title="Month actions"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
           </div>
@@ -2491,7 +2494,7 @@ function leafRowHtml(catId, item){
   ) : '';
   const linkedTxCount = getTxsForItem(catId, item.id).length;
   const txPanelOpen = expandedTxPanels.has(`${catId}:${item.id}`);
-  const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}" data-tx-view-item="${item.id}" data-tx-view-cat="${catId}" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></button>` : '';
+  const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}" data-tx-view-item="${item.id}" data-tx-view-cat="${catId}" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg></button>` : '';
   return `<div class="lrow leaf ${charged?'charged':''}" data-leaf-row="${item.id}" data-cat="${catId}" data-item="${item.id}">
     <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
     ${priceChangeHtml(item)}
