@@ -545,6 +545,8 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-savers-grid{display:flex; flex-wrap:wrap; justify-content:center; gap:10px;}
 .up-savers-grid .up-account-chip{flex:0 0 150px; width:150px; min-width:0;}
 .up-account-chip{background:var(--paper-dim); border:1px solid var(--rule); border-radius:10px; padding:10px 12px; position:relative;}
+.up-account-chip.clickable{cursor:pointer; transition:border-color .15s;}
+.up-account-chip.clickable:hover{border-color:var(--gold);}
 .up-acc-name{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .up-goal-flag{display:inline-block; background:rgba(255,255,255,.22); color:#fff; border-radius:20px; padding:2px 8px; font-size:.6rem; text-transform:none; letter-spacing:0; font-weight:700; margin-left:6px; vertical-align:middle;}
 .up-acc-bal{font-size:1rem; font-weight:800; color:var(--ink); font-variant-numeric:tabular-nums;}
@@ -2307,6 +2309,26 @@ let expandedInlineSources = new Set();
 // aren't tied to item name matching the way tplSourceFor's sources are, so a panel here
 // can be open independently of (or alongside) a source panel on the same row.
 let expandedTxPanels = new Set();
+// Same mechanism again, but for a saver account's own transaction history — keyed by
+// Up account id. saverTxCache[accountId] = {name, txs, error} and is populated lazily
+// on first open (see the click handler near refreshUpData) so re-opening a panel within
+// the same session doesn't re-fetch.
+let expandedSaverPanels = new Set();
+let saverTxCache = {};
+function renderSaverTxPanelHtml(accountId){
+  const state = saverTxCache[accountId];
+  if(!state) return '';
+  const name = state.name || '';
+  if(state.error) return `<div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(name)}"</span></div><div class="tx-assign-sub">${escapeAttr(state.error)}</div>`;
+  if(!state.txs) return `<div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(name)}"</span></div><div class="tx-assign-sub">Loading…</div>`;
+  const rows = state.txs.map(t => {
+    const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-AU', {day:'numeric', month:'short'}) : '';
+    return `<div class="tx-view-row"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div></div></div>`;
+  }).join('') || '<div class="tx-assign-empty">No recent transactions.</div>';
+  return `<div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(name)}"</span></div>
+    <div class="tx-assign-sub">${state.txs.length} transaction${state.txs.length!==1?'s':''}</div>
+    <div class="tx-view-list">${rows}</div>`;
+}
 function renderTxPanelHtml(catId, itemId){
   const cat = findCatById(catId);
   const item = cat && cat.items.find(i=>i.id===itemId);
@@ -2326,6 +2348,7 @@ function renderOpenInlinePanels(){
   [...host.children].forEach(panel => {
     if(panel.dataset.inlinePanelFor && !expandedInlineSources.has(panel.dataset.inlinePanelFor)) panel.remove();
     else if(panel.dataset.txPanelFor && !expandedTxPanels.has(panel.dataset.txPanelFor)) panel.remove();
+    else if(panel.dataset.saverPanelFor && !expandedSaverPanels.has(panel.dataset.saverPanelFor)) panel.remove();
   });
   expandedInlineSources.forEach(id => {
     let row = document.querySelector(`.lrow.leaf[data-item="${id}"]`);
@@ -2364,6 +2387,19 @@ function renderOpenInlinePanels(){
     panel.innerHTML = renderTxPanelHtml(catId, itemId);
     positionOneInlinePanel(row, panel);
   });
+  expandedSaverPanels.forEach(accountId => {
+    const chip = document.querySelector(`.up-account-chip[data-account-id="${accountId}"]`);
+    if(!chip) return;
+    let panel = host.querySelector(`[data-saver-panel-for="${accountId}"]`);
+    if(!panel){
+      panel = document.createElement('div');
+      panel.className = 'inline-source-panel';
+      panel.dataset.saverPanelFor = accountId;
+      host.appendChild(panel);
+    }
+    panel.innerHTML = renderSaverTxPanelHtml(accountId);
+    positionOneInlinePanel(chip, panel);
+  });
 }
 function positionOneInlinePanel(row, panel){
   const rect = row.getBoundingClientRect();
@@ -2385,13 +2421,18 @@ function positionOneInlinePanel(row, panel){
 }
 function repositionAllInlinePanels(){
   document.querySelectorAll('#inlinePanelHost .inline-source-panel').forEach(panel => {
+    if(panel.dataset.saverPanelFor){
+      const chip = document.querySelector(`.up-account-chip[data-account-id="${panel.dataset.saverPanelFor}"]`);
+      if(chip) positionOneInlinePanel(chip, panel);
+      return;
+    }
     const itemId = panel.dataset.inlinePanelFor || (panel.dataset.txPanelFor ? panel.dataset.txPanelFor.split(':')[1] : null);
     if(!itemId) return;
     const row = document.querySelector(`.lrow.leaf[data-item="${itemId}"]`);
     if(row) positionOneInlinePanel(row, panel);
   });
 }
-function anyInlinePanelsOpen(){ return expandedInlineSources.size > 0 || expandedTxPanels.size > 0; }
+function anyInlinePanelsOpen(){ return expandedInlineSources.size > 0 || expandedTxPanels.size > 0 || expandedSaverPanels.size > 0; }
 window.addEventListener('scroll', () => { if(anyInlinePanelsOpen()) repositionAllInlinePanels(); }, true);
 window.addEventListener('resize', () => { if(anyInlinePanelsOpen()) repositionAllInlinePanels(); });
 (function inlinePanelPositionLoop(){
@@ -2401,10 +2442,11 @@ window.addEventListener('resize', () => { if(anyInlinePanelsOpen()) repositionAl
 document.addEventListener('click', (e) => {
   if(!anyInlinePanelsOpen()) return;
   const path = e.composedPath ? e.composedPath() : [];
-  const insideHostOrToggle = path.some(el => el.id === 'inlinePanelHost' || (el.matches && el.matches('[data-inline-toggle], [data-tx-view-item]')));
+  const insideHostOrToggle = path.some(el => el.id === 'inlinePanelHost' || (el.matches && el.matches('[data-inline-toggle], [data-tx-view-item], [data-account-id]')));
   if(insideHostOrToggle) return;
   expandedInlineSources.clear();
   expandedTxPanels.clear();
+  expandedSaverPanels.clear();
   renderOpenInlinePanels();
 });
 const INLINE_CAPABLE = ['grocery','monthlycost','ballet','tech'];
@@ -4234,6 +4276,19 @@ async function fetchUpTransactionsFresh(){
     errEl.textContent = e.isRateLimit ? 'Checking in a bit too often — Up asked us to slow down. It\u2019ll catch up automatically shortly.' : (e.message || 'Couldn\u2019t reach Up.');
   }
 }
+// Read-only transaction history for a single account (used for savers) — a simpler
+// sibling of fetchUpTransactionsFresh: no timeframe filter, no pagination, no
+// assign-to-budget-item plumbing, since a saver's transactions aren't meant to be
+// assigned to categories the way spending-account transactions are.
+async function fetchUpAccountTransactions(accountId){
+  const txRes = await upFetch(`/accounts/${accountId}/transactions?page[size]=50`);
+  return (txRes.data||[]).filter(isValidUpTx).map(t => ({
+    txId: t.id,
+    desc: t.attributes.description,
+    date: t.attributes.createdAt,
+    amt: parseFloat(t.attributes.amount.value),
+  }));
+}
 let upTxSearchTerm = '';
 let upIncomeFilterActive = false;
 let upPayCycleFilter = null;
@@ -5006,7 +5061,7 @@ async function refreshUpData(){
     if(savers.length){
       html += `<div class="up-savers-lbl">Savers</div><div class="up-savers-grid">${savers.map(a => {
         const bal = parseFloat(a.attributes.balance.value);
-        return `<div class="up-account-chip" data-tip="${escapeAttr(a.attributes.displayName)}"><div class="up-acc-name">${escapeAttr(a.attributes.displayName)}</div><div class="up-acc-bal">${money(bal)}</div></div>`;
+        return `<div class="up-account-chip clickable" data-account-id="${escapeAttr(a.id)}" data-tip="${escapeAttr(a.attributes.displayName)} — click to view transactions"><div class="up-acc-name">${escapeAttr(a.attributes.displayName)}</div><div class="up-acc-bal">${money(bal)}</div></div>`;
       }).join('')}</div>`;
     }
     document.getElementById('upAccounts').innerHTML = html || '<div class="pc-faint">No accounts found.</div>';
@@ -5017,6 +5072,34 @@ async function refreshUpData(){
     errEl.textContent = e.isRateLimit ? 'Checking in a bit too often — Up asked us to slow down. It\u2019ll catch up automatically on the next refresh.' : (e.message || 'Couldn\u2019t reach Up.');
   }
 }
+// Click a saver chip to see its transaction history in a floating panel (reusing the
+// #inlinePanelHost mechanism). Bound on `document` rather than #view-dashboard because
+// #inlinePanelHost is a DOM sibling of the .view containers (declared after they all
+// close), not a descendant — a view-scoped listener would never see clicks routed
+// into panels rendered there. See the tx-panel/inline-source-panel handlers above for
+// the same pattern.
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('.up-account-chip[data-account-id]');
+  if(!chip) return;
+  const id = chip.dataset.accountId;
+  if(expandedSaverPanels.has(id)){
+    expandedSaverPanels.delete(id);
+  } else {
+    expandedSaverPanels.add(id);
+    if(!saverTxCache[id]){
+      const nameEl = chip.querySelector('.up-acc-name');
+      saverTxCache[id] = { name: nameEl ? nameEl.textContent : '', txs: null, error: null };
+      fetchUpAccountTransactions(id).then(txs => {
+        saverTxCache[id].txs = txs;
+        renderOpenInlinePanels();
+      }).catch(err => {
+        saverTxCache[id].error = err.message || 'Couldn’t load transactions.';
+        renderOpenInlinePanels();
+      });
+    }
+  }
+  renderOpenInlinePanels();
+});
 document.getElementById('upConnectBtn').addEventListener('click', async () => {
   const val = document.getElementById('upTokenInput').value.trim();
   if(!val) return;
