@@ -67,11 +67,8 @@ body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sa
 .sidebar .side-icon.active{background:var(--gold); color:#fff;}
 .sidebar .side-icon:hover:not(.active){background:#2A3040; color:#C7CDD6;}
 .sidebar .side-spacer{flex:1;}
-.sidebar-name-row{padding:10px 12px 4px;}
-.sidebar-name-label{display:flex; flex-direction:column; gap:5px; color:#8B93A5; font-size:.66rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700;}
-.sidebar-name-label input{background:#2A3040; border:1px solid #343A48; border-radius:7px; color:#E4E7EC; font-size:.82rem; font-weight:500; padding:7px 9px; font-family:inherit;}
-.sidebar-name-label input:focus{outline:none; border-color:var(--gold);}
-.sidebar-name-label input::placeholder{color:#5A6274;}
+.sidebar-link-btn{width:100%; background:none; border:none; color:#8B93A5; font-size:.82rem; font-weight:600; cursor:pointer; padding:10px 12px; text-align:left; border-radius:9px; font-family:inherit;}
+.sidebar-link-btn:hover{background:#2A3040; color:#C7CDD6;}
 .sidebar .dark-toggle{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-radius:9px; color:#8B93A5; font-size:.82rem; font-weight:600; border-top:1px solid #2A3040; margin-top:6px; padding-top:16px;}
 .sidebar .dark-toggle .dt-label{display:flex; align-items:center; gap:10px;}
 .sidebar .dark-toggle .ic{font-size:1rem; width:18px; text-align:center;}
@@ -151,6 +148,7 @@ header.mast .tag{font-size:.78rem; color:var(--ink-soft); margin-top:2px;}
 .pc-bar{height:100%; background:var(--gold); border-radius:5px; transition:width .25s ease; width:0%;}
 .pc-sub{font-size:.72rem; color:var(--ink-faint);}
 .pc-faint{font-size:.68rem; opacity:.7; margin-top:2px;}
+#upMeta{margin-top:14px; margin-bottom:14px;}
 .uncross-all-btn{background:none; border:none; padding:0; margin:0; font-family:'Inter',sans-serif; font-size:.72rem; font-weight:700; color:var(--gold); cursor:pointer; text-decoration:underline; text-underline-offset:2px;}
 .uncross-all-btn:hover{color:var(--debit);}
 .summary-mini{background:var(--surface); border:1px solid var(--rule); border-radius:12px; display:flex; flex-direction:column; justify-content:center; gap:14px; padding:18px 22px; font-size:.8rem; color:var(--ink-soft); flex:0 0 350px; width:350px; height:150px; min-width:0; overflow:hidden;}
@@ -349,6 +347,12 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .balance-bar-right{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
 .month-actions-panel{display:flex; align-items:center; flex-wrap:wrap; gap:10px; max-width:0; max-height:0; opacity:0; overflow:hidden; padding-left:8px; transition:max-width .32s ease, max-height .32s ease, opacity .22s ease;}
 .month-actions-panel.open{max-width:900px; max-height:300px; opacity:1;}
+/* #upTxMorePanel is already its own full-width block (unlike #monthActionsPanel, which
+   shares a row with its own gear button and genuinely needs to widen alongside it) - a
+   width-based collapse just makes its flex-wrap buttons reflow unpredictably mid-animation
+   as the width grows, which is what looked "broken." Pin it to full width always and let
+   max-height/opacity alone handle the reveal, like every other collapsible in this app. */
+#upTxMorePanel{max-width:none; padding-left:0;}
 .period-mode-group{display:flex; align-items:center; gap:6px; flex-shrink:0;}
 .ledger-top-toggle-row{display:flex; margin-bottom:14px;}
 .month-actions-gear{flex-shrink:0;}
@@ -506,7 +510,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .ballet-result-lbl{font-size:.76rem; color:var(--ink-soft); margin-top:2px;}
 .ballet-sub{font-size:.78rem; color:var(--ink-faint); margin-top:10px; text-align:center;}
 .timeframe-row{display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;}
-.up-pay-cycle-row{display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; padding:10px 12px; background:var(--paper-dim); border:1px solid var(--rule); border-radius:8px;}
+.up-pay-cycle-row{display:inline-flex; max-width:100%; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; padding:10px 12px; background:var(--paper-dim); border:1px solid var(--rule); border-radius:8px;}
 .up-pay-cycle-empty-lbl{font-size:.8rem; color:var(--ink-faint); font-style:italic;}
 .up-income-chip{display:flex; align-items:center; gap:6px; background:var(--gold-bg); border:1px solid var(--gold); border-radius:999px; padding:5px 6px 5px 10px;}
 .up-income-chip-ic{font-size:.85rem; line-height:1;}
@@ -627,6 +631,13 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-rule-target{color:var(--ink-faint); font-size:.78rem;}
 .tx-rule-del{flex-shrink:0; width:24px; height:24px; border-radius:50%; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-faint); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s, color .15s;}
 .tx-rule-del:hover{border-color:var(--debit); color:var(--debit);}
+.account-settings-box{max-width:380px;}
+.account-settings-box .auth-field{margin-top:14px; margin-bottom:0;}
+.acct-verify-row{display:flex; align-items:center; gap:10px; margin-top:6px;}
+.acct-verify-badge{font-size:.72rem; font-weight:700; padding:3px 9px; border-radius:20px;}
+.acct-verify-badge.verified{background:var(--credit-bg); color:var(--credit);}
+.acct-verify-badge.unverified{background:var(--gold-bg); color:var(--gold);}
+.acct-success{color:var(--credit); font-size:.8rem; margin-top:8px;}
 .tx-assign-cat-hdr{padding:8px 14px 4px; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:700; background:var(--paper-dim);}
 .tx-assign-item{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 14px; cursor:pointer; font-size:.85rem; border-top:1px solid var(--rule);}
 .tx-assign-item:hover{background:var(--paper-dim);}
@@ -822,9 +833,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <button class="side-icon" data-view="other" title="Other records"><span class="ic">▤</span>Other records</button>
     <button class="side-icon" data-view="admin" id="adminNavBtn" title="Users" style="display:none;"><span class="ic">☺</span>Users</button>
     <div class="side-spacer"></div>
-    <div class="sidebar-name-row">
-      <label class="sidebar-name-label">Your name<input type="text" id="displayNameInput" placeholder="Add your name" maxlength="60" autocomplete="name"></label>
-    </div>
+    <button type="button" class="sidebar-link-btn" id="accountSettingsBtn">⚙ Account settings</button>
     <div class="dark-toggle">
       <span class="dt-label"><span class="ic">☾</span><span class="dt-text">Dark mode</span></span>
       <button class="dm-switch" id="darkModeSwitch"></button>
@@ -1247,6 +1256,24 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     </div>
   </div>
 </div>
+<div class="modal-overlay" id="accountSettingsOverlay">
+  <div class="modal-box account-settings-box">
+    <div class="tx-assign-hdr">Account settings</div>
+    <label class="auth-field">Your name<input type="text" id="acctNameInput" placeholder="Add your name" maxlength="60" autocomplete="name"></label>
+    <label class="auth-field">Email<input type="email" id="acctEmailInput" autocomplete="email"></label>
+    <div class="acct-verify-row" id="acctVerifyRow">
+      <span class="acct-verify-badge" id="acctVerifyBadge"></span>
+      <button type="button" class="mini-btn" id="acctResendVerifyBtn" style="display:none;">Resend verification email</button>
+    </div>
+    <label class="auth-field">New password<input type="password" id="acctNewPassword" autocomplete="new-password" minlength="6" placeholder="Leave blank to keep current password"></label>
+    <div class="auth-error" id="acctError"></div>
+    <div class="acct-success" id="acctSuccess"></div>
+    <div class="modal-actions">
+      <button class="mini-btn" id="acctCloseBtn">Close</button>
+      <button class="mini-btn gold" id="acctSaveBtn">Save changes</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
@@ -1328,13 +1355,20 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 });
 
 // Resolves once a logged-in session exists, showing/hiding the auth overlay as needed.
+let authUserEmail = '';
+let authEmailConfirmed = false;
+function captureAuthUser(session){
+  authUserId = session.user.id;
+  authUserEmail = session.user.email || '';
+  authEmailConfirmed = !!session.user.email_confirmed_at;
+}
 function waitForAuth(){
   return new Promise((resolve) => {
     sb.auth.getSession().then(({ data: { session } }) => {
-      if(session){ authUserId = session.user.id; hideAuthOverlay(); resolve(session); return; }
+      if(session){ captureAuthUser(session); hideAuthOverlay(); resolve(session); return; }
       showAuthOverlay();
       const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
-        if(session){ authUserId = session.user.id; sub.subscription.unsubscribe(); hideAuthOverlay(); resolve(session); }
+        if(session){ captureAuthUser(session); sub.subscription.unsubscribe(); hideAuthOverlay(); resolve(session); }
       });
     });
   });
@@ -6118,11 +6152,68 @@ document.getElementById('darkModeSwitch').addEventListener('click', () => {
   settings.theme = settings.theme==='dark' ? 'light' : 'dark';
   applyTheme(); saveSettings();
 });
-document.getElementById('displayNameInput').addEventListener('change', async (e) => {
-  const val = e.target.value.trim();
-  if(val === displayName) return;
-  displayName = val;
-  try{ await db.saveSettings({ display_name: displayName || null }); }catch(e){}
+function renderAccountVerifyBadge(){
+  const badge = document.getElementById('acctVerifyBadge');
+  const resendBtn = document.getElementById('acctResendVerifyBtn');
+  badge.textContent = authEmailConfirmed ? '✓ Verified' : 'Not verified yet';
+  badge.className = 'acct-verify-badge ' + (authEmailConfirmed ? 'verified' : 'unverified');
+  resendBtn.style.display = authEmailConfirmed ? 'none' : '';
+}
+document.getElementById('accountSettingsBtn').addEventListener('click', () => {
+  document.getElementById('acctNameInput').value = displayName;
+  document.getElementById('acctEmailInput').value = authUserEmail;
+  document.getElementById('acctNewPassword').value = '';
+  document.getElementById('acctError').textContent = '';
+  document.getElementById('acctSuccess').textContent = '';
+  renderAccountVerifyBadge();
+  document.getElementById('accountSettingsOverlay').classList.add('show');
+});
+document.getElementById('acctCloseBtn').addEventListener('click', () => document.getElementById('accountSettingsOverlay').classList.remove('show'));
+document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => { if(e.target.id === 'accountSettingsOverlay') document.getElementById('accountSettingsOverlay').classList.remove('show'); });
+document.getElementById('acctResendVerifyBtn').addEventListener('click', async () => {
+  const errEl = document.getElementById('acctError');
+  const successEl = document.getElementById('acctSuccess');
+  errEl.textContent = ''; successEl.textContent = '';
+  try{
+    const { error } = await sb.auth.resend({ type: 'signup', email: authUserEmail });
+    if(error) throw error;
+    successEl.textContent = 'Verification email sent — check your inbox.';
+  }catch(err){ errEl.textContent = err.message || 'Couldn’t send that — try again shortly.'; }
+});
+document.getElementById('acctSaveBtn').addEventListener('click', async () => {
+  const errEl = document.getElementById('acctError');
+  const successEl = document.getElementById('acctSuccess');
+  errEl.textContent = ''; successEl.textContent = '';
+  const newName = document.getElementById('acctNameInput').value.trim();
+  const newEmail = document.getElementById('acctEmailInput').value.trim();
+  const newPassword = document.getElementById('acctNewPassword').value;
+  const btn = document.getElementById('acctSaveBtn');
+  btn.disabled = true;
+  const messages = [];
+  try{
+    if(newName !== displayName){
+      await db.saveSettings({ display_name: newName || null });
+      displayName = newName;
+      messages.push('Name updated.');
+    }
+    if(newEmail && newEmail !== authUserEmail){
+      const { error } = await sb.auth.updateUser({ email: newEmail });
+      if(error) throw error;
+      messages.push('Confirmation email sent to ' + newEmail + ' — the change takes effect once you click the link in it.');
+    }
+    if(newPassword){
+      if(newPassword.length < 6) throw new Error('New password must be at least 6 characters.');
+      const { error } = await sb.auth.updateUser({ password: newPassword });
+      if(error) throw error;
+      document.getElementById('acctNewPassword').value = '';
+      messages.push('Password updated.');
+    }
+    successEl.textContent = messages.length ? messages.join(' ') : 'Nothing to save.';
+  }catch(err){
+    errEl.textContent = err.message || 'Something went wrong.';
+  }finally{
+    btn.disabled = false;
+  }
 });
 
 /* ===================== init ===================== */
@@ -6160,7 +6251,6 @@ document.getElementById('displayNameInput').addEventListener('change', async (e)
   renderFeatureToggle('grocery');
   renderFeatureToggle('monthlycosts');
   renderBalletCardChrome();
-  document.getElementById('displayNameInput').value = displayName;
   document.getElementById('adminNavBtn').style.display = isAdmin ? '' : 'none';
   refreshInsertDropdowns();
   refreshUpSpendingBalance();
