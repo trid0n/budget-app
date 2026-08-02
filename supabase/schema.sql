@@ -32,6 +32,12 @@ create table if not exists public.user_settings (
   period_mode    text not null default 'calendar',  -- 'calendar' or 'paycycle' — see index.html's recomputeEffectivePeriod()
   up_token       text,  -- Phase 1 only: client still calls Up Bank directly. Moves to an Edge Function secret in a later phase.
   last_up_balance numeric,  -- most recent successfully-fetched Up Bank balance, remembered across sessions/devices for when a live fetch isn't available
+  is_admin       boolean not null default false,  -- app-level admin (Users tab, feature grants) — see admin_* functions below
+  display_name   text,  -- optional, shown alongside email in the admin Users tab
+  feature_tech         boolean not null default true,  -- Tech Replacement calculator — optional per user, default on
+  feature_grocery       boolean not null default true,  -- Groceries calculator — optional per user, default on
+  feature_monthlycosts boolean not null default true,  -- Monthly Costs calculator — optional per user, default on
+  feature_ballet        boolean not null default false, -- non-admin users only see this if an admin grants it (relabelled "Flexible Tracker") — see index.html's balletFeatureAvailable()
   updated_at     timestamptz not null default now()
 );
 
@@ -217,3 +223,66 @@ begin
     );
   end loop;
 end $$;
+
+-- ===================== admin support functions =====================
+-- The blanket owner-only RLS above deliberately has no admin exception — user_settings
+-- also holds up_token (a plaintext Up Bank API token), so a blanket "admins can read
+-- every row" policy would let an admin read other users' bank tokens. Instead, these
+-- security definer functions bypass RLS internally but (a) re-check the caller is an
+-- admin before doing anything, (b) only ever return/write a hardcoded column allowlist
+-- that never includes up_token, and (c) for writes, match the target column against a
+-- hardcoded list rather than interpolating client input into SQL.
+
+create or replace function public.admin_list_users()
+returns table(
+  user_id uuid, email text, display_name text, is_admin boolean,
+  feature_tech boolean, feature_grocery boolean, feature_monthlycosts boolean, feature_ballet boolean
+)
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.user_settings where user_id = auth.uid() and is_admin) then
+    raise exception 'not authorized';
+  end if;
+  return query
+    select u.id, u.email, s.display_name, coalesce(s.is_admin,false), coalesce(s.feature_tech,true),
+           coalesce(s.feature_grocery,true), coalesce(s.feature_monthlycosts,true), coalesce(s.feature_ballet,false)
+    from auth.users u left join public.user_settings s on s.user_id = u.id
+    order by u.created_at asc;
+end; $$;
+
+create or replace function public.admin_set_feature(target_user_id uuid, feature_name text, enabled boolean)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.user_settings where user_id = auth.uid() and is_admin) then
+    raise exception 'not authorized';
+  end if;
+  if feature_name not in ('feature_tech','feature_grocery','feature_monthlycosts','feature_ballet') then
+    raise exception 'unknown feature';
+  end if;
+  insert into public.user_settings(user_id) values (target_user_id) on conflict (user_id) do nothing;
+  if feature_name = 'feature_tech' then update public.user_settings set feature_tech = enabled where user_id = target_user_id;
+  elsif feature_name = 'feature_grocery' then update public.user_settings set feature_grocery = enabled where user_id = target_user_id;
+  elsif feature_name = 'feature_monthlycosts' then update public.user_settings set feature_monthlycosts = enabled where user_id = target_user_id;
+  elsif feature_name = 'feature_ballet' then update public.user_settings set feature_ballet = enabled where user_id = target_user_id;
+  end if;
+end; $$;
+
+create or replace function public.admin_set_is_admin(target_user_id uuid, enabled boolean)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.user_settings where user_id = auth.uid() and is_admin) then
+    raise exception 'not authorized';
+  end if;
+  if target_user_id = auth.uid() and not enabled then
+    raise exception 'cannot demote your own account';
+  end if;
+  insert into public.user_settings(user_id) values (target_user_id) on conflict (user_id) do nothing;
+  update public.user_settings set is_admin = enabled where user_id = target_user_id;
+end; $$;
+
+revoke all on function public.admin_list_users() from public;
+revoke all on function public.admin_set_feature(uuid, text, boolean) from public;
+revoke all on function public.admin_set_is_admin(uuid, boolean) from public;
+grant execute on function public.admin_list_users() to authenticated;
+grant execute on function public.admin_set_feature(uuid, text, boolean) to authenticated;
+grant execute on function public.admin_set_is_admin(uuid, boolean) to authenticated;

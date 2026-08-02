@@ -1477,6 +1477,22 @@ const db = {
     const rows = Object.entries(rules).map(([key, r]) => ({ merchant_key: key, user_id: authUserId, category_name: r.categoryName, item_name: r.itemName, threshold: r.threshold==null ? null : Number(r.threshold), above_category_name: r.aboveCategoryName, above_item_name: r.aboveItemName }));
     if(rows.length){ const { error } = await sb.from('tx_rules').insert(rows); if(error) throw error; }
   },
+  // Admin-only — these call security definer Postgres functions rather than reading/
+  // writing user_settings directly, since a blanket "admins can see every row" RLS
+  // policy would also expose other users' plaintext up_token. See schema.sql.
+  async adminListUsers(){
+    const { data, error } = await sb.rpc('admin_list_users');
+    if(error) throw error;
+    return data;
+  },
+  async adminSetFeature(targetUserId, featureName, enabled){
+    const { error } = await sb.rpc('admin_set_feature', { target_user_id: targetUserId, feature_name: featureName, enabled });
+    if(error) throw error;
+  },
+  async adminSetIsAdmin(targetUserId, enabled){
+    const { error } = await sb.rpc('admin_set_is_admin', { target_user_id: targetUserId, enabled });
+    if(error) throw error;
+  },
 };
 
 /* ===================== helpers ===================== */
@@ -1521,6 +1537,12 @@ function toast(msg){
 /* ===================== state ===================== */
 const DEFAULT_MONTH = dateToKey(new Date());
 let settings = { currentMonth: DEFAULT_MONTH, theme: 'light', lastGoal: 0, balanceMode: 'live', manualBalance: 0, periodMode: 'calendar' };
+// Feature flags + admin status. Defaults here (tech/grocery/monthlycosts on, ballet
+// off, not admin) are also what's used before the Phase 6 schema migration has been
+// applied — settingsRow's feature_*/is_admin columns come back undefined rather than
+// erroring, so an unmigrated database preserves exactly today's behavior for everyone.
+let isAdmin = false;
+let featureFlags = { tech: true, grocery: true, monthlycosts: true, ballet: false };
 // The calendar-month key "today" belongs to for budgeting purposes. Equal to the real
 // calendar month unless periodMode is 'paycycle', in which case it's the month after
 // the most recent detected payday - see recomputeEffectivePeriod().
@@ -1856,6 +1878,13 @@ async function loadEverything(){
     settings = { currentMonth: settingsRow.current_month || settings.currentMonth, theme: settingsRow.theme || 'light', lastGoal: Number(settingsRow.last_goal)||0, balanceMode: settingsRow.balance_mode || 'live', manualBalance: Number(settingsRow.manual_balance)||0, periodMode: settingsRow.period_mode || 'calendar' };
     upToken = settingsRow.up_token || '';
     lastKnownUpBalance = typeof settingsRow.last_up_balance === 'number' ? settingsRow.last_up_balance : (settingsRow.last_up_balance != null ? Number(settingsRow.last_up_balance) : null);
+    isAdmin = !!settingsRow.is_admin;
+    featureFlags = {
+      tech: settingsRow.feature_tech !== false,
+      grocery: settingsRow.feature_grocery !== false,
+      monthlycosts: settingsRow.feature_monthlycosts !== false,
+      ballet: !!settingsRow.feature_ballet,
+    };
   }
   existingMonths = (monthKeys || []).sort();
   techItems = techItemsRes || [];
