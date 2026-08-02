@@ -172,6 +172,7 @@ header.mast .tag{font-size:.78rem; color:var(--ink-soft); margin-top:2px;}
 /* custom truncation tooltip, no native browser styling */
 [data-tip]::before{content:attr(data-tip); position:absolute; left:0; top:100%; margin-top:6px; background:#1B1F27; color:#F5F6F8; padding:6px 10px; border-radius:8px; font-size:.76rem; font-weight:500; line-height:1.4; white-space:pre-line; width:max-content; max-width:280px; opacity:0; transform:translateY(-4px); pointer-events:none; transition:opacity .15s ease, transform .15s ease; z-index:60; box-shadow:0 8px 24px rgba(0,0,0,.35);}
 [data-tip]:hover::before{opacity:1; transform:translateY(0); transition-delay:.35s;}
+[data-tip].tip-tapped::before{opacity:1; transform:translateY(0);}
 .lrow:last-child{border-bottom:none;}
 input.name-input{font-family:'Inter',sans-serif; font-size:.88rem; background:transparent; border:none; color:var(--ink); width:100%; padding:5px 7px; min-width:0; flex:1; border-radius:6px; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .leaf-name input.name-input{flex:0 0 auto; width:var(--item-name-w, 80px); max-width:100%; min-width:20px;}
@@ -524,8 +525,15 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .ins-val{font-size:1.15rem; font-weight:800; color:var(--ink);}
 .ins-sub{font-size:.74rem; color:var(--ink-soft); margin-top:2px;}
 .insight-wide{grid-column:1 / -1;}
-.ins-rank{display:flex; justify-content:space-between; font-size:.86rem; padding:5px 0; border-bottom:1px dashed var(--rule);}
-.ins-rank:last-child{border-bottom:none;}
+.donut-wrap{display:flex; align-items:center; gap:20px; flex-wrap:wrap;}
+.insight-donut{width:150px; height:150px; flex-shrink:0;}
+.insight-donut path{transition:stroke-width .15s;}
+.insight-donut path.donut-hover{stroke-width:30;}
+.donut-legend{display:flex; flex-direction:column; gap:4px; flex:1; min-width:180px;}
+.donut-legend-row{display:flex; align-items:center; gap:7px; font-size:.82rem; padding:4px 6px; border-radius:6px; transition:background-color .15s;}
+.donut-legend-row:hover, .donut-legend-row.donut-hover{background:var(--surface);}
+.donut-legend-dot{width:10px; height:10px; border-radius:50%; flex-shrink:0;}
+.donut-legend-val{margin-left:auto; font-weight:700; font-variant-numeric:tabular-nums;}
 .rec-hero .rh-num{font-family:'Inter',sans-serif; font-size:1.8rem; font-weight:700;}
 .rec-hero .rh-lbl{font-size:.66rem; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft);}
 .rh-num{font-family:'Inter',sans-serif; font-size:1.8rem; font-weight:700;}
@@ -5234,6 +5242,67 @@ async function renderDashboard(){
   window._dashRows = withRunning;
 }
 let insightsTimeframe = 'all';
+// Small hand-rolled SVG donut chart (no charting library — this app has no build step
+// to pull one in). Draws each category as a stroked ring arc, clockwise from 12 o'clock.
+const DONUT_COLORS = ['#D4A537','#5B8C7B','#C77B5C','#6C7A94','#A26BB0','#4F9BB0','#B0555F'];
+function polarToCartesian(cx, cy, r, angleDeg){
+  const rad = (angleDeg - 90) * Math.PI / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+function describeArcPath(cx, cy, r, startAngle, endAngle){
+  // A single 100%-share slice can't be drawn as one arc with identical start/end
+  // points (SVG arcs require distinct endpoints) - clamp just under a full circle.
+  const clampedEnd = (endAngle - startAngle) >= 359.99 ? startAngle + 359.99 : endAngle;
+  const startPt = polarToCartesian(cx, cy, r, startAngle);
+  const endPt = polarToCartesian(cx, cy, r, clampedEnd);
+  const largeArcFlag = (clampedEnd - startAngle) <= 180 ? '0' : '1';
+  return `M ${startPt.x} ${startPt.y} A ${r} ${r} 0 ${largeArcFlag} 1 ${endPt.x} ${endPt.y}`;
+}
+function buildDonutChart(data){
+  const total = data.reduce((s,d)=>s+d.value,0) || 1;
+  const r = 70, cx = 90, cy = 90;
+  let angle = 0;
+  return data.map((d,i) => {
+    const pct = d.value / total;
+    const startA = angle, endA = angle + pct*360;
+    angle = endA;
+    return { name:d.name, value:d.value, pct, color: DONUT_COLORS[i % DONUT_COLORS.length], path: describeArcPath(cx, cy, r, startA, endA) };
+  });
+}
+function renderDonutChart(data){
+  const slices = buildDonutChart(data);
+  const svg = `<svg viewBox="0 0 180 180" class="insight-donut">${slices.map((s,i) =>
+    `<path d="${s.path}" stroke="${s.color}" stroke-width="26" fill="none" data-donut-slice="${i}" data-tip="${escapeAttr(s.name)}: ${money(s.value)}/mo"></path>`
+  ).join('')}</svg>`;
+  const legend = slices.map((s,i) => `<div class="donut-legend-row" data-donut-slice="${i}" data-tip="${escapeAttr(s.name)}: ${money(s.value)}/mo (${Math.round(s.pct*100)}%)">
+    <span class="donut-legend-dot" style="background:${s.color}"></span>${categoryEmoji(s.name)} ${escapeAttr(s.name)}
+    <span class="donut-legend-val">${money(s.value)}/mo</span></div>`).join('');
+  return `<div class="donut-wrap">${svg}<div class="donut-legend">${legend}</div></div>`;
+}
+// Lets a [data-tip] element's tooltip also be revealed by tap on touch devices, which
+// have no :hover state to trigger the existing pure-CSS tooltip mechanism. Bound once,
+// delegated, so it survives the container's content being re-rendered.
+function bindTapReveal(container, selector){
+  container.addEventListener('click', (e) => {
+    const el = e.target.closest(selector);
+    document.querySelectorAll(`${selector}.tip-tapped`).forEach(o => { if(o!==el) o.classList.remove('tip-tapped'); });
+    if(el) el.classList.toggle('tip-tapped');
+  });
+  document.addEventListener('click', (e) => {
+    if(!e.target.closest(selector)) document.querySelectorAll(`${selector}.tip-tapped`).forEach(o=>o.classList.remove('tip-tapped'));
+  });
+}
+bindTapReveal(document.getElementById('insightGrid'), '[data-donut-slice]');
+document.getElementById('insightGrid').addEventListener('mouseover', (e) => {
+  const el = e.target.closest('[data-donut-slice]');
+  if(!el) return;
+  document.querySelectorAll(`#insightGrid [data-donut-slice="${el.dataset.donutSlice}"]`).forEach(m => m.classList.add('donut-hover'));
+});
+document.getElementById('insightGrid').addEventListener('mouseout', (e) => {
+  const el = e.target.closest('[data-donut-slice]');
+  if(!el) return;
+  document.querySelectorAll(`#insightGrid [data-donut-slice="${el.dataset.donutSlice}"]`).forEach(m => m.classList.remove('donut-hover'));
+});
 async function renderInsights(){
   const grid = document.getElementById('insightGrid');
   let keys = existingMonths.slice().sort();
@@ -5277,7 +5346,13 @@ async function renderInsights(){
       catTotals[key].sum += total; catTotals[key].count += 1;
     });
   });
-  const catAvgs = Object.values(catTotals).map(c=>({name:c.name, avg:c.sum/c.count})).sort((a,b)=>b.avg-a.avg).slice(0,3);
+  const catAvgsFull = Object.values(catTotals).map(c=>({name:c.name, avg:c.sum/c.count})).sort((a,b)=>b.avg-a.avg);
+  const DONUT_MAX_SLICES = 6;
+  const donutData = catAvgsFull.slice(0, DONUT_MAX_SLICES).map(c=>({name:c.name, value:c.avg}));
+  if(catAvgsFull.length > DONUT_MAX_SLICES){
+    const otherSum = catAvgsFull.slice(DONUT_MAX_SLICES).reduce((s,c)=>s+c.avg,0);
+    if(otherSum > 0) donutData.push({name:'Other', value:otherSum});
+  }
 
   const cards = [
     {lbl:'Average income / month', val: money(avgIncome)},
@@ -5288,10 +5363,8 @@ async function renderInsights(){
     {lbl:'Total saved year-to-date ($)', val: money(ytdSaved)},
   ];
   let html = cards.map(c => `<div class="insight-card"><div class="ins-lbl">${c.lbl}</div><div class="ins-val">${c.val}</div>${c.sub?`<div class="ins-sub">${c.sub}</div>`:''}</div>`).join('');
-  if(catAvgs.length){
-    html += `<div class="insight-card insight-wide"><div class="ins-lbl">Biggest average categories</div>
-      ${catAvgs.map((c,i)=>`<div class="ins-rank"><span>${i+1}. ${categoryEmoji(c.name)} ${escapeAttr(c.name)}</span><span>${money(c.avg)}/mo</span></div>`).join('')}
-    </div>`;
+  if(donutData.length){
+    html += `<div class="insight-card insight-wide"><div class="ins-lbl">Costs by category</div>${renderDonutChart(donutData)}</div>`;
   }
   grid.innerHTML = html;
 }
