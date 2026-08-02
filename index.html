@@ -2291,11 +2291,28 @@ const X_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" strok
 const CHECK_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 const DOLLAR_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
 const LINK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+// Admins always see/use the literal Ballet calculator, unchanged. A non-admin only
+// gets it if an admin has granted feature_ballet from the Users tab, and sees it
+// relabelled "Flexible Tracker" (see renderBalletCardChrome/sourceDisplayLabel) — same
+// underlying table/logic either way, just different chrome. MTG has no grant path at
+// all, per spec: admin-only, full stop.
+function balletFeatureAvailable(){ return isAdmin || featureFlags.ballet; }
+function mtgFeatureAvailable(){ return isAdmin; }
+function balletIsGenericForCurrentUser(){ return balletFeatureAvailable() && !isAdmin; }
+function sourceDisplayLabel(source){
+  if(source === 'tech') return 'Tech Replacement';
+  if(source === 'grocery') return 'Groceries';
+  if(source === 'ballet') return balletIsGenericForCurrentUser() ? 'Flexible Tracker' : 'Ballet';
+  return 'Monthly Costs';
+}
 function tplSourceFor(name){
   const n = (name||'').trim().toLowerCase();
   if(n.includes('tech replacement')) return featureFlags.tech ? 'tech' : null;
   if(n.includes('groceries')) return featureFlags.grocery ? 'grocery' : null;
-  if(n.includes('ballet')) return 'ballet';
+  // Grantees are told to name their template item "Flexible Tracker" (they aren't
+  // shown the word "ballet" anywhere in their UI) - accept either so the link actually
+  // works regardless of which label the current viewer sees.
+  if((n.includes('ballet') || n.includes('flexible tracker')) && balletFeatureAvailable()) return 'ballet';
   if(n && monthlyCosts && monthlyCosts.items.some(mc => mc.name.trim().toLowerCase() === n)) return featureFlags.monthlycosts ? 'monthlycost' : null;
   return null;
 }
@@ -2620,7 +2637,7 @@ function leafRowHtml(catId, item){
   const source = tplSourceFor(item.name);
   const canInline = source && INLINE_CAPABLE.includes(source);
   const isOpen = canInline && expandedInlineSources.has(item.id);
-  const sourceLabel = source==='tech'?'Tech Replacement':source==='grocery'?'Groceries':source==='ballet'?'Ballet':'Monthly Costs';
+  const sourceLabel = sourceDisplayLabel(source);
   const isPast = isPastMonth(settings.currentMonth);
   const locked = source && !isPast;
   const linkBtn = source ? (canInline
@@ -3134,7 +3151,7 @@ function tplLeafRowHtml(catId, item){
   return `<div class="lrow leaf" data-tpl-item-row="${item.id}" data-tpl-cat="${catId}" data-tpl-item="${item.id}">
     <span class="grip-handle"></span>
     <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. rent" value="${escapeAttr(item.name)}" data-tpl-cat="${catId}" data-tpl-item="${item.id}" data-tpl-field="name"></div>
-    <div class="gcell">${source ? `<button class="tpl-source-link" data-jump-source="${source}" data-tip="Open the ${source==='tech'?'Tech Replacement':source==='grocery'?'Groceries':source==='ballet'?'Ballet':'Monthly Costs'} table">${LINK_SVG}</button>` : ''}<div class="amt-wrap"><span class="sign"></span><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-tpl-cat="${catId}" data-tpl-item="${item.id}" data-tpl-field="amount" ${source?'readonly':''}></div></div>
+    <div class="gcell">${source ? `<button class="tpl-source-link" data-jump-source="${source}" data-tip="Open the ${sourceDisplayLabel(source)} table">${LINK_SVG}</button>` : ''}<div class="amt-wrap"><span class="sign"></span><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-tpl-cat="${catId}" data-tpl-item="${item.id}" data-tpl-field="amount" ${source?'readonly':''}></div></div>
     <div class="del-cell"><button data-tpl-cat="${catId}" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
   </div>`;
 }
@@ -5155,7 +5172,7 @@ async function refreshUpData(){
     const accountsRes = await upFetch('/accounts');
     const spendingAcc = findUpSpendingAccount(accountsRes.data);
     const savers = accountsRes.data.filter(a => !spendingAcc || a.id !== spendingAcc.id);
-    const balletSaver = savers.find(a => (a.attributes.displayName||'').toLowerCase().includes('ballet'));
+    const balletSaver = balletFeatureAvailable() ? savers.find(a => (a.attributes.displayName||'').toLowerCase().includes('ballet')) : null;
     if(balletSaver){
       const balletBal = parseFloat(balletSaver.attributes.balance.value);
       if(!isNaN(balletBal) && balletBal !== ballet.balance){
@@ -5716,6 +5733,29 @@ function populateBalletDateSelects(){ populateCustomDateSelects('balletDate'); }
 function setBalletDateSelects(isoStr){ setCustomDateSelects('balletDate', isoStr); }
 function getBalletDateFromSelects(){ return getCustomDateFromSelects('balletDate'); }
 let cachedBalletMonthlyAmount = 0;
+// Swaps the Ballet card between its literal admin-only chrome and the generic
+// "Flexible Tracker" chrome a grantee sees — same underlying ballet table/fields either
+// way (see saveBallet/renderBalletCalc below), this only changes what's displayed.
+function renderBalletCardChrome(){
+  const card = document.getElementById('balletRecordCard');
+  const mtgCard = document.getElementById('mtgRecordCard');
+  if(mtgCard) mtgCard.style.display = mtgFeatureAvailable() ? '' : 'none';
+  if(!card) return;
+  card.style.display = balletFeatureAvailable() ? '' : 'none';
+  if(!balletFeatureAvailable()) return;
+  const generic = balletIsGenericForCurrentUser();
+  card.querySelector('h2').innerHTML = generic
+    ? 'Flexible Tracker <span class="rc-sub">recurring transfer calculator</span>'
+    : 'Ballet <span class="rc-sub">monthly transfer calculator</span>';
+  const desc = card.querySelector('.ballet-desc');
+  if(desc) desc.textContent = generic
+    ? 'A recurring-cost transfer calculator: set the amount, how often you’re charged, and what’s already saved, and it works out how much to move across each month so it never runs short. Use it for any regular cost, not just one specific thing — name a template item "Flexible Tracker" to link it here automatically.'
+    : 'Charged every 6 weeks. Set the cost, the date you were last charged, and what’s currently sitting in savings — this works out how much to move across each month so it never runs short.';
+  const syncNote = card.querySelector('.sync-note');
+  if(syncNote) syncNote.textContent = generic
+    ? 'Automatically kept in sync with "Flexible Tracker" in your template.'
+    : 'Automatically kept in sync with "Ballet" in your template.';
+}
 function renderBalletCalc(){
   const costEl = document.getElementById('balletCost');
   const balEl = document.getElementById('balletBalance');
@@ -5762,7 +5802,8 @@ function renderBalletCalc(){
   document.querySelectorAll('[data-inline-ballet-result]').forEach(el => { el.textContent = `${money(monthly)} to move across each month`; });
 }
 function syncBalletToTemplate(monthly){
-  syncAmountEverywhere(n => n.trim().toLowerCase().includes('ballet'), monthly, false);
+  if(!balletFeatureAvailable()) return;
+  syncAmountEverywhere(n => (n.trim().toLowerCase().includes('ballet') || n.trim().toLowerCase().includes('flexible tracker')), monthly, false);
 }
 document.getElementById('balletCost').addEventListener('input', (e) => {
   ballet.cost = parseFloat(e.target.value)||0;
@@ -5985,6 +6026,7 @@ document.getElementById('darkModeSwitch').addEventListener('click', () => {
   renderFeatureToggle('tech');
   renderFeatureToggle('grocery');
   renderFeatureToggle('monthlycosts');
+  renderBalletCardChrome();
   refreshInsertDropdowns();
   refreshUpSpendingBalance();
   setInterval(() => {
