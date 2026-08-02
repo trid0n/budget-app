@@ -240,7 +240,10 @@ returns table(
 )
 language plpgsql security definer set search_path = public as $$
 begin
-  if not exists (select 1 from public.user_settings where user_id = auth.uid() and is_admin) then
+  -- Table aliased and columns qualified below because RETURNS TABLE(user_id, ..., is_admin, ...)
+  -- above implicitly declares PL/pgSQL variables of those same names, which would otherwise be
+  -- ambiguous against user_settings' own user_id/is_admin columns in this unqualified check.
+  if not exists (select 1 from public.user_settings us where us.user_id = auth.uid() and us.is_admin) then
     raise exception 'not authorized';
   end if;
   return query

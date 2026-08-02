@@ -347,8 +347,8 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .balance-bar-amt{font-size:1.5rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums;}
 .balance-bar-sub{font-size:.74rem; color:var(--ink-faint); margin-top:2px;}
 .balance-bar-right{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
-.month-actions-panel{display:flex; align-items:center; flex-wrap:wrap; gap:10px; max-width:0; opacity:0; overflow:hidden; padding-left:8px; transition:max-width .32s ease, opacity .22s ease;}
-.month-actions-panel.open{max-width:900px; opacity:1;}
+.month-actions-panel{display:flex; align-items:center; flex-wrap:wrap; gap:10px; max-width:0; max-height:0; opacity:0; overflow:hidden; padding-left:8px; transition:max-width .32s ease, max-height .32s ease, opacity .22s ease;}
+.month-actions-panel.open{max-width:900px; max-height:300px; opacity:1;}
 .period-mode-group{display:flex; align-items:center; gap:6px; flex-shrink:0;}
 .ledger-top-toggle-row{display:flex; margin-bottom:14px;}
 .month-actions-gear{flex-shrink:0;}
@@ -400,8 +400,8 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 #templateCard{width:100%; box-sizing:border-box;}
 .template-top-row{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:18px; flex-wrap:wrap; width:100%; box-sizing:border-box;}
 .template-top-row h2{margin:0 0 2px; font-size:1.3rem;}
-.tpl-info-btn{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; margin-left:4px; padding:0; border:1px solid var(--rule); border-radius:50%; background:var(--paper-dim); color:var(--ink-soft); font-size:.72rem; line-height:1; cursor:pointer; vertical-align:middle;}
-.tpl-info-btn:hover{border-color:var(--gold); color:var(--gold);}
+.tpl-info-btn{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; margin-left:4px; padding:0; border:none; background:none; color:var(--ink-faint); cursor:pointer; vertical-align:middle; position:relative;}
+.tpl-info-btn:hover{color:var(--gold);}
 .template-income-card{background:var(--surface); border:1px solid var(--rule); border-radius:10px; margin-bottom:14px; border-top:3px solid var(--credit); width:100%; box-sizing:border-box;}
 .template-cats{display:grid; grid-template-columns:1fr 1fr; gap:14px; width:100%; box-sizing:border-box; align-items:start;}
 @media (max-width:700px){.template-cats{grid-template-columns:1fr;}}
@@ -617,6 +617,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
    whose flex gap:12px is what the -8px above is calibrated against; .inline-source-panel has
    no such gap, so it needs its own positive spacing instead. */
 .inline-source-panel .tx-assign-sub{margin-top:4px; margin-bottom:10px;}
+.tx-rules-box .tx-assign-sub{margin-top:4px;}
 .tx-assign-list{max-height:260px; overflow-y:auto; border:1px solid var(--rule); border-radius:10px; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
 .tx-rules-box{max-width:420px;}
 .tx-rules-list{max-height:320px; overflow-y:auto; border:1px solid var(--rule); border-radius:10px; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim); margin-top:14px;}
@@ -696,6 +697,8 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
 .sync-status.err .dot{background:var(--debit);}
 
 .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--paper); padding:10px 18px; font-size:.8rem; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:100;}
+.donut-float-tip{position:fixed; background:#1B1F27; color:#F5F6F8; padding:6px 10px; border-radius:8px; font-size:.76rem; font-weight:600; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .1s; z-index:200; box-shadow:0 8px 24px rgba(0,0,0,.35);}
+.donut-float-tip.show{opacity:1;}
 .wd-hdr{display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--rule); font-weight:700; font-size:.85rem; color:var(--ink); position:sticky; top:0; background:var(--surface);}
 .wd-hdr button{background:none; border:none; color:var(--ink-faint); font-size:1.2rem; cursor:pointer; line-height:1;}
 .wd-section{margin-bottom:14px;}
@@ -939,7 +942,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <!-- ================= TEMPLATE VIEW ================= -->
     <div class="view" id="view-template">
       <div class="template-top-row">
-        <div><h2>My template <button class="tpl-info-btn" id="templateInfoBtn" data-tip="Your template is the default set of income lines and categories new months are built from. Edit it here any time — then use “Restore this month to template” on any month to reset it back to this layout.">ⓘ</button></h2><span class="review-sub" id="templateStatus"></span></div>
+        <div><h2>My template <button class="tpl-info-btn" id="templateInfoBtn" data-tip="Your template is the default set of income lines and categories new months are built from. Edit it here any time — then use “Restore this month to template” on any month to reset it back to this layout."><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.5" r="0.9" fill="currentColor" stroke="none"/></svg></button></h2><span class="review-sub" id="templateStatus"></span></div>
         <div class="tpl-goal-card">
           <div class="tpl-goal-label">Default monthly goal</div>
           <div class="tpl-goal-value"><span>$</span><input type="number" step="0.01" id="tplGoalInput" placeholder="0"></div>
@@ -1088,7 +1091,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <div class="view" id="view-other">
 
     <div class="rec-card collapsible" id="techRecordCard">
-      <div class="rec-summary" data-rec-toggle><h2>Tech Replacement costs <button class="tpl-info-btn" data-tip="A repeat-purchase calculator: enter an item, its cost, and how many years it should last, and this works out how much to set aside monthly. Not just for tech — use it for anything you replace on a cycle. Turning it off keeps your data, it just stops syncing to your template.">ⓘ</button> <span class="rc-sub">set-aside fund</span></h2><button class="dm-switch feature-toggle-switch" data-feature="tech" title="Enable or disable this feature"></button></div>
+      <div class="rec-summary" data-rec-toggle><h2>Tech Replacement costs <button class="tpl-info-btn" data-tip="A repeat-purchase calculator: enter an item, its cost, and how many years it should last, and this works out how much to set aside monthly. Not just for tech — use it for anything you replace on a cycle. Turning it off keeps your data, it just stops syncing to your template."><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.5" r="0.9" fill="currentColor" stroke="none"/></svg></button> <span class="rc-sub">set-aside fund</span></h2><button class="dm-switch feature-toggle-switch" data-feature="tech" title="Enable or disable this feature"></button></div>
       <div class="rec-body"><div class="rec-body-inner">
         <div class="rec-table-wrap">
         <table class="rtable">
@@ -1105,7 +1108,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     </div>
 
     <div class="rec-card collapsible" id="groceryRecordCard">
-      <div class="rec-summary" data-rec-toggle><h2>Groceries <button class="tpl-info-btn" data-tip="Works out a daily grocery cost from the items you list here, apportioned across the days in the month (minus days you're eating out). Turning it off keeps your data, it just stops syncing to your template.">ⓘ</button> <span class="rc-sub">daily cost calculator</span></h2><button class="dm-switch feature-toggle-switch" data-feature="grocery" title="Enable or disable this feature"></button></div>
+      <div class="rec-summary" data-rec-toggle><h2>Groceries <button class="tpl-info-btn" data-tip="Works out a daily grocery cost from the items you list here, apportioned across the days in the month (minus days you're eating out). Turning it off keeps your data, it just stops syncing to your template."><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.5" r="0.9" fill="currentColor" stroke="none"/></svg></button> <span class="rc-sub">daily cost calculator</span></h2><button class="dm-switch feature-toggle-switch" data-feature="grocery" title="Enable or disable this feature"></button></div>
       <div class="rec-body"><div class="rec-body-inner">
         <div class="rec-table-wrap">
         <table class="rtable">
@@ -1176,7 +1179,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     </div>
 
     <div class="rec-card collapsible" id="monthlyCostsRecordCard">
-      <div class="rec-summary" data-rec-toggle><h2>Monthly costs <button class="tpl-info-btn" data-tip="Pick any flat monthly amount here — like an insurance premium or subscription — and it apportions it by days into whichever template item shares its exact name. Turning it off keeps your data, it just stops syncing to your template.">ⓘ</button> <span class="rc-sub">flat recurring items</span></h2><button class="dm-switch feature-toggle-switch" data-feature="monthlycosts" title="Enable or disable this feature"></button></div>
+      <div class="rec-summary" data-rec-toggle><h2>Monthly costs <button class="tpl-info-btn" data-tip="Pick any flat monthly amount here — like an insurance premium or subscription — and it apportions it by days into whichever template item shares its exact name. Turning it off keeps your data, it just stops syncing to your template."><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.5" r="0.9" fill="currentColor" stroke="none"/></svg></button> <span class="rc-sub">flat recurring items</span></h2><button class="dm-switch feature-toggle-switch" data-feature="monthlycosts" title="Enable or disable this feature"></button></div>
       <div class="rec-body"><div class="rec-body-inner">
         <div class="rec-table-wrap">
           <table class="rtable">
@@ -1207,6 +1210,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
   </div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="donut-float-tip" id="donutFloatTip"></div>
 <div id="inlinePanelHost"></div>
 <div class="modal-overlay" id="txAssignOverlay">
   <div class="modal-box tx-assign-box">
@@ -1236,6 +1240,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
   <div class="modal-box tx-rules-box">
     <div class="tx-assign-hdr">Merchant rules</div>
     <div class="tx-assign-sub">Transactions matched to these are auto-attributed without asking</div>
+    <input type="text" id="txRulesSearch" class="up-tx-search" placeholder="Search merchant rules...">
     <div class="tx-rules-list" id="txRulesList"></div>
     <div class="modal-actions">
       <button class="mini-btn" id="txRulesCloseBtn">Close</button>
@@ -1279,6 +1284,7 @@ function setAuthMode(mode){
   document.getElementById('authSubmit').textContent = mode==='login' ? 'Log in' : 'Sign up';
   document.getElementById('authError').textContent = '';
   document.getElementById('authNameField').style.display = mode==='signup' ? '' : 'none';
+  document.getElementById('authName').required = mode === 'signup';
   const hint = document.getElementById('authHint');
   if(mode==='signup'){ hint.style.display='block'; hint.textContent = 'Anyone can create an account here, but Row Level Security means every account only ever sees its own budget — never anyone else’s.'; }
   else hint.style.display='none';
@@ -4339,7 +4345,11 @@ document.getElementById('periodModeGroup').addEventListener('click', (e) => {
   renderPeriodModeToggle();
   recomputeEffectivePeriod();
   updateSummary();
-  toast(mode === 'paycycle' ? 'Now budgeting between pays — the current month rolls over as soon as your linked income lands' : 'Now budgeting by calendar month');
+  if(mode === 'paycycle' && !upIncomeSourceKey){
+    toast('Pay cycle is on, but nothing will change until you choose an income source — do that on the Dashboard tab under Up Bank');
+  } else {
+    toast(mode === 'paycycle' ? 'Now budgeting between pays — the current month rolls over as soon as your linked income lands' : 'Now budgeting by calendar month');
+  }
 });
 document.getElementById('balanceBarAmt').addEventListener('click', async () => {
   const ok = await customConfirm('Enter this balance manually? It\u2019ll be used instead of your live Up balance until you switch back.');
@@ -5150,10 +5160,19 @@ function humanizeMerchantKey(key){
   const direction = key.endsWith('__in') ? ' (incoming)' : key.endsWith('__out') ? ' (outgoing)' : '';
   return key.replace(/__(in|out)$/, '').replace(/_/g, ' ') + direction;
 }
+let txRulesSearchTerm = '';
 function renderTxRulesList(){
   const list = document.getElementById('txRulesList');
-  const keys = Object.keys(txRules);
-  if(!keys.length){ list.innerHTML = '<div class="tx-assign-empty">No merchant rules yet — tick "always" on the popup after assigning a transaction.</div>'; return; }
+  const allKeys = Object.keys(txRules);
+  if(!allKeys.length){ list.innerHTML = '<div class="tx-assign-empty">No merchant rules yet — tick "always" on the popup after assigning a transaction.</div>'; return; }
+  const term = txRulesSearchTerm.trim().toLowerCase();
+  const keys = term
+    ? allKeys.filter(key => {
+        const r = txRules[key];
+        return humanizeMerchantKey(key).toLowerCase().includes(term) || (r.itemName||'').toLowerCase().includes(term) || (r.categoryName||'').toLowerCase().includes(term);
+      })
+    : allKeys;
+  if(!keys.length){ list.innerHTML = '<div class="tx-assign-empty">No merchant rules match your search.</div>'; return; }
   list.innerHTML = keys.map(key => {
     const r = txRules[key];
     const targetLbl = `${categoryEmoji(r.categoryName)} ${escapeAttr(r.itemName)}${r.threshold!=null ? ` — above ${money(r.threshold)}` : ''}`;
@@ -5161,9 +5180,12 @@ function renderTxRulesList(){
   }).join('');
 }
 document.getElementById('manageTxRulesBtn').addEventListener('click', () => {
+  txRulesSearchTerm = '';
+  document.getElementById('txRulesSearch').value = '';
   renderTxRulesList();
   document.getElementById('txRulesOverlay').classList.add('show');
 });
+document.getElementById('txRulesSearch').addEventListener('input', (e) => { txRulesSearchTerm = e.target.value; renderTxRulesList(); });
 document.getElementById('txRulesCloseBtn').addEventListener('click', () => document.getElementById('txRulesOverlay').classList.remove('show'));
 document.getElementById('txRulesOverlay').addEventListener('click', (e) => { if(e.target.id === 'txRulesOverlay') document.getElementById('txRulesOverlay').classList.remove('show'); });
 document.getElementById('txRulesList').addEventListener('click', (e) => {
@@ -5465,7 +5487,33 @@ function bindTapReveal(container, selector){
     if(!e.target.closest(selector)) document.querySelectorAll(`${selector}.tip-tapped`).forEach(o=>o.classList.remove('tip-tapped'));
   });
 }
-bindTapReveal(document.getElementById('insightGrid'), '[data-donut-slice]');
+// The donut's slices/legend rows use data-tip for their label text, but the app's
+// normal CSS-hover tooltip (position:absolute ::before, relative to the nearest
+// positioned ancestor) doesn't anchor sensibly to an SVG <path> or an unpositioned
+// legend row — it ended up invisible/mispositioned rather than a bug you could just
+// see. A small JS-driven floating tooltip sidesteps that entirely, for both hover and tap.
+function showDonutTooltip(text, x, y){
+  const tip = document.getElementById('donutFloatTip');
+  tip.textContent = text;
+  tip.classList.add('show');
+  const tipWidth = tip.offsetWidth || 140;
+  tip.style.left = Math.min(Math.max(8, x), window.innerWidth - tipWidth - 8) + 'px';
+  tip.style.top = Math.min(Math.max(8, y), window.innerHeight - 40) + 'px';
+}
+function hideDonutTooltip(){ document.getElementById('donutFloatTip').classList.remove('show'); }
+document.getElementById('insightGrid').addEventListener('mousemove', (e) => {
+  const el = e.target.closest('[data-donut-slice]');
+  if(!el){ hideDonutTooltip(); return; }
+  showDonutTooltip(el.getAttribute('data-tip') || '', e.clientX + 14, e.clientY + 14);
+});
+document.getElementById('insightGrid').addEventListener('mouseleave', hideDonutTooltip);
+document.getElementById('insightGrid').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-donut-slice]');
+  if(!el) return;
+  const rect = el.getBoundingClientRect();
+  showDonutTooltip(el.getAttribute('data-tip') || '', rect.left + rect.width/2, rect.top - 36);
+});
+document.addEventListener('click', (e) => { if(!e.target.closest('[data-donut-slice]')) hideDonutTooltip(); });
 bindTapReveal(document.body, '.tpl-info-btn');
 document.getElementById('insightGrid').addEventListener('mouseover', (e) => {
   const el = e.target.closest('[data-donut-slice]');
