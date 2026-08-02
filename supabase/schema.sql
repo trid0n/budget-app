@@ -247,7 +247,9 @@ begin
     raise exception 'not authorized';
   end if;
   return query
-    select u.id, u.email, s.display_name, coalesce(s.is_admin,false), coalesce(s.feature_tech,true),
+    -- auth.users.email is varchar(255), not text - cast explicitly or Postgres rejects
+    -- this with "structure of query does not match function result type".
+    select u.id, u.email::text, s.display_name, coalesce(s.is_admin,false), coalesce(s.feature_tech,true),
            coalesce(s.feature_grocery,true), coalesce(s.feature_monthlycosts,true), coalesce(s.feature_ballet,false)
     from auth.users u left join public.user_settings s on s.user_id = u.id
     order by u.created_at asc;
