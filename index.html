@@ -938,9 +938,9 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 
     <!-- ================= DASHBOARD VIEW ================= -->
     <div class="view" id="view-dashboard">
-    <div class="rec-card">
-      <h2>Up Bank <span class="rc-sub">live accounts &amp; transactions</span></h2>
-      <div class="rec-body">
+    <div class="rec-card collapsible open" id="upBankCard">
+      <div class="rec-summary" data-rec-toggle><h2>Up Bank <span class="rc-sub">live accounts &amp; transactions</span></h2></div>
+      <div class="rec-body" style="max-height:none;"><div class="rec-body-inner">
         <div class="up-connect-row" id="upConnectRow">
           <label class="grocery-field lb-field-wide">Personal access token<input type="text" id="upTokenInput" class="token-masked" placeholder="up:yeah:..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"></label>
           <button class="mini-btn gold" id="upConnectBtn">Connect</button>
@@ -948,7 +948,6 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         </div>
         <button class="mini-btn" id="upChangeTokenBtn" style="display:none;">🔑 Connected — change token</button>
         <div id="upContent" style="display:none;">
-          <div class="up-accounts" id="upAccounts"></div>
           <div class="up-tx-hdr">Recent transactions <span class="up-tx-hdr-actions"><button class="mini-btn" id="manageTxRulesBtn">Manage merchant rules</button><button class="mini-btn" id="upRefreshBtn">Refresh</button></span></div>
           <div class="timeframe-row" id="upTxTimeframeRow">
             <button class="timeframe-btn" data-tf="1">Last month</button>
@@ -1012,9 +1011,10 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <div class="up-tx-list" id="upTxList"></div>
           <div class="up-tx-loadmore-row"><button class="mini-btn" id="upLoadMoreBtn" style="display:none;">Load more</button></div>
           <div class="pc-faint" id="upMeta"></div>
+          <div class="up-accounts" id="upAccounts"></div>
         </div>
         <div class="live-balance-error" id="upError"></div>
-      </div>
+      </div></div>
     </div>
     <div class="rec-card" id="biggestMoversCard" style="display:none;">
       <h2>Biggest price changes <span class="rc-sub">last month, vs the 3 months before it</span></h2>
@@ -1022,9 +1022,9 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         <div class="biggest-movers-list" id="biggestMoversList"></div>
       </div>
     </div>
-    <div class="rec-card">
-      <h2>Savings Dashboard <span class="rc-sub">history across all tracked months</span></h2>
-      <div class="rec-body">
+    <div class="rec-card collapsible open" id="savingsDashboardCard">
+      <div class="rec-summary" data-rec-toggle><h2>Savings Dashboard <span class="rc-sub">history across all tracked months</span></h2></div>
+      <div class="rec-body" style="max-height:none;"><div class="rec-body-inner">
         <div class="timeframe-row" id="dashTimeframeRow">
           <button class="timeframe-btn" data-tf="3">3 months</button>
           <button class="timeframe-btn" data-tf="6">6 months</button>
@@ -1044,12 +1044,12 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           </table>
         </div>
         <div class="rec-actions"><button class="mini-btn" id="exportCsvBtn">Export CSV</button></div>
-      </div>
+      </div></div>
     </div>
 
-    <div class="rec-card">
-      <h2>Insights <span class="rc-sub">patterns pulled from your own history</span></h2>
-      <div class="rec-body">
+    <div class="rec-card collapsible open" id="insightsCard">
+      <div class="rec-summary" data-rec-toggle><h2>Insights <span class="rc-sub">patterns pulled from your own history</span></h2></div>
+      <div class="rec-body" style="max-height:none;"><div class="rec-body-inner">
         <div class="timeframe-row" id="insightTimeframeRow">
           <button class="timeframe-btn" data-tf="3">3 months</button>
           <button class="timeframe-btn" data-tf="6">6 months</button>
@@ -1057,7 +1057,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <button class="timeframe-btn active" data-tf="all">All time</button>
         </div>
         <div class="insight-grid" id="insightGrid"></div>
-      </div>
+      </div></div>
     </div>
     </div>
 
@@ -2283,6 +2283,31 @@ document.getElementById('view-other').addEventListener('click', (e) => {
   if(!toggle) return;
   toggleRecCard(toggle.closest('.rec-card'));
 });
+// Dashboard cards start open (so existing users see no change on first load after this
+// shipped) but remember a collapsed state across sessions, unlike Other Records' cards
+// which intentionally reset to collapsed every load.
+const DASHBOARD_COLLAPSIBLE_CARD_IDS = ['upBankCard', 'savingsDashboardCard', 'insightsCard'];
+document.getElementById('view-dashboard').addEventListener('click', (e) => {
+  const toggle = e.target.closest('[data-rec-toggle]');
+  if(!toggle) return;
+  const card = toggle.closest('.rec-card');
+  // Capture the target state before toggling — toggleRecCard defers removing the
+  // 'open' class by a couple of animation frames when collapsing, so reading
+  // classList right after calling it would still see the pre-toggle state.
+  const willBeOpen = !card.classList.contains('open');
+  toggleRecCard(card);
+  if(card.id) localStorage.setItem('dashCardOpen_' + card.id, willBeOpen ? '1' : '0');
+});
+(function applyStoredDashboardCardState(){
+  DASHBOARD_COLLAPSIBLE_CARD_IDS.forEach(id => {
+    if(localStorage.getItem('dashCardOpen_' + id) !== '0') return;
+    const card = document.getElementById(id);
+    if(!card) return;
+    card.classList.remove('open');
+    const body = card.querySelector('.rec-body');
+    if(body) body.style.maxHeight = '0px';
+  });
+})();
 function jumpToRecordCard(source){
   const map = {tech:'techRecordCard', grocery:'groceryRecordCard', ballet:'balletRecordCard', monthlycost:'monthlyCostsRecordCard'};
   const cardId = map[source];
@@ -5230,9 +5255,17 @@ async function renderInsights(){
   const avgIncome = rows.reduce((s,r)=>s+r.income,0)/rows.length;
   const avgCost = rows.reduce((s,r)=>s+r.cost,0)/rows.length;
   const avgRate = avgIncome>0 ? Math.round(((avgIncome-avgCost)/avgIncome)*100) : 0;
-  const monthsSaved = rows.filter(r=>r.diff>0).length;
   const best = rows.reduce((a,b)=> b.diff>a.diff ? b : a, rows[0]);
   const worst = rows.reduce((a,b)=> b.diff<a.diff ? b : a, rows[0]);
+
+  // Year-to-date is deliberately independent of the Insights timeframe filter above —
+  // it always means "since Jan 1 of the current calendar year," not "within the last N
+  // months I'm currently viewing."
+  const currentYear = new Date().getFullYear();
+  const ytdKeys = existingMonths.filter(k => k.startsWith(`${currentYear}-`));
+  const ytdByKey = await loadMonthsBatch(ytdKeys);
+  let ytdSaved = 0;
+  ytdKeys.forEach(k => { const d = ytdByKey[k]; if(d) ytdSaved += monthTotals(d).diff; });
 
   const catTotals = {};
   rows.forEach(r => {
@@ -5252,7 +5285,7 @@ async function renderInsights(){
     {lbl:'Average savings rate', val: avgRate+'%'},
     {lbl:'Best month', val: `${monthLabel(best.key)}`, sub: `+${money(best.diff)} left over`},
     {lbl:'Toughest month', val: `${monthLabel(worst.key)}`, sub: `${money(worst.diff)} left over`},
-    {lbl:'Months you saved', val: `${monthsSaved} of ${rows.length}`, sub: rows.length ? `${Math.round((monthsSaved/rows.length)*100)}% finished ahead` : ''},
+    {lbl:'Total saved year-to-date ($)', val: money(ytdSaved)},
   ];
   let html = cards.map(c => `<div class="insight-card"><div class="ins-lbl">${c.lbl}</div><div class="ins-val">${c.val}</div>${c.sub?`<div class="ins-sub">${c.sub}</div>`:''}</div>`).join('');
   if(catAvgs.length){
