@@ -67,6 +67,11 @@ body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sa
 .sidebar .side-icon.active{background:var(--gold); color:#fff;}
 .sidebar .side-icon:hover:not(.active){background:#2A3040; color:#C7CDD6;}
 .sidebar .side-spacer{flex:1;}
+.sidebar-name-row{padding:10px 12px 4px;}
+.sidebar-name-label{display:flex; flex-direction:column; gap:5px; color:#8B93A5; font-size:.66rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700;}
+.sidebar-name-label input{background:#2A3040; border:1px solid #343A48; border-radius:7px; color:#E4E7EC; font-size:.82rem; font-weight:500; padding:7px 9px; font-family:inherit;}
+.sidebar-name-label input:focus{outline:none; border-color:var(--gold);}
+.sidebar-name-label input::placeholder{color:#5A6274;}
 .sidebar .dark-toggle{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-radius:9px; color:#8B93A5; font-size:.82rem; font-weight:600; border-top:1px solid #2A3040; margin-top:6px; padding-top:16px;}
 .sidebar .dark-toggle .dt-label{display:flex; align-items:center; gap:10px;}
 .sidebar .dark-toggle .ic{font-size:1rem; width:18px; text-align:center;}
@@ -795,6 +800,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
       <button type="button" class="auth-tab" id="authTabSignup">Sign up</button>
     </div>
     <form id="authForm">
+      <label class="auth-field" id="authNameField" style="display:none;">Your name<input type="text" id="authName" autocomplete="name" maxlength="60"></label>
       <label class="auth-field">Email<input type="email" id="authEmail" autocomplete="username" required></label>
       <label class="auth-field">Password<input type="password" id="authPassword" autocomplete="current-password" required minlength="6"></label>
       <label class="auth-remember"><input type="checkbox" id="authRemember" checked> Remember me on this device</label>
@@ -811,7 +817,11 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <button class="side-icon" data-view="dashboard" title="Dashboard"><span class="ic">◱</span>Dashboard</button>
     <button class="side-icon" data-view="template" title="Template"><span class="ic">▥</span>Template</button>
     <button class="side-icon" data-view="other" title="Other records"><span class="ic">▤</span>Other records</button>
+    <button class="side-icon" data-view="admin" id="adminNavBtn" title="Users" style="display:none;"><span class="ic">☺</span>Users</button>
     <div class="side-spacer"></div>
+    <div class="sidebar-name-row">
+      <label class="sidebar-name-label">Your name<input type="text" id="displayNameInput" placeholder="Add your name" maxlength="60" autocomplete="name"></label>
+    </div>
     <div class="dark-toggle">
       <span class="dt-label"><span class="ic">☾</span><span class="dt-text">Dark mode</span></span>
       <button class="dm-switch" id="darkModeSwitch"></button>
@@ -1183,6 +1193,17 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 
   </div>
 
+    <!-- ================= USERS (ADMIN) VIEW ================= -->
+    <div class="view" id="view-admin">
+      <h2>Users</h2>
+      <div class="rec-table-wrap">
+        <table class="rtable" id="adminUsersTable">
+          <thead><tr><th>Name</th><th>Email</th><th>Admin</th><th>Tech Replacement</th><th>Groceries</th><th>Monthly Costs</th><th>Flexible Tracker grant</th></tr></thead>
+          <tbody id="adminUsersBody"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -1257,6 +1278,7 @@ function setAuthMode(mode){
   document.getElementById('authTabSignup').classList.toggle('active', mode==='signup');
   document.getElementById('authSubmit').textContent = mode==='login' ? 'Log in' : 'Sign up';
   document.getElementById('authError').textContent = '';
+  document.getElementById('authNameField').style.display = mode==='signup' ? '' : 'none';
   const hint = document.getElementById('authHint');
   if(mode==='signup'){ hint.style.display='block'; hint.textContent = 'Anyone can create an account here, but Row Level Security means every account only ever sees its own budget — never anyone else’s.'; }
   else hint.style.display='none';
@@ -1278,8 +1300,13 @@ document.getElementById('authForm').addEventListener('submit', async (e) => {
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if(error) throw error;
     } else {
+      const name = document.getElementById('authName').value.trim();
       const { data, error } = await sb.auth.signUp({ email, password });
       if(error) throw error;
+      // authUserId doesn't exist yet at this point (waitForAuth's callback hasn't run)
+      // so this can't be saved via db.saveSettings yet — loadEverything() picks it up
+      // from here once a session (this one or, after email confirmation, a later login) exists.
+      if(name){ try{ localStorage.setItem('pendingDisplayName', name); }catch(e){} }
       if(data && !data.session){ errEl.textContent = ''; document.getElementById('authHint').style.display='block'; document.getElementById('authHint').textContent = 'Check your email to confirm your account, then log in.'; setAuthMode('login'); }
     }
   }catch(err){
@@ -1546,6 +1573,7 @@ let settings = { currentMonth: DEFAULT_MONTH, theme: 'light', lastGoal: 0, balan
 // erroring, so an unmigrated database preserves exactly today's behavior for everyone.
 let isAdmin = false;
 let featureFlags = { tech: true, grocery: true, monthlycosts: true, ballet: false };
+let displayName = '';
 // The calendar-month key "today" belongs to for budgeting purposes. Equal to the real
 // calendar month unless periodMode is 'paycycle', in which case it's the month after
 // the most recent detected payday - see recomputeEffectivePeriod().
@@ -1888,6 +1916,17 @@ async function loadEverything(){
       monthlycosts: settingsRow.feature_monthlycosts !== false,
       ballet: !!settingsRow.feature_ballet,
     };
+    displayName = settingsRow.display_name || '';
+  }
+  // A name entered at sign-up can't be saved until authUserId exists, which only
+  // happens once the auth callback resolves - stash it and pick it up on the first
+  // successful load after either an immediate-session sign-up or, if email
+  // confirmation is required, the next time this (now-confirmed) account logs in.
+  let pendingName = null;
+  try{ pendingName = localStorage.getItem('pendingDisplayName'); }catch(e){}
+  if(pendingName && !displayName){
+    try{ await db.saveSettings({ display_name: pendingName }); displayName = pendingName; }catch(e){}
+    try{ localStorage.removeItem('pendingDisplayName'); }catch(e){}
   }
   existingMonths = (monthKeys || []).sort();
   techItems = techItemsRes || [];
@@ -2360,6 +2399,45 @@ async function onFeatureToggleClick(btn){
   renderTemplateEditor();
   toast(newVal ? 'Feature turned back on' : 'Feature turned off — your data is safe');
 }
+// Admin-only Users tab. Reads/writes go through the security definer RPCs (db.adminListUsers/
+// adminSetFeature/adminSetIsAdmin) rather than a blanket cross-user RLS policy, since
+// user_settings also holds each user's plaintext Up Bank token - see schema.sql.
+async function renderAdminTab(){
+  const body = document.getElementById('adminUsersBody');
+  body.innerHTML = '<tr><td colspan="7">Loading…</td></tr>';
+  try{
+    const users = await db.adminListUsers();
+    body.innerHTML = users.map(u => `
+      <tr data-admin-row="${escapeAttr(u.user_id)}">
+        <td>${escapeAttr(u.display_name || '—')}</td>
+        <td>${escapeAttr(u.email || '(no email)')}</td>
+        <td><button class="dm-switch admin-flag-switch ${u.is_admin?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="is_admin" ${u.user_id===authUserId?'disabled title="You can’t remove your own admin access"':''}></button></td>
+        <td><button class="dm-switch admin-flag-switch ${u.feature_tech?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_tech"></button></td>
+        <td><button class="dm-switch admin-flag-switch ${u.feature_grocery?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_grocery"></button></td>
+        <td><button class="dm-switch admin-flag-switch ${u.feature_monthlycosts?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_monthlycosts"></button></td>
+        <td><button class="dm-switch admin-flag-switch ${u.feature_ballet?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_ballet" ${u.is_admin?'disabled title="Admins already see the real Ballet feature"':''}></button></td>
+      </tr>`).join('') || '<tr><td colspan="7">No users found.</td></tr>';
+  }catch(e){
+    body.innerHTML = `<tr><td colspan="7">Couldn’t load users: ${escapeAttr(e.message||'unknown error')}</td></tr>`;
+  }
+}
+document.getElementById('adminUsersBody').addEventListener('click', async (e) => {
+  const sw = e.target.closest('.admin-flag-switch');
+  if(!sw || sw.disabled) return;
+  const targetUserId = sw.dataset.adminUser;
+  const flag = sw.dataset.adminFlag;
+  const newVal = !sw.classList.contains('on');
+  sw.disabled = true;
+  try{
+    if(flag === 'is_admin') await db.adminSetIsAdmin(targetUserId, newVal);
+    else await db.adminSetFeature(targetUserId, flag, newVal);
+    sw.classList.toggle('on', newVal);
+  }catch(err){
+    toast(err.message || 'Failed to update — you may not have permission.');
+  }finally{
+    sw.disabled = false;
+  }
+});
 document.getElementById('view-other').addEventListener('click', (e) => {
   const switchBtn = e.target.closest('.feature-toggle-switch');
   if(switchBtn){ onFeatureToggleClick(switchBtn); return; }
@@ -4086,6 +4164,7 @@ document.querySelectorAll('.side-icon').forEach(btn => {
     if(btn.dataset.view==='template') renderTemplateEditor();
     if(btn.dataset.view==='ledger'){ updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths(); }
     if(btn.dataset.view==='other'){ updateAllRtableNameWidths(); }
+    if(btn.dataset.view==='admin') renderAdminTab();
   });
 });
 document.getElementById('insightTimeframeRow').addEventListener('click', (e) => {
@@ -5991,6 +6070,12 @@ document.getElementById('darkModeSwitch').addEventListener('click', () => {
   settings.theme = settings.theme==='dark' ? 'light' : 'dark';
   applyTheme(); saveSettings();
 });
+document.getElementById('displayNameInput').addEventListener('change', async (e) => {
+  const val = e.target.value.trim();
+  if(val === displayName) return;
+  displayName = val;
+  try{ await db.saveSettings({ display_name: displayName || null }); }catch(e){}
+});
 
 /* ===================== init ===================== */
 (async function init(){
@@ -6027,6 +6112,8 @@ document.getElementById('darkModeSwitch').addEventListener('click', () => {
   renderFeatureToggle('grocery');
   renderFeatureToggle('monthlycosts');
   renderBalletCardChrome();
+  document.getElementById('displayNameInput').value = displayName;
+  document.getElementById('adminNavBtn').style.display = isAdmin ? '' : 'none';
   refreshInsertDropdowns();
   refreshUpSpendingBalance();
   setInterval(() => {
