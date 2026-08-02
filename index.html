@@ -610,10 +610,6 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-view-row-trailing{display:flex; align-items:center; gap:10px; flex-shrink:0;}
 .tx-view-row-amt{color:var(--ink); font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0;}
 .tx-view-sub-total{color:var(--ink); font-weight:700;}
-.income-item-wrap{display:flex; flex-direction:column;}
-.income-tx-expand{background:var(--paper-dim); border-bottom:1px solid var(--rule);}
-.income-tx-expand .tx-view-row{padding:8px 16px 8px 40px; border-top:1px solid var(--rule); font-size:.8rem;}
-.income-tx-expand .tx-view-row:first-child{border-top:none;}
 .tx-assign-hdr{font-weight:800; font-size:1rem; color:var(--ink);}
 .tx-assign-hdr span{color:var(--gold);}
 .tx-assign-sub{font-size:.8rem; color:var(--ink-faint); margin-top:-8px;}
@@ -2069,25 +2065,17 @@ function toggleItemCharged(catId, itemId, row){
 function renderIncome(){
   document.getElementById('incomeRows').innerHTML = monthData.income.map(i => {
     const charged = !!i.charged;
-    const txs = getTxsForItem('income', i.id);
-    const isOpen = !!incomeTxExpandOpen[i.id];
-    const expandBtn = txs.length > 0 ? `<button class="breakdown-toggle ${isOpen?'open':''}" data-income-tx-toggle="${i.id}" data-tip="${txs.length} transaction${txs.length>1?'s':''} linked \u2014 click to expand">${CHEV_SVG}</button>` : '';
-    const expandArea = txs.length > 0 ? `<div class="income-tx-expand" id="incomeTxExpand-${i.id}" style="display:${isOpen?'block':'none'};">${txs.map(t => {
-      const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-AU', {day:'numeric', month:'short'}) : '';
-      return `<div class="tx-view-row"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-amt">${money(t.amt)}</div></div>`;
-    }).join('')}</div>` : '';
-    return `<div class="income-item-wrap">
-      <div class="lrow ${charged?'charged':''}" data-item-row="${i.id}" data-cat="income" data-item="${i.id}">
-        <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. salary" value="${escapeAttr(i.name)}" data-cat="income" data-item="${i.id}" data-field="name"></div>
-        ${expandBtn}
-        <div class="amt-wrap plain"><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${i.amount||''}" data-cat="income" data-item="${i.id}" data-field="amount"></div>
-        <div class="del-cell"><button data-cat="income" data-item="${i.id}" class="item-del" title="Remove">${X_SVG}</button></div>
-      </div>
-      ${expandArea}
+    const linkedTxCount = getTxsForItem('income', i.id).length;
+    const txPanelOpen = expandedTxPanels.has(`income:${i.id}`);
+    const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}" data-tx-view-item="${i.id}" data-tx-view-cat="income" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg></button>` : '';
+    return `<div class="lrow ${charged?'charged':''}" data-item-row="${i.id}" data-cat="income" data-item="${i.id}">
+      <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. salary" value="${escapeAttr(i.name)}" data-cat="income" data-item="${i.id}" data-field="name"></div>
+      ${txBadge}
+      <div class="amt-wrap plain"><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${i.amount||''}" data-cat="income" data-item="${i.id}" data-field="amount"></div>
+      <div class="del-cell"><button data-cat="income" data-item="${i.id}" class="item-del" title="Remove">${X_SVG}</button></div>
     </div>`;
   }).join('');
 }
-let incomeTxExpandOpen = {};
 let _mirrorSpan = null;
 function getMirrorSpan(){
   if(!_mirrorSpan){
@@ -2600,7 +2588,9 @@ function renderOpenInlinePanels(){
   });
   expandedTxPanels.forEach(key => {
     const [catId, itemId] = key.split(':');
-    const row = document.querySelector(`.lrow.leaf[data-item="${itemId}"]`);
+    // Plain .lrow, not .lrow.leaf — an income row's tx panel needs to anchor to it too,
+    // and income rows aren't budget-category leaf rows (no drag handle, different grid).
+    const row = document.querySelector(`.lrow[data-item="${itemId}"]`);
     if(!row) return;
     let panel = host.querySelector(`[data-tx-panel-for="${key}"]`);
     if(!panel){
@@ -2656,7 +2646,8 @@ function repositionAllInlinePanels(){
     }
     const itemId = panel.dataset.inlinePanelFor || (panel.dataset.txPanelFor ? panel.dataset.txPanelFor.split(':')[1] : null);
     if(!itemId) return;
-    const row = document.querySelector(`.lrow.leaf[data-item="${itemId}"]`);
+    // Broadened from .lrow.leaf for the same reason as above - income rows use plain .lrow.
+    const row = document.querySelector(`.lrow[data-item="${itemId}"]`);
     if(row) positionOneInlinePanel(row, panel);
   });
 }
@@ -5125,12 +5116,6 @@ document.getElementById('view-ledger').addEventListener('click', (e) => {
     badge.dataset.tip = `${badge.dataset.tip.replace(/click to (view|hide)$/, '')}click to ${nowOpen?'hide':'view'}`;
     renderOpenInlinePanels();
     return;
-  }
-  const incomeToggle = e.target.closest('[data-income-tx-toggle]');
-  if(incomeToggle){
-    const id = incomeToggle.dataset.incomeTxToggle;
-    incomeTxExpandOpen[id] = !incomeTxExpandOpen[id];
-    renderIncome();
   }
 });
 // Content rendered inside #inlinePanelHost's floating panels (transactions, and the
