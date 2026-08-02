@@ -226,6 +226,7 @@ input.name-input:hover, input.name-input:focus{outline:none;}
 .tpl-source-link.open{opacity:1; background:var(--gold); color:#fff;}
 #inlinePanelHost{position:fixed; top:0; left:0; width:0; height:0; z-index:250;}
 .inline-source-panel{position:fixed; width:340px; max-width:min(340px, 90vw); background:var(--surface); border:1px solid var(--rule); border-radius:12px; box-shadow:0 16px 40px rgba(0,0,0,.35); padding:14px 16px; animation:popoverIn .16s cubic-bezier(.34,1.56,.64,1);}
+.panel-close-btn{display:none; position:absolute; top:10px; right:10px; width:24px; height:24px; border-radius:50%; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-faint); align-items:center; justify-content:center; cursor:pointer; z-index:1;}
 .inline-source-panel.inline-panel-wide{width:520px; max-width:min(520px, 92vw);}
 @keyframes popoverIn{ 0%{opacity:0; transform:scale(.96);} 100%{opacity:1; transform:scale(1);} }
 .inline-source-panel .rec-table-wrap{max-height:260px;}
@@ -384,6 +385,9 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-assign-box .modal-actions{justify-content:space-between; align-items:center;}
 .tx-assign-exclude-link{background:none; border:none; color:var(--ink-faint); font-size:.78rem; font-weight:600; cursor:pointer; text-decoration:underline; text-underline-offset:3px; padding:0;}
 .tx-assign-exclude-link:hover{color:var(--debit);}
+.account-settings-box .modal-actions{justify-content:space-between; align-items:center;}
+.acct-logout-link{background:none; border:none; color:var(--ink-faint); font-size:.78rem; font-weight:600; cursor:pointer; text-decoration:underline; text-underline-offset:3px; padding:0;}
+.acct-logout-link:hover{color:var(--debit);}
 .balance-bar-amt{cursor:pointer; transition:opacity .12s;}
 .balance-bar-amt:hover{opacity:.75;}
 .balance-edit-input{font-size:1.5rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums; background:var(--paper-dim); border:1px solid var(--gold); border-radius:8px; padding:2px 8px; width:160px; font-family:'Inter',sans-serif;}
@@ -704,8 +708,8 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
 .sync-status.err .dot{background:var(--debit);}
 
 .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--paper); padding:10px 18px; font-size:.8rem; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:100;}
-.donut-float-tip{position:fixed; background:#1B1F27; color:#F5F6F8; padding:6px 10px; border-radius:8px; font-size:.76rem; font-weight:600; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .1s; z-index:200; box-shadow:0 8px 24px rgba(0,0,0,.35);}
-.donut-float-tip.show{opacity:1;}
+.float-tip{position:fixed; background:#1B1F27; color:#F5F6F8; padding:6px 10px; border-radius:8px; font-size:.76rem; font-weight:600; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .1s; z-index:200; box-shadow:0 8px 24px rgba(0,0,0,.35);}
+.float-tip.show{opacity:1;}
 .wd-hdr{display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--rule); font-weight:700; font-size:.85rem; color:var(--ink); position:sticky; top:0; background:var(--surface);}
 .wd-hdr button{background:none; border:none; color:var(--ink-faint); font-size:1.2rem; cursor:pointer; line-height:1;}
 .wd-section{margin-bottom:14px;}
@@ -720,31 +724,55 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .app-shell{flex-direction:column; min-height:auto;}
   .sidebar{
     width:100%; height:auto; position:sticky; top:0; z-index:80;
-    flex-direction:row; align-items:center; overflow-x:auto; overflow-y:hidden;
-    padding:8px 10px; gap:4px; -webkit-overflow-scrolling:touch;
+    flex-direction:row; align-items:center;
+    padding:6px 8px; gap:2px;
   }
   .sidebar .brand{display:none;}
-  .sidebar .side-icon{width:auto; flex-shrink:0; flex-direction:column; gap:3px; padding:6px 10px; font-size:.62rem; text-align:center; white-space:nowrap;}
-  .sidebar .side-icon .ic{font-size:1.1rem;}
+  .sidebar .side-icon, .sidebar .sidebar-link-btn{width:auto; flex:1 1 0; min-width:0; flex-direction:column; gap:2px; padding:5px 2px; font-size:.56rem; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .sidebar .side-icon .ic{font-size:1rem;}
   .sidebar .side-spacer{display:none;}
-  .sidebar .dark-toggle{border-top:none; margin-top:0; padding:6px 8px; border-left:1px solid #2A3040; flex-shrink:0; margin-left:auto; gap:6px;}
-  .sidebar .dark-toggle .dt-text{display:none;}
-  .wrap{padding:16px 12px 60px;}
+  .sidebar .sidebar-link-btn{display:flex; align-items:center; justify-content:center;}
+  .sidebar .logout-row{display:none;}
+  /* Dark mode: a plain icon button on mobile (not a switch-with-label) to save width -
+     same #darkModeSwitch element/click-handler/state, just restyled + re-labelled via
+     the existing .on class applyTheme() already toggles. */
+  .sidebar .dark-toggle{border-top:none; margin-top:0; padding:0; flex:0 0 auto; gap:0;}
+  .sidebar .dark-toggle .dt-label{display:none;}
+  .dm-switch{width:auto; height:auto; background:none; border-radius:0; padding:5px 8px;}
+  .dm-switch::after{display:none;}
+  .dm-switch::before{content:'🌙'; font-size:1.1rem; line-height:1;}
+  .dm-switch.on::before{content:'☀️';}
+  /* Full width - no side gutters on phones */
+  .wrap{max-width:100%; padding:12px 8px 60px;}
   .topbar{flex-direction:column; gap:10px;}
   .assign-card, .progress-card, .summary-mini{width:100%; flex-basis:auto; height:auto; min-height:130px;}
   .notes-box{min-width:0; height:auto; min-height:110px;}
-  .balance-bar{flex-direction:column; align-items:stretch; gap:10px;}
-  .balance-bar-right{justify-content:space-between;}
+  /* Balance bar: keep the gear inline with the balance row instead of dropping to its
+     own near-empty row below. .balance-bar-right{display:contents} promotes its two
+     children (the gear toggle and the collapsible actions panel) to be direct flex
+     items of .balance-bar itself, so `order` can place the gear on the same row as the
+     balance and push the (still separately collapsible) actions panel onto its own
+     full-width row only once it's actually opened. */
+  .balance-bar{flex-direction:row; flex-wrap:wrap; align-items:center; gap:10px;}
+  .balance-bar-left{flex:1; min-width:0; order:1;}
+  .balance-bar-right{display:contents;}
+  #monthActionsToggle{order:2;}
+  #monthActionsPanel{order:3; flex-basis:100%; width:100%; justify-content:flex-start;}
   .or-summary-bar{grid-template-columns:1fr;}
-  .month-nav{flex-wrap:wrap;}
-  .top-right{width:100%; justify-content:space-between;}
-  .mast{flex-wrap:wrap; gap:10px;}
-  .lrow.leaf{grid-template-columns:20px 1fr 78px 26px;}
-  .amt-wrap{width:auto; min-width:70px;}
-  .grow{grid-template-columns:20px 1fr 78px 26px;}
+  .month-nav{flex-wrap:nowrap;}
+  .month-dropdown-btn{width:96px; font-size:.82rem; padding:5px 4px;}
+  .top-right{width:100%; justify-content:flex-start; flex-wrap:nowrap; gap:8px;}
+  .mast{flex-wrap:wrap; gap:8px;}
+  #undoBtn, #jumpToCurrentMonthBtn{padding:8px 10px; font-size:.76rem; flex-shrink:0;}
+  .lrow.leaf{grid-template-columns:20px 1fr 64px 26px;}
+  .amt-wrap{width:64px; min-width:0;}
+  .leaf-name{flex:1; min-width:0;}
+  .grow{grid-template-columns:20px 1fr 64px 26px;}
   .grip-handle{opacity:1; padding:10px 6px 10px 8px;}
   .lrow.leaf .grip-handle{opacity:1; padding:10px 6px 10px 8px;}
   .inline-source-panel{left:8px !important; right:8px; width:auto !important; max-width:none !important;}
+  .panel-close-btn{display:flex;}
+  .tx-assign-hdr{padding-right:28px;}
   .rec-table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
   .chart{overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:thin; scrollbar-color:var(--rule) transparent;}
   .chart-bar-wrap{flex:0 0 26px; width:26px;}
@@ -753,6 +781,22 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .up-connect-row{flex-direction:column; align-items:stretch;}
   .up-connect-row .lb-field-wide{min-width:0;}
   .date-select-row{flex-wrap:wrap;}
+  /* Up Bank transaction rows: let the description take a full line of its own instead
+     of being squeezed to a sliver next to the assign button/date/amount. */
+  .up-tx-hdr{flex-wrap:wrap;}
+  .up-tx-row{flex-wrap:wrap;}
+  .up-tx-desc-chip{max-width:none; flex-basis:100%; order:1;}
+  .up-tx-row > *:not(.up-tx-desc-chip){order:2;}
+  /* Prevent iOS auto-zoom-on-focus: it triggers whenever a focused input/textarea has
+     a computed font-size under 16px, which most of this app's compact inputs do. */
+  input[type="text"], input[type="number"], input[type="email"], input[type="password"], input[type="search"], textarea{
+    font-size:16px;
+  }
+  /* Long-press on a truncated name should reveal it (see bindLongPressReveal), not
+     trigger the native text-selection highlight / iOS callout menu. */
+  .name-input, .sh-name-input, .up-tx-desc-chip, .tx-view-row-desc, .mover-name{
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  }
 }
 @media (max-width:420px){
   .up-savers-grid .up-account-chip{flex-basis:100%;}
@@ -1215,7 +1259,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div class="donut-float-tip" id="donutFloatTip"></div>
+<div class="float-tip" id="floatTip"></div>
 <div id="inlinePanelHost"></div>
 <div class="modal-overlay" id="txAssignOverlay">
   <div class="modal-box tx-assign-box">
@@ -1265,6 +1309,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <div class="auth-error" id="acctError"></div>
     <div class="acct-success" id="acctSuccess"></div>
     <div class="modal-actions">
+      <button type="button" class="acct-logout-link" id="acctLogoutBtn">Log out</button>
       <button class="mini-btn" id="acctCloseBtn">Close</button>
       <button class="mini-btn gold" id="acctSaveBtn">Save changes</button>
     </div>
@@ -1345,10 +1390,11 @@ document.getElementById('authForm').addEventListener('submit', async (e) => {
   }
 });
 
-document.getElementById('logoutBtn').addEventListener('click', async () => {
+async function performLogout(){
   try{ await sb.auth.signOut(); }catch(e){}
   location.reload();
-});
+}
+document.getElementById('logoutBtn').addEventListener('click', performLogout);
 
 // Resolves once a logged-in session exists, showing/hiding the auth overlay as needed.
 let authUserEmail = '';
@@ -2541,7 +2587,7 @@ function renderSaverTxPanelHtml(accountId){
     const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-AU', {day:'numeric', month:'short'}) : '';
     return `<div class="tx-view-row"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div></div></div>`;
   }).join('') || '<div class="tx-assign-empty">No recent transactions.</div>';
-  return `<div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(name)}"</span></div>
+  return `<button class="panel-close-btn" data-close-saver-panel="${escapeAttr(accountId)}" title="Close">${X_SVG}</button><div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(name)}"</span></div>
     <div class="tx-assign-sub">${state.txs.length} transaction${state.txs.length!==1?'s':''}</div>
     <div class="tx-view-list">${rows}</div>`;
 }
@@ -2555,7 +2601,7 @@ function renderTxPanelHtml(catId, itemId){
     const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-AU', {day:'numeric', month:'short'}) : '';
     return `<div class="tx-view-row"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div><button class="up-tx-exclude-btn" data-tx-unassign-view="${t.txId}" data-tip="Unassign this transaction">×</button></div></div>`;
   }).join('') || '<div class="tx-assign-empty">No transactions linked yet.</div>';
-  return `<div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(item.name)}"</span></div>
+  return `<button class="panel-close-btn" data-close-tx-panel="${escapeAttr(catId)}:${escapeAttr(itemId)}" title="Close">${X_SVG}</button><div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(item.name)}"</span></div>
     <div class="tx-assign-sub">${txs.length} transaction${txs.length!==1?'s':''} — <span class="tx-view-sub-total">${money(total)} total</span></div>
     <div class="tx-view-list">${rows}</div>`;
 }
@@ -5124,6 +5170,21 @@ document.getElementById('view-ledger').addEventListener('click', (e) => {
 // listener on #view-ledger can never see these clicks, so it has to be document-level,
 // same as the rest of that content's row-edit/delete handlers already are.
 document.body.addEventListener('click', (e) => {
+  const closeTxPanel = e.target.closest('[data-close-tx-panel]');
+  if(closeTxPanel){
+    expandedTxPanels.delete(closeTxPanel.dataset.closeTxPanel);
+    document.querySelectorAll(`[data-tx-view-item][data-tx-view-cat]`).forEach(badge => {
+      if(`${badge.dataset.txViewCat}:${badge.dataset.txViewItem}` === closeTxPanel.dataset.closeTxPanel) badge.classList.remove('open');
+    });
+    renderOpenInlinePanels();
+    return;
+  }
+  const closeSaverPanel = e.target.closest('[data-close-saver-panel]');
+  if(closeSaverPanel){
+    expandedSaverPanels.delete(closeSaverPanel.dataset.closeSaverPanel);
+    renderOpenInlinePanels();
+    return;
+  }
   const unassignBtn = e.target.closest('[data-tx-unassign-view]');
   if(unassignBtn){
     if(!monthData) return;
@@ -5506,33 +5567,74 @@ function bindTapReveal(container, selector){
     if(!e.target.closest(selector)) document.querySelectorAll(`${selector}.tip-tapped`).forEach(o=>o.classList.remove('tip-tapped'));
   });
 }
-// The donut's slices/legend rows use data-tip for their label text, but the app's
-// normal CSS-hover tooltip (position:absolute ::before, relative to the nearest
-// positioned ancestor) doesn't anchor sensibly to an SVG <path> or an unpositioned
-// legend row — it ended up invisible/mispositioned rather than a bug you could just
-// see. A small JS-driven floating tooltip sidesteps that entirely, for both hover and tap.
-function showDonutTooltip(text, x, y){
-  const tip = document.getElementById('donutFloatTip');
+// General-purpose floating tooltip, positioned via JS rather than the app's normal
+// CSS-hover ::before mechanism (which doesn't anchor sensibly to an SVG <path> or an
+// unpositioned element). Originally built for the donut chart; also used for the
+// press-and-hold "show full name" gesture on mobile (see bindLongPressReveal below).
+function showFloatTooltip(text, x, y){
+  const tip = document.getElementById('floatTip');
   tip.textContent = text;
   tip.classList.add('show');
   const tipWidth = tip.offsetWidth || 140;
   tip.style.left = Math.min(Math.max(8, x), window.innerWidth - tipWidth - 8) + 'px';
   tip.style.top = Math.min(Math.max(8, y), window.innerHeight - 40) + 'px';
 }
-function hideDonutTooltip(){ document.getElementById('donutFloatTip').classList.remove('show'); }
+function hideFloatTooltip(){ document.getElementById('floatTip').classList.remove('show'); }
 document.getElementById('insightGrid').addEventListener('mousemove', (e) => {
   const el = e.target.closest('[data-donut-slice]');
-  if(!el){ hideDonutTooltip(); return; }
-  showDonutTooltip(el.getAttribute('data-tip') || '', e.clientX + 14, e.clientY + 14);
+  if(!el){ hideFloatTooltip(); return; }
+  showFloatTooltip(el.getAttribute('data-tip') || '', e.clientX + 14, e.clientY + 14);
 });
-document.getElementById('insightGrid').addEventListener('mouseleave', hideDonutTooltip);
+document.getElementById('insightGrid').addEventListener('mouseleave', hideFloatTooltip);
 document.getElementById('insightGrid').addEventListener('click', (e) => {
   const el = e.target.closest('[data-donut-slice]');
   if(!el) return;
   const rect = el.getBoundingClientRect();
-  showDonutTooltip(el.getAttribute('data-tip') || '', rect.left + rect.width/2, rect.top - 36);
+  showFloatTooltip(el.getAttribute('data-tip') || '', rect.left + rect.width/2, rect.top - 36);
 });
-document.addEventListener('click', (e) => { if(!e.target.closest('[data-donut-slice]')) hideDonutTooltip(); });
+document.addEventListener('click', (e) => { if(!e.target.closest('[data-donut-slice]')) hideFloatTooltip(); });
+// Press-and-hold on truncated names: mobile long-press normally triggers native text
+// selection/highlight (or, on an <input>, the OS's selection loupe) rather than showing
+// the full text, which is what's actually wanted when a name is cut off. touchstart's
+// default can only be prevented synchronously, so this always lets the touch begin
+// normally and only intervenes on touchend: a short tap is left alone (input still
+// focuses, normal click still fires); a long hold instead shows the full text in the
+// floating tooltip and suppresses the click that would otherwise have followed.
+function bindLongPressReveal(container, selector, getText){
+  const THRESHOLD_MS = 480, MOVE_TOLERANCE = 10;
+  let timer = null, longPressed = false, startX = 0, startY = 0, activeEl = null;
+  container.addEventListener('touchstart', (e) => {
+    const el = e.target.closest(selector);
+    if(!el){ return; }
+    activeEl = el; longPressed = false;
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      longPressed = true;
+      if(document.activeElement === activeEl) activeEl.blur();
+      const text = getText(activeEl);
+      if(text) showFloatTooltip(text, startX, startY - 40);
+    }, THRESHOLD_MS);
+  }, {passive:true});
+  container.addEventListener('touchmove', (e) => {
+    if(!activeEl) return;
+    const t = e.touches[0];
+    if(Math.abs(t.clientX-startX) > MOVE_TOLERANCE || Math.abs(t.clientY-startY) > MOVE_TOLERANCE){
+      clearTimeout(timer);
+    }
+  }, {passive:true});
+  container.addEventListener('touchend', (e) => {
+    clearTimeout(timer);
+    if(longPressed){
+      e.preventDefault();
+      setTimeout(hideFloatTooltip, 1500);
+    }
+    activeEl = null;
+  });
+}
+bindLongPressReveal(document.body, '.name-input, .sh-name-input', el => el.value);
+bindLongPressReveal(document.body, '.up-tx-desc-chip, .tx-view-row-desc, .mover-name', el => el.textContent);
 bindTapReveal(document.body, '.tpl-info-btn');
 document.getElementById('insightGrid').addEventListener('mouseover', (e) => {
   const el = e.target.closest('[data-donut-slice]');
@@ -6155,6 +6257,7 @@ document.getElementById('accountSettingsBtn').addEventListener('click', () => {
 });
 document.getElementById('acctCloseBtn').addEventListener('click', () => document.getElementById('accountSettingsOverlay').classList.remove('show'));
 document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => { if(e.target.id === 'accountSettingsOverlay') document.getElementById('accountSettingsOverlay').classList.remove('show'); });
+document.getElementById('acctLogoutBtn').addEventListener('click', performLogout);
 document.getElementById('acctResendVerifyBtn').addEventListener('click', async () => {
   const errEl = document.getElementById('acctError');
   const successEl = document.getElementById('acctSuccess');
