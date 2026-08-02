@@ -453,6 +453,9 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .rec-card.collapsible .rec-summary{cursor:pointer; position:relative;}
 .rec-card.collapsible .rec-summary::before{content:'▸'; position:absolute; left:18px; top:50%; transform:translateY(-50%); color:var(--ink-faint); font-size:.8rem; transition:transform .15s; z-index:1;}
 .rec-card.collapsible.open .rec-summary::before{transform:translateY(-50%) rotate(90deg);}
+.rec-card.collapsible .rec-summary:has(.feature-toggle-switch){display:flex; align-items:stretch; background:var(--paper-dim); border-bottom:1px solid var(--rule);}
+.rec-card.collapsible .rec-summary:has(.feature-toggle-switch) h2{flex:1; background:none; border-bottom:none;}
+.feature-toggle-switch{align-self:center; margin-right:18px; flex-shrink:0;}
 .rec-card.collapsible .rec-body{overflow:hidden; max-height:0; padding:0; transition:max-height .45s cubic-bezier(.4,0,.2,1);}
 .rec-card.collapsible .rec-body-inner{padding:14px 16px;}
 .rec-card h2 .rc-sub{font-size:.66rem; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); font-weight:600;}
@@ -1075,7 +1078,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <div class="view" id="view-other">
 
     <div class="rec-card collapsible" id="techRecordCard">
-      <div class="rec-summary" data-rec-toggle><h2>Tech Replacement costs <span class="rc-sub">set-aside fund</span></h2></div>
+      <div class="rec-summary" data-rec-toggle><h2>Tech Replacement costs <button class="tpl-info-btn" data-tip="A repeat-purchase calculator: enter an item, its cost, and how many years it should last, and this works out how much to set aside monthly. Not just for tech — use it for anything you replace on a cycle. Turning it off keeps your data, it just stops syncing to your template.">ⓘ</button> <span class="rc-sub">set-aside fund</span></h2><button class="dm-switch feature-toggle-switch" data-feature="tech" title="Enable or disable this feature"></button></div>
       <div class="rec-body"><div class="rec-body-inner">
         <div class="rec-table-wrap">
         <table class="rtable">
@@ -1092,7 +1095,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     </div>
 
     <div class="rec-card collapsible" id="groceryRecordCard">
-      <div class="rec-summary" data-rec-toggle><h2>Groceries <span class="rc-sub">daily cost calculator</span></h2></div>
+      <div class="rec-summary" data-rec-toggle><h2>Groceries <button class="tpl-info-btn" data-tip="Works out a daily grocery cost from the items you list here, apportioned across the days in the month (minus days you're eating out). Turning it off keeps your data, it just stops syncing to your template.">ⓘ</button> <span class="rc-sub">daily cost calculator</span></h2><button class="dm-switch feature-toggle-switch" data-feature="grocery" title="Enable or disable this feature"></button></div>
       <div class="rec-body"><div class="rec-body-inner">
         <div class="rec-table-wrap">
         <table class="rtable">
@@ -1163,7 +1166,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     </div>
 
     <div class="rec-card collapsible" id="monthlyCostsRecordCard">
-      <div class="rec-summary" data-rec-toggle><h2>Monthly costs <span class="rc-sub">flat recurring items</span></h2></div>
+      <div class="rec-summary" data-rec-toggle><h2>Monthly costs <button class="tpl-info-btn" data-tip="Pick any flat monthly amount here — like an insurance premium or subscription — and it apportions it by days into whichever template item shares its exact name. Turning it off keeps your data, it just stops syncing to your template.">ⓘ</button> <span class="rc-sub">flat recurring items</span></h2><button class="dm-switch feature-toggle-switch" data-feature="monthlycosts" title="Enable or disable this feature"></button></div>
       <div class="rec-body"><div class="rec-body-inner">
         <div class="rec-table-wrap">
           <table class="rtable">
@@ -2290,10 +2293,10 @@ const DOLLAR_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" 
 const LINK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
 function tplSourceFor(name){
   const n = (name||'').trim().toLowerCase();
-  if(n.includes('tech replacement')) return 'tech';
-  if(n.includes('groceries')) return 'grocery';
+  if(n.includes('tech replacement')) return featureFlags.tech ? 'tech' : null;
+  if(n.includes('groceries')) return featureFlags.grocery ? 'grocery' : null;
   if(n.includes('ballet')) return 'ballet';
-  if(n && monthlyCosts && monthlyCosts.items.some(mc => mc.name.trim().toLowerCase() === n)) return 'monthlycost';
+  if(n && monthlyCosts && monthlyCosts.items.some(mc => mc.name.trim().toLowerCase() === n)) return featureFlags.monthlycosts ? 'monthlycost' : null;
   return null;
 }
 function toggleRecCard(card){
@@ -2317,7 +2320,33 @@ function toggleRecCard(card){
     setTimeout(() => { card.scrollIntoView({behavior:'smooth', block:'start'}); }, 80);
   }
 }
+const FEATURE_CARD_IDS = { tech:'techRecordCard', grocery:'groceryRecordCard', monthlycosts:'monthlyCostsRecordCard' };
+const FEATURE_COLUMNS = { tech:'feature_tech', grocery:'feature_grocery', monthlycosts:'feature_monthlycosts' };
+function renderFeatureToggle(feature){
+  const btn = document.querySelector(`.feature-toggle-switch[data-feature="${feature}"]`);
+  if(btn) btn.classList.toggle('on', !!featureFlags[feature]);
+  const cardEl = document.getElementById(FEATURE_CARD_IDS[feature]);
+  if(cardEl) cardEl.style.display = featureFlags[feature] ? '' : 'none';
+}
+async function onFeatureToggleClick(btn){
+  const feature = btn.dataset.feature;
+  const newVal = !featureFlags[feature];
+  const ok = await customConfirm(newVal
+    ? 'Turn this feature back on? Your existing data is still there.'
+    : 'Turn this feature off? Your data stays saved — you can turn it back on any time.');
+  if(!ok) return;
+  featureFlags[feature] = newVal;
+  try{ await db.saveSettings({ [FEATURE_COLUMNS[feature]]: newVal }); }catch(e){}
+  renderFeatureToggle(feature);
+  renderGroups();
+  updateSummary();
+  renderTemplateEditor();
+  toast(newVal ? 'Feature turned back on' : 'Feature turned off — your data is safe');
+}
 document.getElementById('view-other').addEventListener('click', (e) => {
+  const switchBtn = e.target.closest('.feature-toggle-switch');
+  if(switchBtn){ onFeatureToggleClick(switchBtn); return; }
+  if(e.target.closest('.tpl-info-btn')) return;
   const toggle = e.target.closest('[data-rec-toggle]');
   if(!toggle) return;
   toggleRecCard(toggle.closest('.rec-card'));
@@ -5494,6 +5523,7 @@ function syncAmountEverywhere(matchFn, amount, apportion=true){
   return touchedTemplate || touchedMonth;
 }
 function syncTechToTemplate(total){
+  if(!featureFlags.tech) return;
   syncAmountEverywhere(n => n.trim().toLowerCase().includes('tech replacement'), total, false);
 }
 
@@ -5636,6 +5666,7 @@ document.body.addEventListener('click', (e) => {
 });
 document.getElementById('groceryEatOut').addEventListener('input', (e)=>{ grocery.eatOut = parseFloat(e.target.value)||0; updateGroceryTotal(); saveGrocery(); });
 function syncGroceriesToTemplate(total){
+  if(!featureFlags.grocery) return;
   syncAmountEverywhere(n => n.trim().toLowerCase().includes('groceries'), total);
 }
 function refreshInsertDropdowns(){}
@@ -5876,6 +5907,7 @@ function monthlyCostEffective(mc){
   return roundToMultiple(Number(mc.cost)||0, mc.roundTo);
 }
 function syncMonthlyCostsToTemplate(){
+  if(!featureFlags.monthlycosts) return;
   ensureTemplateIds();
   monthlyCosts.items.forEach(mc => {
     const name = mc.name.trim().toLowerCase();
@@ -5950,6 +5982,9 @@ document.getElementById('darkModeSwitch').addEventListener('click', () => {
   renderMonthlyCostRows();
   syncMonthlyCostsToTemplate();
   renderOtherRecordsBudgetSummary();
+  renderFeatureToggle('tech');
+  renderFeatureToggle('grocery');
+  renderFeatureToggle('monthlycosts');
   refreshInsertDropdowns();
   refreshUpSpendingBalance();
   setInterval(() => {
