@@ -175,6 +175,19 @@ create table if not exists public.tx_rules (
   primary key (user_id, merchant_key)
 );
 
+-- Keyed by the Up account ID a savings transfer moves money INTO, not a description -
+-- unlike tx_rules, transfer descriptions are generic/identical across every saver, so the
+-- destination account is the only thing that reliably tells them apart. See index.html's
+-- autoApplyTxRules()/maybeShowTransferRememberPopup().
+create table if not exists public.up_transfer_rules (
+  transfer_account_id  text not null,
+  user_id              uuid references auth.users(id) on delete cascade default auth.uid(),
+  account_name         text,
+  category_name        text,
+  item_name            text,
+  primary key (user_id, transfer_account_id)
+);
+
 -- ===================== updated_at triggers =====================
 
 drop trigger if exists set_updated_at on public.user_settings;
@@ -212,7 +225,7 @@ begin
   foreach t in array array[
     'user_settings','month_template','ballet','up_income_source','grocery_settings',
     'months','price_change_notes','tech_items','grocery_items','grocery_item_breakdown',
-    'mtg_rows','monthly_costs','tx_assignments','tx_rules'
+    'mtg_rows','monthly_costs','tx_assignments','tx_rules','up_transfer_rules'
   ]
   loop
     execute format('alter table public.%I enable row level security', t);

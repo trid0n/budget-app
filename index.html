@@ -1050,7 +1050,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         </div>
         <button class="mini-btn" id="upChangeTokenBtn" style="display:none;">🔑 Connected — change token</button>
         <div id="upContent" style="display:none;">
-          <div class="up-tx-hdr">Recent transactions <span class="up-tx-hdr-actions"><button class="mini-btn" id="manageTxRulesBtn">Manage merchant rules</button><button class="mini-btn" id="upRefreshBtn">Refresh</button></span></div>
+          <div class="up-tx-hdr">Recent transactions <span class="up-tx-hdr-actions"><button class="mini-btn" id="manageTxRulesBtn">Manage rules</button><button class="mini-btn" id="upRefreshBtn">Refresh</button></span></div>
           <div class="timeframe-row" id="upTxTimeframeRow">
             <button class="timeframe-btn" data-tf="1">Last month</button>
             <button class="timeframe-btn" data-tf="3">3 months</button>
@@ -1318,6 +1318,9 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <div class="tx-assign-sub">Transactions matched to these are auto-attributed without asking</div>
     <input type="text" id="txRulesSearch" class="up-tx-search" placeholder="Search merchant rules...">
     <div class="tx-rules-list" id="txRulesList"></div>
+    <div class="tx-assign-hdr" style="margin-top:18px;">Saver transfers</div>
+    <div class="tx-assign-sub">Transfers to these accounts are auto-attributed to their mapped item — set one up by assigning a transfer and ticking "always" on the popup</div>
+    <div class="tx-rules-list" id="transferRulesList"></div>
     <div class="modal-actions">
       <button class="mini-btn" id="txRulesCloseBtn">Close</button>
     </div>
@@ -1616,6 +1619,19 @@ const db = {
     const rows = Object.entries(rules).map(([key, r]) => ({ merchant_key: key, user_id: authUserId, category_name: r.categoryName, item_name: r.itemName, threshold: r.threshold==null ? null : Number(r.threshold), above_category_name: r.aboveCategoryName, above_item_name: r.aboveItemName }));
     if(rows.length){ const { error } = await sb.from('tx_rules').insert(rows); if(error) throw error; }
   },
+  async loadTransferRules(){
+    const { data, error } = await sb.from('up_transfer_rules').select('*').eq('user_id', authUserId);
+    if(error) throw error;
+    const out = {};
+    (data||[]).forEach(r => { out[r.transfer_account_id] = { accountName: r.account_name, categoryName: r.category_name, itemName: r.item_name }; });
+    return out;
+  },
+  async saveTransferRules(rules){
+    const { error: delErr } = await sb.from('up_transfer_rules').delete().eq('user_id', authUserId);
+    if(delErr) throw delErr;
+    const rows = Object.entries(rules).map(([accountId, r]) => ({ transfer_account_id: accountId, user_id: authUserId, account_name: r.accountName, category_name: r.categoryName, item_name: r.itemName }));
+    if(rows.length){ const { error } = await sb.from('up_transfer_rules').insert(rows); if(error) throw error; }
+  },
   // Admin-only — these call security definer Postgres functions rather than reading/
   // writing user_settings directly, since a blanket "admins can see every row" RLS
   // policy would also expose other users' plaintext up_token. See schema.sql.
@@ -1693,7 +1709,13 @@ let saveTimer = null;
 let techItems = [];
 let txAssignments = {};
 let txRules = {};
+// Keyed by the Up account ID a savings transfer moves money INTO (relationships.
+// transferAccount.data.id), not a description - unlike merchant rules, transfer
+// descriptions for these are generic/identical across every saver, so the only thing
+// that reliably tells them apart is which destination account they hit.
+let transferRules = {};
 async function saveTxRules(){ try{ await db.saveTxRules(txRules); }catch(e){} }
+async function saveTransferRules(){ try{ await db.saveTransferRules(transferRules); }catch(e){} }
 function extractMerchantKey(desc, amt){
   if(!desc) return '';
   const lower = desc.trim().toLowerCase();
@@ -1999,7 +2021,7 @@ async function loadEverything(){
   // Same root cause as the month-switch delay: run them concurrently instead.
   const [
     settingsRow, monthKeys, techItemsRes, groceryRes, balletRow, mtgRes,
-    monthlyCostItems, templateRow, txAssignmentsRes, txRulesRes, incomeSourceRow, priceChangeNotesRes
+    monthlyCostItems, templateRow, txAssignmentsRes, txRulesRes, transferRulesRes, incomeSourceRow, priceChangeNotesRes
   ] = await Promise.all([
     db.loadSettings().catch(() => null),
     db.listMonthKeys().catch(() => []),
@@ -2011,6 +2033,8 @@ async function loadEverything(){
     db.loadMonthTemplate().catch(() => null),
     db.loadTxAssignments().catch(() => ({})),
     db.loadTxRules().catch(() => ({})),
+    // Falls back to {} until the up_transfer_rules migration has been run - see schema.sql.
+    db.loadTransferRules().catch(() => ({})),
     db.loadIncomeSource().catch(() => null),
     db.loadPriceChangeNotes().catch(() => ({}))
   ]);
@@ -2046,6 +2070,7 @@ async function loadEverything(){
   monthTemplate = templateRow ? { income: templateRow.income, categories: templateRow.categories, goal: Number(templateRow.goal)||0 } : null;
   txAssignments = txAssignmentsRes || {};
   txRules = txRulesRes || {};
+  transferRules = transferRulesRes || {};
   upIncomeSourceKey = incomeSourceRow ? (incomeSourceRow.key || null) : null;
   upIncomeSourceLabel = incomeSourceRow ? (incomeSourceRow.label || null) : null;
   priceChangeNotes = priceChangeNotesRes || {};
@@ -4725,18 +4750,24 @@ function autoApplyTxRules(){
   const coverPattern = /^(cover|transfer)\s+(to|from)\s+/i;
   upTransactions.forEach(t => {
     const desc = (t.attributes.description||'').trim();
+    const amt = parseFloat(t.attributes.amount.value);
     const isCoverOrTransfer = coverPattern.test(desc) || isInternalTransfer(t);
     let existing = txAssignments[t.id];
-    if(isCoverOrTransfer){
-      if(existing && existing.excluded) return;
-      if(existing && !existing.excluded){
-        if(monthData && existing.monthKey === settings.currentMonth) reverseTxAssignmentIfSameMonth(t.id);
-      }
+    // Outgoing transfers (money leaving spending) to an account with a saved saver
+    // mapping skip the exclude-by-default treatment entirely and fall through to be
+    // applied like any other rule-matched transaction below - an incoming "Cover from
+    // X" side of a transfer pair isn't a savings transfer and is never mapped.
+    const transferAccountId = isInternalTransfer(t) ? (t.relationships.transferAccount.data.id || null) : null;
+    const transferRule = (transferAccountId && amt < 0) ? transferRules[transferAccountId] : null;
+    if(isCoverOrTransfer && !transferRule){
+      // Only ever fires the first time a transaction is seen (existing is still
+      // undefined) - once the user has excluded, un-excluded, or manually assigned it,
+      // that choice sticks and isn't silently overwritten on the next render/refresh.
+      if(existing) return;
       txAssignments[t.id] = {monthKey: settings.currentMonth, excluded: true};
       changed = true;
       return;
     }
-    const amt = parseFloat(t.attributes.amount.value);
     if(existing && !existing.excluded && amt > 0 && existing.catId !== 'income'){
       if(monthData && existing.monthKey === settings.currentMonth) reverseTxAssignmentIfSameMonth(t.id);
       if(existing.merchantKey && txRules[existing.merchantKey] && txRules[existing.merchantKey].categoryName !== 'income'){
@@ -4757,7 +4788,7 @@ function autoApplyTxRules(){
       return;
     }
     if(!monthData) return;
-    const target = getRuleTargetForTx(t.attributes.description, amt);
+    const target = getRuleTargetForTx(t.attributes.description, amt) || (transferRule ? {categoryName: transferRule.categoryName, itemName: transferRule.itemName} : null);
     if(!target) return;
     const found = findCatItemByName(target.categoryName, target.itemName);
     if(!found) return;
@@ -4867,6 +4898,8 @@ function renderUpTxList(){
     const date = new Date(t.attributes.createdAt).toLocaleDateString('en-AU', {day:'numeric', month:'short'});
     const held = t.attributes.status === 'HELD' ? ' (pending)' : '';
     const assignment = txAssignments[t.id];
+    const transferAccountId = isInternalTransfer(t) ? (t.relationships.transferAccount.data.id || '') : '';
+    const transferAttr = transferAccountId ? ` data-tx-transfer-account="${escapeAttr(transferAccountId)}"` : '';
     let assignBtn, showExclude = false;
     if(assignment && assignment.excluded){
       assignBtn = `<button class="up-tx-assign-btn excluded" data-tx-unexclude="${t.id}" data-tip="Excluded from budget categories. Click to undo.">Excluded</button>`;
@@ -4876,14 +4909,14 @@ function renderUpTxList(){
       // deleted) - fall back to deriving from the saved category name in that case.
       const assignedCat = findCatById(assignment.catId);
       const catEmoji = assignedCat ? getCategoryEmoji(assignedCat) : categoryEmoji(assignment.categoryName);
-      assignBtn = `<button class="up-tx-assign-btn assigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-tip="${escapeAttr(assignment.itemName)}">\u2713 ${catEmoji} <span class="up-tx-assign-btn-text">${escapeAttr(assignment.itemName)}</span></button>`;
+      assignBtn = `<button class="up-tx-assign-btn assigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="${escapeAttr(assignment.itemName)}">\u2713 ${catEmoji} <span class="up-tx-assign-btn-text">${escapeAttr(assignment.itemName)}</span></button>`;
     } else {
       const guess = findGuessForTx(t.attributes.description, amt, t);
       if(guess){
         assignBtn = `<button class="up-tx-assign-btn guess ${guess.reason==='amount_rough'?'rough':''}" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}" data-tip="${escapeAttr(guess.itemName)}"><span class="up-tx-assign-btn-text">${escapeAttr(guess.itemName)}</span> ?</button>`;
         showExclude = true;
       } else {
-        assignBtn = `<button class="up-tx-assign-btn" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-tip="Assign to a budget line item">Assign</button>`;
+        assignBtn = `<button class="up-tx-assign-btn" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Assign to a budget line item">Assign</button>`;
       }
     }
     const excludeBtn = showExclude ? `<button class="up-tx-exclude-btn" data-tx-exclude="${t.id}" data-tip="Exclude \u2014 don\u2019t count this toward any budget category">\u00d7</button>` : '';
@@ -5073,9 +5106,9 @@ function resetSimpleSelect(wrapId, placeholder){
 function getSimpleSelectValue(wrapId){
   return document.getElementById(wrapId+'Wrap').dataset.value || '';
 }
-function openTxAssignModal(txId, amt, desc, date){
+function openTxAssignModal(txId, amt, desc, date, transferAccountId){
   if(!monthData){ toast('Open a month in the Budget tab first'); return; }
-  txAssignCurrent = {id: txId, amt: Number(amt)||0, desc, date};
+  txAssignCurrent = {id: txId, amt: Number(amt)||0, desc, date, transferAccountId: transferAccountId || null};
   document.getElementById('txAssignAmt').textContent = money(Math.abs(txAssignCurrent.amt));
   document.getElementById('txAssignDesc').textContent = desc;
   document.getElementById('txAssignMonthLbl').textContent = monthLabel(settings.currentMonth);
@@ -5134,9 +5167,10 @@ function completeTxAssignment(catId, itemId, itemName){
   scheduleSave();
   renderGroups(); updateSummary(); renderUpTxList();
   toast(`Added ${money(Math.abs(txAssignCurrent.amt))} to "${itemName}"`);
-  const txId = txAssignCurrent.id, desc = txAssignCurrent.desc;
+  const txId = txAssignCurrent.id, desc = txAssignCurrent.desc, transferAccountId = txAssignCurrent.transferAccountId;
   closeTxAssignModal();
-  maybeShowRememberPopup(txId, merchantKey, desc, cat.name, itemName);
+  if(transferAccountId) maybeShowTransferRememberPopup(txId, transferAccountId, cat.name, itemName);
+  else maybeShowRememberPopup(txId, merchantKey, desc, cat.name, itemName);
 }
 // Shows the remember-this-merchant popup unless a rule already exists that agrees with
 // this exact assignment (nothing new to learn). If a rule exists but points somewhere
@@ -5217,6 +5251,71 @@ function showTxRememberPopup(txId, merchantKey, merchantDesc, categoryName, item
   panel.querySelector('#txRememberThresholdConfirm').addEventListener('click', confirmThreshold);
   panel.querySelector('#txRememberThresholdAmt').addEventListener('keydown', (e) => { if(e.key === 'Enter') confirmThreshold(); });
 }
+// Cache of Up account ID -> its Up-side display name (e.g. "Emergency Fund"), fetched
+// lazily since a transaction only ever carries the destination account's ID, not its
+// name - used purely for a friendly label in the remember-transfer popup and the saved
+// rules list below.
+let upAccountNameCache = {};
+async function fetchUpAccountName(accountId){
+  if(upAccountNameCache[accountId]) return upAccountNameCache[accountId];
+  try{
+    const res = await upFetch('/accounts/' + accountId);
+    const name = res && res.data && res.data.attributes && res.data.attributes.displayName;
+    if(name) upAccountNameCache[accountId] = name;
+    return name || null;
+  }catch(e){ return null; }
+}
+// Mirrors maybeShowRememberPopup, but keyed on the transfer's destination account ID
+// rather than a merchant-key derived from its description - transfer descriptions are
+// generic/identical across every saver, so the description can't tell them apart.
+async function maybeShowTransferRememberPopup(txId, transferAccountId, categoryName, itemName){
+  const existing = transferRules[transferAccountId];
+  if(existing && existing.categoryName === categoryName && existing.itemName === itemName) return;
+  const accountName = (existing && existing.accountName) || await fetchUpAccountName(transferAccountId) || 'this account';
+  showTransferRememberPopup(txId, transferAccountId, accountName, categoryName, itemName);
+}
+function showTransferRememberPopup(txId, transferAccountId, accountName, categoryName, itemName){
+  const anchorBtn = document.querySelector(`[data-tx-assign="${CSS.escape(txId)}"]`);
+  const row = anchorBtn ? anchorBtn.closest('.up-tx-row') : null;
+  if(!row) return;
+  document.querySelectorAll('.tx-remember-popup').forEach(p => p.remove());
+  const host = document.getElementById('inlinePanelHost');
+  const panel = document.createElement('div');
+  panel.className = 'inline-source-panel tx-remember-popup';
+  panel.innerHTML = `
+    <div class="tx-remember-text">Always send transfers to <strong>"${escapeAttr(accountName)}"</strong> to <strong>"${escapeAttr(itemName)}"</strong>?</div>
+    <div class="tx-remember-actions">
+      <button class="tx-remember-btn tx-remember-yes" data-tip="Always">${CHECK_SVG}</button>
+      <button class="tx-remember-btn tx-remember-no" data-tip="Just this once">${X_SVG}</button>
+    </div>`;
+  host.appendChild(panel);
+  positionOneInlinePanel(row, panel);
+  let dismissed = false;
+  const dismiss = () => {
+    if(dismissed) return;
+    dismissed = true;
+    panel.remove();
+    document.removeEventListener('click', onOutsideClick, true);
+    clearTimeout(autoTimer);
+  };
+  const onOutsideClick = (e) => { if(!panel.contains(e.target)) dismiss(); };
+  const autoTimer = setTimeout(dismiss, 9000);
+  setTimeout(() => document.addEventListener('click', onOutsideClick, true), 0);
+  panel.querySelector('.tx-remember-yes').addEventListener('click', () => {
+    transferRules[transferAccountId] = {accountName, categoryName, itemName};
+    saveTransferRules();
+    toast(`Got it — transfers to "${accountName}" will always go to "${itemName}"`);
+    dismiss();
+  });
+  panel.querySelector('.tx-remember-no').addEventListener('click', () => {
+    const existing = transferRules[transferAccountId];
+    if(existing && (existing.categoryName !== categoryName || existing.itemName !== itemName)){
+      delete transferRules[transferAccountId];
+      saveTransferRules();
+    }
+    dismiss();
+  });
+}
 document.getElementById('txAssignSearch').addEventListener('input', (e) => renderTxAssignList(e.target.value));
 document.getElementById('txAssignNewName').addEventListener('input', (e) => renderTxAssignNameSuggestions(e.target.value));
 document.getElementById('txAssignNameSuggestions').addEventListener('click', (e) => {
@@ -5259,9 +5358,10 @@ document.getElementById('txAssignNewBtn').addEventListener('click', () => {
   scheduleSave();
   renderGroups(); updateSummary(); renderUpTxList();
   toast(`Created "${name}" with ${money(Math.abs(txAssignCurrent.amt))}`);
-  const txId = txAssignCurrent.id, desc = txAssignCurrent.desc;
+  const txId = txAssignCurrent.id, desc = txAssignCurrent.desc, transferAccountId = txAssignCurrent.transferAccountId;
   closeTxAssignModal();
-  maybeShowRememberPopup(txId, merchantKey, desc, cat.name, name);
+  if(transferAccountId) maybeShowTransferRememberPopup(txId, transferAccountId, cat.name, name);
+  else maybeShowRememberPopup(txId, merchantKey, desc, cat.name, name);
 });
 document.getElementById('txAssignCancel').addEventListener('click', closeTxAssignModal);
 document.getElementById('view-ledger').addEventListener('click', (e) => {
@@ -5371,10 +5471,21 @@ function renderTxRulesList(){
     return `<div class="tx-rule-row"><div><div class="tx-rule-merchant">${escapeAttr(humanizeMerchantKey(key))}</div><div class="tx-rule-target">${targetLbl}</div></div><button class="tx-rule-del" data-tx-rule-del="${escapeAttr(key)}" title="Remove this rule">${X_SVG}</button></div>`;
   }).join('');
 }
+function renderTransferRulesList(){
+  const list = document.getElementById('transferRulesList');
+  const accountIds = Object.keys(transferRules);
+  if(!accountIds.length){ list.innerHTML = '<div class="tx-assign-empty">No saver transfers mapped yet — tick "always" on the popup after assigning a transfer.</div>'; return; }
+  list.innerHTML = accountIds.map(accountId => {
+    const r = transferRules[accountId];
+    const targetLbl = `${categoryEmoji(r.categoryName)} ${escapeAttr(r.itemName)}`;
+    return `<div class="tx-rule-row"><div><div class="tx-rule-merchant">${escapeAttr(r.accountName || 'Unnamed account')}</div><div class="tx-rule-target">${targetLbl}</div></div><button class="tx-rule-del" data-transfer-rule-del="${escapeAttr(accountId)}" title="Remove this mapping">${X_SVG}</button></div>`;
+  }).join('');
+}
 document.getElementById('manageTxRulesBtn').addEventListener('click', () => {
   txRulesSearchTerm = '';
   document.getElementById('txRulesSearch').value = '';
   renderTxRulesList();
+  renderTransferRulesList();
   document.getElementById('txRulesOverlay').classList.add('show');
 });
 document.getElementById('txRulesSearch').addEventListener('input', (e) => { txRulesSearchTerm = e.target.value; renderTxRulesList(); });
@@ -5386,6 +5497,13 @@ document.getElementById('txRulesList').addEventListener('click', (e) => {
   delete txRules[btn.dataset.txRuleDel];
   saveTxRules();
   renderTxRulesList();
+});
+document.getElementById('transferRulesList').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-transfer-rule-del]');
+  if(!btn) return;
+  delete transferRules[btn.dataset.transferRuleDel];
+  saveTransferRules();
+  renderTransferRulesList();
 });
 document.getElementById('upTxList').addEventListener('click', (e) => {
   const incomeSelectChip = e.target.closest('[data-tx-income-select]');
@@ -5434,7 +5552,12 @@ document.getElementById('upTxList').addEventListener('click', (e) => {
   }
   const unexcludeBtn = e.target.closest('[data-tx-unexclude]');
   if(unexcludeBtn){
-    delete txAssignments[unexcludeBtn.dataset.txUnexclude];
+    // Explicitly {excluded:false} rather than deleting the entry outright - a cover/
+    // transfer transaction with no assignment at all reads as "never seen" to
+    // autoApplyTxRules() and gets defaulted straight back to excluded on the next
+    // render, which made this button a no-op for those. This marks the un-exclude as
+    // the user's own deliberate choice, which autoApplyTxRules() now leaves alone.
+    txAssignments[unexcludeBtn.dataset.txUnexclude] = {monthKey: settings.currentMonth, excluded: false};
     saveTxAssignments();
     renderUpTxList();
     return;
@@ -5446,7 +5569,7 @@ document.getElementById('upTxList').addEventListener('click', (e) => {
   }
   const btn = e.target.closest('[data-tx-assign]');
   if(!btn) return;
-  openTxAssignModal(btn.dataset.txAssign, btn.dataset.txAmt, btn.dataset.txDesc, btn.dataset.txDate);
+  openTxAssignModal(btn.dataset.txAssign, btn.dataset.txAmt, btn.dataset.txDesc, btn.dataset.txDate, btn.dataset.txTransferAccount);
 });
 let upCategoriesCache = {};
 async function fetchUpCategories(){
