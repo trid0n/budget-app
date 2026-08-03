@@ -56,6 +56,17 @@ re-run. Until it's applied, saving `settings.periodMode` silently no-ops (the `d
 upsert would error on an unknown column, but errors are swallowed — see testing note below
 about this pattern).
 
+A second migration (commit `fa98dda`) added a whole new table, `public.up_transfer_rules`,
+for saver-transfer auto-mapping (see feature history below). Check whether it's been run:
+
+```sql
+select 1 from information_schema.tables where table_schema='public' and table_name='up_transfer_rules';
+```
+
+The full migration (table + RLS policy) is in `supabase/schema.sql`. Until it's applied,
+`db.loadTransferRules()` fails and is caught (falls back to `{}` — see `loadEverything()`),
+so saver-transfer mapping silently does nothing rather than erroring.
+
 ## How to test changes (established pattern — use this, don't skip verification)
 
 This machine has **no `node`, `npm`, `gh`, or `supabase` CLI**. There's no way to syntax-check
@@ -170,23 +181,31 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
    Monthly Costs "no rounding" option removed from the *inline* table opened from a
    Budget-tab item (still available in the full Other Records table); income-source
    display replaced a run-on instructional sentence with a clean chip/pill.
+10. **Sidebar highlight animation, long-press name preview, transaction-linked amount
+    floor, income replace-vs-add, income emoji**: the sidebar's active-tab highlight now
+    slides between tabs (`updateSideHighlight()`) instead of jumping; long-pressing an
+    item/transaction name on mobile shows a floating tooltip with the full text instead
+    of entering edit mode (`bindLongPressReveal(..., {preventEdit:true})`); an item's
+    amount can no longer be manually set below its linked transactions' total (snaps
+    back with a toast); a month's first real income transaction now *replaces* the
+    template's estimated amount instead of adding to it (`applyTxAmountToItem()`) —
+    later transactions the same month still add normally; income line items can now
+    have their own emoji (the category emoji picker was generalized to a `kind`
+    parameter — `'cat'|'tplCat'|'income'|'tplIncome'` — rather than duplicated).
+11. **Up Bank saver-transfer auto-mapping**: recurring savings transfers (the user does a
+    batch to various savers around the 1st of each month) can now be mapped once
+    (destination account → template item) via the same remember-popup pattern as
+    merchant rules, then auto-attributed every month after — see `transferRules`,
+    `maybeShowTransferRememberPopup()`, and the `up_transfer_rules` migration above.
+    Keyed on the transfer's destination account ID (`relationships.transferAccount.data.id`),
+    not description text — confirmed with the user that Up's transfer descriptions are
+    generic/identical across every saver, so text can't tell them apart the way merchant
+    rules do for normal spending.
 
 ## Known open items
 
-- **Recurring savings-transfer auto-attribution** (explicitly requested, not yet built):
-  the user does a batch of transfers to savers around midnight on the 1st of each month
-  and wants these auto-attributed to template items, while staying editable/reassignable.
-  Three approaches were proposed and discussed, recommendation was to start with the
-  first:
-  1. **Template-name matching** (recommended starting point) — reuse the existing
-     fuzzy name-matching guess logic, treating template item names as match targets.
-  2. **Explicit mapping** — user tags each template item once with which transfer
-     description it corresponds to (like the existing income-source link).
-  3. **Date+amount heuristic** — fallback layered on top of one of the above, not
-     standalone (fragile if amounts vary month to month).
-  Not started — the user hadn't confirmed which approach to proceed with as of the last
-  message in the prior session.
-- **Verify the `period_mode` schema migration was actually run** (see warning above).
+- **Verify both schema migrations were actually run** (see warning above): `period_mode`
+  on `user_settings`, and the newer `up_transfer_rules` table.
 - The project-management **task list tool** (`TaskList`/`TaskCreate`) still has 18 stale
   entries from the original Supabase-migration project (all marked completed) — it hasn't
   been used for anything since. Fine to ignore, or worth clearing out and starting fresh
@@ -208,6 +227,12 @@ Worth knowing these exist as a class, since static review missed all of them:
   `.attributes`).
 - The CSS specificity bug on the login page's primary button (item 9 above) — invisible
   by pure code reading, obvious the moment it was screenshotted.
+- The "un-excluding a transfer transaction is a no-op" bug (item 11 above): the
+  un-exclude button `delete`d the transaction's assignment entry outright, which made it
+  indistinguishable from "never seen" to `autoApplyTxRules()` — which then immediately
+  re-excluded it on the very next render. Static reading of the un-exclude handler in
+  isolation looked correct; only became obvious by actually clicking Excluded → un-exclude
+  in the test harness and checking whether the button state survived a re-render.
 
 Moral: for anything visual or stateful, screenshot/exercise it — don't just confirm the
 code "looks right."
