@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Household Ledger</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%231B1F27'/%3E%3Ccircle cx='17' cy='4.5' r='1.8' fill='%23D1483F'/%3E%3Crect x='7' y='6.5' width='10' height='3' rx='1.2' fill='%233B6FE0'/%3E%3Cpath d='M6.5 10v9.5a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2V10' fill='none' stroke='%233B6FE0' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M9 16.5l2.3-2.3 1.8 1.8L17 12.5' fill='none' stroke='%232F9E64' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -67,7 +68,8 @@ body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sa
 .sidebar .side-icon.active{background:var(--gold); color:#fff;}
 .sidebar .side-icon:hover:not(.active){background:#2A3040; color:#C7CDD6;}
 .sidebar .side-spacer{flex:1;}
-.sidebar-link-btn{width:100%; background:none; border:none; color:#8B93A5; font-size:.82rem; font-weight:600; cursor:pointer; padding:10px 12px; text-align:left; border-radius:9px; font-family:inherit;}
+.sidebar-link-btn{display:flex; align-items:center; gap:12px; width:100%; background:none; border:none; color:#8B93A5; font-size:.82rem; font-weight:600; cursor:pointer; padding:10px 12px; text-align:left; border-radius:9px; font-family:inherit;}
+.sidebar-link-btn .ic{font-size:1rem; width:18px; text-align:center; flex-shrink:0;}
 .sidebar-link-btn:hover{background:#2A3040; color:#C7CDD6;}
 .sidebar .dark-toggle{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-radius:9px; color:#8B93A5; font-size:.82rem; font-weight:600; border-top:1px solid #2A3040; margin-top:6px; padding-top:16px;}
 .sidebar .dark-toggle .dt-label{display:flex; align-items:center; gap:10px;}
@@ -175,7 +177,10 @@ header.mast .tag{font-size:.78rem; color:var(--ink-soft); margin-top:2px;}
 /* custom truncation tooltip, no native browser styling */
 [data-tip]::before{content:attr(data-tip); position:absolute; left:0; top:100%; margin-top:6px; background:#1B1F27; color:#F5F6F8; padding:6px 10px; border-radius:8px; font-size:.76rem; font-weight:500; line-height:1.4; white-space:pre-line; width:max-content; max-width:280px; opacity:0; transform:translateY(-4px); pointer-events:none; transition:opacity .15s ease, transform .15s ease; z-index:60; box-shadow:0 8px 24px rgba(0,0,0,.35);}
 [data-tip]:hover::before{opacity:1; transform:translateY(0); transition-delay:.35s;}
-[data-tip].tip-tapped::before{opacity:1; transform:translateY(0);}
+/* .tpl-info-btn uses the floating tooltip (see showInfoBtnTooltip) instead - it sits
+   inside overflow:hidden card/header ancestors that would clip this ::before whenever
+   the card is collapsed, so the CSS version is suppressed here to avoid a duplicate. */
+.tpl-info-btn[data-tip]::before{display:none;}
 .lrow:last-child{border-bottom:none;}
 input.name-input{font-family:'Inter',sans-serif; font-size:.88rem; background:transparent; border:none; color:var(--ink); width:100%; padding:5px 7px; min-width:0; flex:1; border-radius:6px; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .leaf-name input.name-input{flex:0 0 auto; width:var(--item-name-w, 80px); max-width:100%; min-width:20px;}
@@ -729,45 +734,52 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   }
   .sidebar .brand{display:none;}
   .sidebar .side-icon, .sidebar .sidebar-link-btn{width:auto; flex:1 1 0; min-width:0; flex-direction:column; gap:2px; padding:5px 2px; font-size:.56rem; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .sidebar .side-icon .ic{font-size:1rem;}
+  .sidebar .side-icon .ic, .sidebar .sidebar-link-btn .ic{font-size:1rem;}
   .sidebar .side-spacer{display:none;}
-  .sidebar .sidebar-link-btn{display:flex; align-items:center; justify-content:center;}
   .sidebar .logout-row{display:none;}
   /* Dark mode: a plain icon button on mobile (not a switch-with-label) to save width -
      same #darkModeSwitch element/click-handler/state, just restyled + re-labelled via
      the existing .on class applyTheme() already toggles. */
   .sidebar .dark-toggle{border-top:none; margin-top:0; padding:0; flex:0 0 auto; gap:0;}
   .sidebar .dark-toggle .dt-label{display:none;}
-  .dm-switch{width:auto; height:auto; background:none; border-radius:0; padding:5px 8px;}
-  .dm-switch::after{display:none;}
-  .dm-switch::before{content:'🌙'; font-size:1.1rem; line-height:1;}
-  .dm-switch.on::before{content:'☀️';}
+  /* Scoped to the #darkModeSwitch id specifically - .dm-switch is a shared "looks like
+     a toggle" class also used by the feature/admin flag switches elsewhere, which must
+     keep their normal switch appearance. */
+  #darkModeSwitch{width:auto; height:auto; background:none; border-radius:0; padding:5px 8px; color:var(--ink-faint);}
+  #darkModeSwitch.on{background:none;}
+  #darkModeSwitch::after{display:none;}
+  #darkModeSwitch::before{content:'🌙'; font-size:1.1rem; line-height:1;}
+  #darkModeSwitch.on::before{content:'☀️';}
   /* Full width - no side gutters on phones */
   .wrap{max-width:100%; padding:12px 8px 60px;}
   .topbar{flex-direction:column; gap:10px;}
   .assign-card, .progress-card, .summary-mini{width:100%; flex-basis:auto; height:auto; min-height:130px;}
   .notes-box{min-width:0; height:auto; min-height:110px;}
   /* Balance bar: keep the gear inline with the balance row instead of dropping to its
-     own near-empty row below. .balance-bar-right{display:contents} promotes its two
-     children (the gear toggle and the collapsible actions panel) to be direct flex
-     items of .balance-bar itself, so `order` can place the gear on the same row as the
-     balance and push the (still separately collapsible) actions panel onto its own
-     full-width row only once it's actually opened. */
+     own near-empty row below. (display:contents on .balance-bar-right was tried here
+     first to promote the gear to a direct sibling of .balance-bar-left via `order` -
+     reverted because display:contents has real cross-browser bugs where CSS
+     transitions on its descendants silently stop running, which broke the actions
+     panel's open/close animation entirely.) Instead: .balance-bar-right stays a real,
+     shrink-to-fit box sharing the row with the balance amount when the panel is
+     collapsed (~0 width), and naturally wraps onto its own line - like it already did
+     before this - once the panel actually opens and needs more room. */
   .balance-bar{flex-direction:row; flex-wrap:wrap; align-items:center; gap:10px;}
-  .balance-bar-left{flex:1; min-width:0; order:1;}
-  .balance-bar-right{display:contents;}
-  #monthActionsToggle{order:2;}
-  #monthActionsPanel{order:3; flex-basis:100%; width:100%; justify-content:flex-start;}
+  .balance-bar-left{flex:1; min-width:200px;}
+  .balance-bar-right{flex:0 0 auto; justify-content:flex-start;}
   .or-summary-bar{grid-template-columns:1fr;}
   .month-nav{flex-wrap:nowrap;}
   .month-dropdown-btn{width:96px; font-size:.82rem; padding:5px 4px;}
   .top-right{width:100%; justify-content:flex-start; flex-wrap:nowrap; gap:8px;}
   .mast{flex-wrap:wrap; gap:8px;}
   #undoBtn, #jumpToCurrentMonthBtn{padding:8px 10px; font-size:.76rem; flex-shrink:0;}
-  .lrow.leaf{grid-template-columns:20px 1fr 64px 26px;}
-  .amt-wrap{width:64px; min-width:0;}
+  /* Wide enough that a typical amount ("1234.56") is fully visible without focusing the
+     field - the earlier 64px was tuned before input font-size was bumped to 16px (for
+     the iOS zoom fix below), which needs more room to show the same digits. */
+  .lrow.leaf{grid-template-columns:20px 1fr 96px 26px;}
+  .amt-wrap{width:96px; min-width:0;}
   .leaf-name{flex:1; min-width:0;}
-  .grow{grid-template-columns:20px 1fr 64px 26px;}
+  .grow{grid-template-columns:20px 1fr 96px 26px;}
   .grip-handle{opacity:1; padding:10px 6px 10px 8px;}
   .lrow.leaf .grip-handle{opacity:1; padding:10px 6px 10px 8px;}
   .inline-source-panel{left:8px !important; right:8px; width:auto !important; max-width:none !important;}
@@ -866,14 +878,14 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 </div>
 <div class="app-shell">
   <div class="sidebar">
-    <div class="brand"><span class="mark">$</span>Budget</div>
+    <div class="brand"><span class="mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="17.5" cy="3" r="1.7" fill="currentColor" stroke="none"/><rect x="7" y="5" width="10" height="3" rx="1.2"/><path d="M6.5 8.5v10a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-10"/><path d="M9 16l2.5-2.5 2 2L18 11"/><path d="M15 11h3v3"/></svg></span>Budget</div>
     <button class="side-icon active" data-view="ledger" title="Budget"><span class="ic">◆</span>Budget</button>
     <button class="side-icon" data-view="dashboard" title="Dashboard"><span class="ic">◱</span>Dashboard</button>
     <button class="side-icon" data-view="template" title="Template"><span class="ic">▥</span>Template</button>
     <button class="side-icon" data-view="other" title="Other records"><span class="ic">▤</span>Other records</button>
-    <button class="side-icon" data-view="admin" id="adminNavBtn" title="Users" style="display:none;"><span class="ic">☺</span>Users</button>
+    <button class="side-icon" data-view="admin" id="adminNavBtn" title="Users" style="display:none;"><span class="ic">▧</span>Users</button>
     <div class="side-spacer"></div>
-    <button type="button" class="sidebar-link-btn" id="accountSettingsBtn">⚙ Account settings</button>
+    <button type="button" class="sidebar-link-btn" id="accountSettingsBtn" title="Account settings"><span class="ic">⚙</span>Settings</button>
     <div class="dark-toggle">
       <span class="dt-label"><span class="ic">☾</span><span class="dt-text">Dark mode</span></span>
       <button class="dm-switch" id="darkModeSwitch"></button>
@@ -885,7 +897,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 
     <header class="mast">
       <div class="mast-title">
-        <div class="mast-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="16" cy="15" r="1.5" fill="currentColor" stroke="none"/></svg></div>
+        <div class="mast-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="17.5" cy="3" r="1.5" fill="currentColor" stroke="none"/><rect x="7" y="5" width="10" height="3" rx="1.2"/><path d="M6.5 8.5v10a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-10"/><path d="M9 16l2.5-2.5 2 2L18 11"/><path d="M15 11h3v3"/></svg></div>
         <h1>Budget</h1>
       </div>
       <div class="top-right">
@@ -4203,7 +4215,13 @@ document.getElementById('monthDropdownBtn').addEventListener('click', () => {
 document.addEventListener('click', (e) => { if(!e.target.closest('#monthDropdown')) document.getElementById('monthDropdownList').classList.remove('open'); });
 
 /* sidebar view switching */
-const TAB_ORDER = ['ledger','dashboard','template','other'];
+// Computed at swipe time (not a fixed list) so it automatically includes Users for
+// admins and excludes it otherwise - #adminNavBtn stays in the DOM but display:none
+// when not admin, so a static list would either miss it entirely or swipe into a
+// hidden tab depending on which way round the mistake was made.
+function visibleTabOrder(){
+  return [...document.querySelectorAll('.side-icon')].filter(b => b.offsetParent !== null).map(b => b.dataset.view);
+}
 let swipeStartX = null, swipeStartY = null, swipeBlocked = false;
 document.addEventListener('touchstart', (e) => {
   if(e.touches.length !== 1) return;
@@ -4221,11 +4239,12 @@ document.addEventListener('touchend', (e) => {
   if(Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy)*2) return;
   const activeBtn = document.querySelector('.side-icon.active');
   if(!activeBtn) return;
-  const idx = TAB_ORDER.indexOf(activeBtn.dataset.view);
+  const tabOrder = visibleTabOrder();
+  const idx = tabOrder.indexOf(activeBtn.dataset.view);
   if(idx === -1) return;
   const nextIdx = dx < 0 ? idx+1 : idx-1;
-  if(nextIdx < 0 || nextIdx >= TAB_ORDER.length) return;
-  const nextBtn = document.querySelector(`.side-icon[data-view="${TAB_ORDER[nextIdx]}"]`);
+  if(nextIdx < 0 || nextIdx >= tabOrder.length) return;
+  const nextBtn = document.querySelector(`.side-icon[data-view="${tabOrder[nextIdx]}"]`);
   if(nextBtn) nextBtn.click();
 });
 document.querySelectorAll('.side-icon').forEach(btn => {
@@ -5554,19 +5573,6 @@ function renderDonutChart(data){
     <span class="donut-legend-val">${money(s.value)}/mo</span></div>`).join('');
   return `<div class="donut-wrap">${svg}<div class="donut-legend">${legend}</div></div>`;
 }
-// Lets a [data-tip] element's tooltip also be revealed by tap on touch devices, which
-// have no :hover state to trigger the existing pure-CSS tooltip mechanism. Bound once,
-// delegated, so it survives the container's content being re-rendered.
-function bindTapReveal(container, selector){
-  container.addEventListener('click', (e) => {
-    const el = e.target.closest(selector);
-    document.querySelectorAll(`${selector}.tip-tapped`).forEach(o => { if(o!==el) o.classList.remove('tip-tapped'); });
-    if(el) el.classList.toggle('tip-tapped');
-  });
-  document.addEventListener('click', (e) => {
-    if(!e.target.closest(selector)) document.querySelectorAll(`${selector}.tip-tapped`).forEach(o=>o.classList.remove('tip-tapped'));
-  });
-}
 // General-purpose floating tooltip, positioned via JS rather than the app's normal
 // CSS-hover ::before mechanism (which doesn't anchor sensibly to an SVG <path> or an
 // unpositioned element). Originally built for the donut chart; also used for the
@@ -5592,7 +5598,28 @@ document.getElementById('insightGrid').addEventListener('click', (e) => {
   const rect = el.getBoundingClientRect();
   showFloatTooltip(el.getAttribute('data-tip') || '', rect.left + rect.width/2, rect.top - 36);
 });
-document.addEventListener('click', (e) => { if(!e.target.closest('[data-donut-slice]')) hideFloatTooltip(); });
+// .tpl-info-btn's tooltip also goes through the floating-tooltip mechanism rather than
+// the app's normal CSS [data-tip]::before - the info buttons all live inside an
+// overflow:hidden ancestor (.rec-card / .template-top-row), and when a collapsible card
+// is collapsed (short), the ::before rendered below the button gets clipped by that
+// overflow:hidden before it's ever visible - on both hover (desktop) and tap (mobile),
+// which is why pressing it "did nothing" specifically while the card was collapsed.
+function showInfoBtnTooltip(el){
+  const rect = el.getBoundingClientRect();
+  showFloatTooltip(el.getAttribute('data-tip') || '', rect.left, rect.bottom + 8);
+}
+document.body.addEventListener('mouseover', (e) => {
+  const el = e.target.closest('.tpl-info-btn');
+  if(el) showInfoBtnTooltip(el);
+});
+document.body.addEventListener('mouseout', (e) => {
+  if(e.target.closest('.tpl-info-btn')) hideFloatTooltip();
+});
+document.body.addEventListener('click', (e) => {
+  const infoBtn = e.target.closest('.tpl-info-btn');
+  if(infoBtn){ e.stopPropagation(); showInfoBtnTooltip(infoBtn); }
+});
+document.addEventListener('click', (e) => { if(!e.target.closest('[data-donut-slice], .tpl-info-btn')) hideFloatTooltip(); });
 // Press-and-hold on truncated names: mobile long-press normally triggers native text
 // selection/highlight (or, on an <input>, the OS's selection loupe) rather than showing
 // the full text, which is what's actually wanted when a name is cut off. touchstart's
@@ -5635,7 +5662,6 @@ function bindLongPressReveal(container, selector, getText){
 }
 bindLongPressReveal(document.body, '.name-input, .sh-name-input', el => el.value);
 bindLongPressReveal(document.body, '.up-tx-desc-chip, .tx-view-row-desc, .mover-name', el => el.textContent);
-bindTapReveal(document.body, '.tpl-info-btn');
 document.getElementById('insightGrid').addEventListener('mouseover', (e) => {
   const el = e.target.closest('[data-donut-slice]');
   if(!el) return;
