@@ -360,6 +360,16 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .balance-bar-right{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
 .month-actions-panel{display:flex; align-items:center; flex-wrap:wrap; gap:10px; max-width:0; max-height:0; opacity:0; overflow:hidden; padding-left:8px; transition:max-width .32s ease, max-height .32s ease, opacity .22s ease;}
 .month-actions-panel.open{max-width:900px; max-height:300px; opacity:1;}
+/* The chips themselves fan out with a slight stagger once the container has room,
+   rather than just riding along with the container's own width/opacity reveal - closing
+   is left as a single quick fade (no stagger) since a reverse-fan on the way out reads as
+   sluggish rather than tidy. */
+.month-actions-panel .chip-btn{opacity:0; transform:translateX(-10px); transition:opacity .22s ease, transform .22s ease;}
+.month-actions-panel.open .chip-btn{opacity:1; transform:translateX(0);}
+.month-actions-panel.open .chip-btn:nth-child(1){transition-delay:.05s;}
+.month-actions-panel.open .chip-btn:nth-child(2){transition-delay:.1s;}
+.month-actions-panel.open .chip-btn:nth-child(3){transition-delay:.15s;}
+.month-actions-panel.open .chip-btn:nth-child(4){transition-delay:.2s;}
 /* #upTxMorePanel is already its own full-width block (unlike #monthActionsPanel, which
    shares a row with its own gear button and genuinely needs to widen alongside it) - a
    width-based collapse just makes its flex-wrap buttons reflow unpredictably mid-animation
@@ -369,6 +379,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .period-mode-group{display:flex; align-items:center; gap:6px; flex-shrink:0;}
 .ledger-top-toggle-row{display:flex; margin-bottom:14px;}
 .month-actions-gear{flex-shrink:0;}
+.up-refresh-btn{flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;}
 .month-actions-gear .btn-ic{display:inline-flex; transition:transform .3s ease;}
 .month-actions-gear.open .btn-ic{transform:rotate(75deg);}
 .month-actions-gear.has-active-filter{border-color:var(--gold); color:var(--gold);}
@@ -981,13 +992,13 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
             <button class="balance-live-link" id="balanceUseLiveLink" style="display:none;">Use live balance instead</button>
           </div>
           <div class="balance-bar-right">
+            <button class="mini-btn month-actions-gear" id="monthActionsToggle" title="Month actions"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
             <div class="month-actions-panel" id="monthActionsPanel">
               <button class="chip-btn chip-blue" id="useAsTemplateBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>Use this month as my template</button>
               <button class="chip-btn chip-teal" id="restoreTemplateOrderBtn"><span class="chip-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20V4M8 4 4 8M8 4l4 4"/><path d="M16 4v16m0 0 4-4m-4 4-4-4"/></svg></span>Restore template order</button>
               <button class="chip-btn chip-green" id="restoreFromTemplateBtn"><span class="chip-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 8 16 8"/></svg></span>Restore this month to template</button>
               <button class="chip-btn chip-red" id="clearMonthBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>Clear this month's data</button>
             </div>
-            <button class="mini-btn month-actions-gear" id="monthActionsToggle" title="Month actions"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
           </div>
         </div>
 
@@ -1050,12 +1061,13 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         </div>
         <button class="mini-btn" id="upChangeTokenBtn" style="display:none;">🔑 Connected — change token</button>
         <div id="upContent" style="display:none;">
-          <div class="up-tx-hdr">Recent transactions <span class="up-tx-hdr-actions"><button class="mini-btn" id="manageTxRulesBtn">Manage rules</button><button class="mini-btn" id="upRefreshBtn">Refresh</button></span></div>
+          <div class="up-tx-hdr">Recent transactions <span class="up-tx-hdr-actions"><button class="mini-btn" id="manageTxRulesBtn">Manage rules</button></span></div>
           <div class="timeframe-row" id="upTxTimeframeRow">
             <button class="timeframe-btn" data-tf="1">Last month</button>
             <button class="timeframe-btn" data-tf="3">3 months</button>
             <button class="timeframe-btn" data-tf="6">6 months</button>
-            <button class="mini-btn month-actions-gear" id="upTxMoreToggle" title="More options"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
+            <button class="mini-btn up-refresh-btn" id="upRefreshBtn" title="Refresh"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
+            <button class="mini-btn month-actions-gear" id="upTxMoreToggle" title="More options"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
           </div>
           <div class="month-actions-panel timeframe-row" id="upTxMorePanel">
             <button class="timeframe-btn" data-tf="12">1 year</button>
@@ -1814,8 +1826,40 @@ function findIncomeGuessForTx(amt){
 function isInternalTransfer(t){
   return !!(t && t.relationships && t.relationships.transferAccount && t.relationships.transferAccount.data);
 }
+// Merchant-key/description matching can't help with a transfer (descriptions are
+// generic/identical across every saver - see up_transfer_rules), so this matches on
+// something else: the SAVER ACCOUNT's own Up display name (e.g. "Emergency Fund")
+// against TEMPLATE item names, not this month's - the template is the durable source of
+// truth for what a saver is "for", where this month's matching item may not exist yet
+// (or may have been renamed/removed). A hit still resolves against the current month by
+// name once actually confirmed, same as every other guess.
+function findTransferGuess(transferAccountId){
+  if(!transferAccountId || !monthTemplate) return null;
+  const accountName = upAccountNameCache[transferAccountId];
+  if(!accountName) return null;
+  const nameWords = accountName.trim().toLowerCase().split(/\s+/).filter(w => w.length >= 3);
+  if(!nameWords.length) return null;
+  let match = null;
+  monthTemplate.categories.forEach(cat => {
+    if(match) return;
+    cat.items.forEach(item => {
+      if(match) return;
+      const itemLower = (item.name||'').trim().toLowerCase();
+      if(!itemLower) return;
+      const itemWords = itemLower.split(/\s+/).filter(w => w.length >= 3);
+      if(!itemWords.length) return;
+      if(itemWords.some(iw => nameWords.some(nw => wordsMatchClosely(iw, nw)))) match = {categoryName: cat.name, itemName: item.name};
+    });
+  });
+  return match ? {...match, reason: 'saver_name'} : null;
+}
 function findGuessForTx(desc, amt, tx){
-  if(isInternalTransfer(tx)) return null;
+  if(isInternalTransfer(tx)){
+    // Only an outgoing transfer (money leaving spending, e.g. to a saver) can be
+    // guessed this way - an incoming "Cover from X" side of a transfer pair isn't a
+    // savings transfer.
+    return Number(amt) < 0 ? findTransferGuess(tx.relationships.transferAccount.data.id) : null;
+  }
   if(/^(cover|transfer)\s+(to|from)\s+/i.test((desc||'').trim())) return null;
   if(Number(amt) > 0 && Number(amt) < 200) return null;
   const key = extractMerchantKey(desc, amt);
@@ -2456,6 +2500,7 @@ window.addEventListener('resize', () => {
 const X_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>';
 const CHECK_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 const DOLLAR_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+const INFO_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.5" r="0.9" fill="currentColor" stroke="none"/></svg>';
 const LINK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
 // Admins always see/use the literal Ballet calculator, unchanged. A non-admin only
 // gets it if an admin has granted feature_ballet from the Users tab, and sees it
@@ -4913,7 +4958,7 @@ function renderUpTxList(){
     } else {
       const guess = findGuessForTx(t.attributes.description, amt, t);
       if(guess){
-        assignBtn = `<button class="up-tx-assign-btn guess ${guess.reason==='amount_rough'?'rough':''}" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}" data-tip="${escapeAttr(guess.itemName)}"><span class="up-tx-assign-btn-text">${escapeAttr(guess.itemName)}</span> ?</button>`;
+        assignBtn = `<button class="up-tx-assign-btn guess ${guess.reason==='amount_rough'?'rough':''}" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}"${transferAttr} data-tip="${escapeAttr(guess.itemName)}"><span class="up-tx-assign-btn-text">${escapeAttr(guess.itemName)}</span> ?</button>`;
         showExclude = true;
       } else {
         assignBtn = `<button class="up-tx-assign-btn" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Assign to a budget line item">Assign</button>`;
@@ -5189,14 +5234,13 @@ function maybeShowRememberPopup(txId, merchantKey, merchantDesc, categoryName, i
 // as a one-off. Saved rules can be reviewed or removed later from Manage merchant rules.
 function showTxRememberPopup(txId, merchantKey, merchantDesc, categoryName, itemName){
   const anchorBtn = document.querySelector(`[data-tx-assign="${CSS.escape(txId)}"]`);
-  const row = anchorBtn ? anchorBtn.closest('.up-tx-row') : null;
-  if(!row) return;
+  if(!anchorBtn) return;
   document.querySelectorAll('.tx-remember-popup').forEach(p => p.remove());
   const host = document.getElementById('inlinePanelHost');
   const panel = document.createElement('div');
   panel.className = 'inline-source-panel tx-remember-popup';
   panel.innerHTML = `
-    <div class="tx-remember-text">Always attribute <strong>"${escapeAttr(merchantDesc)}"</strong> to <strong>"${escapeAttr(itemName)}"</strong>?</div>
+    <div class="tx-remember-text">Always attribute <strong>"${escapeAttr(merchantDesc)}"</strong> to <strong>"${escapeAttr(itemName)}"</strong>? <button class="tpl-info-btn" data-tip="Tick: every future transaction from this merchant is assigned here automatically, without asking again. $: same, but only once it's above a minimum amount you set. Cross: just this once. Saved rules can be reviewed or removed later from Manage rules.">${INFO_SVG}</button></div>
     <div class="tx-remember-actions">
       <button class="tx-remember-btn tx-remember-yes" data-tip="Always">${CHECK_SVG}</button>
       <button class="tx-remember-btn tx-remember-threshold" data-tip="Only above an amount">${DOLLAR_SVG}</button>
@@ -5208,7 +5252,7 @@ function showTxRememberPopup(txId, merchantKey, merchantDesc, categoryName, item
       <button class="mini-btn gold" id="txRememberThresholdConfirm">Save</button>
     </div>`;
   host.appendChild(panel);
-  positionOneInlinePanel(row, panel);
+  positionOneInlinePanel(anchorBtn, panel);
   let dismissed = false;
   const dismiss = () => {
     if(dismissed) return;
@@ -5276,20 +5320,19 @@ async function maybeShowTransferRememberPopup(txId, transferAccountId, categoryN
 }
 function showTransferRememberPopup(txId, transferAccountId, accountName, categoryName, itemName){
   const anchorBtn = document.querySelector(`[data-tx-assign="${CSS.escape(txId)}"]`);
-  const row = anchorBtn ? anchorBtn.closest('.up-tx-row') : null;
-  if(!row) return;
+  if(!anchorBtn) return;
   document.querySelectorAll('.tx-remember-popup').forEach(p => p.remove());
   const host = document.getElementById('inlinePanelHost');
   const panel = document.createElement('div');
   panel.className = 'inline-source-panel tx-remember-popup';
   panel.innerHTML = `
-    <div class="tx-remember-text">Always send transfers to <strong>"${escapeAttr(accountName)}"</strong> to <strong>"${escapeAttr(itemName)}"</strong>?</div>
+    <div class="tx-remember-text">Always send transfers to <strong>"${escapeAttr(accountName)}"</strong> to <strong>"${escapeAttr(itemName)}"</strong>? <button class="tpl-info-btn" data-tip="Tick: every future transfer to this account is assigned here automatically, without asking again. Cross: just this once. Saved mappings can be reviewed or removed later from Manage rules.">${INFO_SVG}</button></div>
     <div class="tx-remember-actions">
       <button class="tx-remember-btn tx-remember-yes" data-tip="Always">${CHECK_SVG}</button>
       <button class="tx-remember-btn tx-remember-no" data-tip="Just this once">${X_SVG}</button>
     </div>`;
   host.appendChild(panel);
-  positionOneInlinePanel(row, panel);
+  positionOneInlinePanel(anchorBtn, panel);
   let dismissed = false;
   const dismiss = () => {
     if(dismissed) return;
@@ -5430,10 +5473,10 @@ document.getElementById('txAssignExcludeBtn').addEventListener('click', () => {
   closeTxAssignModal();
 });
 document.getElementById('txAssignOverlay').addEventListener('click', (e) => { if(e.target.id === 'txAssignOverlay') closeTxAssignModal(); });
-function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date){
+function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date, transferAccountId){
   if(!monthData) return;
   const found = findCatItemByName(categoryName, itemName);
-  if(!found){ toast(`Couldn\u2019t find "${itemName}" in this month \u2014 assign manually instead`); openTxAssignModal(txId, amt, desc, date); return; }
+  if(!found){ toast(`Couldn\u2019t find "${itemName}" in this month \u2014 assign manually instead`); openTxAssignModal(txId, amt, desc, date, transferAccountId); return; }
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
   reverseTxAssignmentIfSameMonth(txId);
   applyTxAmountToItem(found.cat.id, found.item, amt);
@@ -5443,10 +5486,17 @@ function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date){
   scheduleSave();
   renderGroups(); updateSummary(); renderUpTxList();
   toast(`Confirmed — added ${money(Math.abs(Number(amt)))} to "${found.item.name}".`);
-  // A 'merchant' guess already came straight from an existing rule matching this exact
-  // item (findGuessForTx defers to getRuleTargetForTx for merchants with a saved rule),
-  // so there's nothing new to ask about remembering.
-  if(reason !== 'merchant') maybeShowRememberPopup(txId, merchantKey, desc, found.cat.name, found.item.name);
+  if(transferAccountId){
+    // A transfer's merchant key is generic/identical across every saver (see
+    // up_transfer_rules) - remembering it as a merchant rule here would misapply to
+    // every OTHER saver too. Always go through the account-keyed transfer popup instead.
+    maybeShowTransferRememberPopup(txId, transferAccountId, found.cat.name, found.item.name);
+  } else if(reason !== 'merchant'){
+    // A 'merchant' guess already came straight from an existing rule matching this exact
+    // item (findGuessForTx defers to getRuleTargetForTx for merchants with a saved rule),
+    // so there's nothing new to ask about remembering.
+    maybeShowRememberPopup(txId, merchantKey, desc, found.cat.name, found.item.name);
+  }
 }
 function humanizeMerchantKey(key){
   const direction = key.endsWith('__in') ? ' (incoming)' : key.endsWith('__out') ? ' (outgoing)' : '';
@@ -5564,7 +5614,7 @@ document.getElementById('upTxList').addEventListener('click', (e) => {
   }
   const guessBtn = e.target.closest('[data-tx-guess]');
   if(guessBtn){
-    confirmTxGuess(guessBtn.dataset.txGuess, guessBtn.dataset.txAmt, guessBtn.dataset.txDesc, guessBtn.dataset.guessCat, guessBtn.dataset.guessItem, guessBtn.dataset.guessReason, guessBtn.dataset.txDate);
+    confirmTxGuess(guessBtn.dataset.txGuess, guessBtn.dataset.txAmt, guessBtn.dataset.txDesc, guessBtn.dataset.guessCat, guessBtn.dataset.guessItem, guessBtn.dataset.guessReason, guessBtn.dataset.txDate, guessBtn.dataset.txTransferAccount);
     return;
   }
   const btn = e.target.closest('[data-tx-assign]');
@@ -5586,6 +5636,11 @@ async function refreshUpData(){
   try{
     await fetchUpCategories();
     const accountsRes = await upFetch('/accounts');
+    // Already has every account's display name in one response - cache it here so a
+    // transfer's guess/remember-popup can use it synchronously instead of needing its own
+    // per-account fetch (fetchUpAccountName still falls back to that for an account not
+    // in this list, e.g. one closed since the last refresh).
+    accountsRes.data.forEach(a => { if(a.attributes.displayName) upAccountNameCache[a.id] = a.attributes.displayName; });
     const spendingAcc = findUpSpendingAccount(accountsRes.data);
     const savers = accountsRes.data.filter(a => !spendingAcc || a.id !== spendingAcc.id);
     const balletSaver = balletFeatureAvailable() ? savers.find(a => (a.attributes.displayName||'').toLowerCase().includes('ballet')) : null;
@@ -5793,13 +5848,18 @@ function renderDonutChart(data){
 // CSS-hover ::before mechanism (which doesn't anchor sensibly to an SVG <path> or an
 // unpositioned element). Originally built for the donut chart; also used for the
 // press-and-hold "show full name" gesture on mobile (see bindLongPressReveal below).
-function showFloatTooltip(text, x, y){
+// anchorBottom: y is where the tooltip's BOTTOM edge should land (its actual rendered
+// height is measured and subtracted) instead of its top - needed for the long-press
+// gesture below, where the touch point has to stay clear of the box regardless of how
+// tall it renders, rather than the box just starting a fixed offset above the touch.
+function showFloatTooltip(text, x, y, anchorBottom){
   const tip = document.getElementById('floatTip');
   tip.textContent = text;
   tip.classList.add('show');
   const tipWidth = tip.offsetWidth || 140;
+  const top = anchorBottom ? (y - (tip.offsetHeight || 28)) : y;
   tip.style.left = Math.min(Math.max(8, x), window.innerWidth - tipWidth - 8) + 'px';
-  tip.style.top = Math.min(Math.max(8, y), window.innerHeight - 40) + 'px';
+  tip.style.top = Math.min(Math.max(8, top), window.innerHeight - 40) + 'px';
 }
 function hideFloatTooltip(){ document.getElementById('floatTip').classList.remove('show'); }
 document.getElementById('insightGrid').addEventListener('mousemove', (e) => {
@@ -5864,7 +5924,12 @@ function bindLongPressReveal(container, selector, getText, opts={}){
       longPressed = true;
       if(document.activeElement === activeEl) activeEl.blur();
       const text = getText(activeEl);
-      if(text) showFloatTooltip(text, startX, startY - 40);
+      // A real fingertip's contact pad extends well above the reported touch point
+      // (toward the hand) - a small fixed offset from that point still ends up
+      // physically under the finger. Clearing a generous gap above it, anchored to the
+      // tooltip's actual bottom edge, keeps the text visibly readable instead.
+      const LONG_PRESS_TOOLTIP_GAP = 56;
+      if(text) showFloatTooltip(text, startX, startY - LONG_PRESS_TOOLTIP_GAP, true);
     }, THRESHOLD_MS);
   }, {passive:!opts.preventEdit});
   container.addEventListener('touchmove', (e) => {
@@ -5943,11 +6008,18 @@ async function renderInsights(){
   });
   const catAvgsFull = Object.values(catTotals).map(c=>({name:c.name, avg:c.sum/c.count})).sort((a,b)=>b.avg-a.avg);
   const DONUT_MAX_SLICES = 6;
-  const donutData = catAvgsFull.slice(0, DONUT_MAX_SLICES).map(c=>({name:c.name, value:c.avg}));
-  if(catAvgsFull.length > DONUT_MAX_SLICES){
-    const otherSum = catAvgsFull.slice(DONUT_MAX_SLICES).reduce((s,c)=>s+c.avg,0);
-    if(otherSum > 0) donutData.push({name:'Other', value:otherSum});
-  }
+  const totalAvg = catAvgsFull.reduce((s,c)=>s+c.avg, 0);
+  // A slice below ~5% of the total renders as too thin an arc to reliably hover (desktop)
+  // or tap (mobile) - fold those into Other too, not just whatever falls past the
+  // top-6-by-count cutoff, so every slice that IS shown individually is actually usable.
+  const MIN_SLICE_PCT = 0.05;
+  const donutData = [];
+  let otherSum = 0;
+  catAvgsFull.forEach((c, idx) => {
+    if(idx < DONUT_MAX_SLICES && totalAvg > 0 && (c.avg / totalAvg) >= MIN_SLICE_PCT) donutData.push({name:c.name, value:c.avg});
+    else otherSum += c.avg;
+  });
+  if(otherSum > 0) donutData.push({name:'Other', value:otherSum});
 
   const cards = [
     {lbl:'Average income / month', val: money(avgIncome)},
