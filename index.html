@@ -65,8 +65,15 @@ body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sa
 .sidebar .brand .mark{width:28px; height:28px; border-radius:8px; background:var(--gold); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.9rem; flex-shrink:0;}
 .sidebar .side-icon{display:flex; align-items:center; gap:12px; width:100%; padding:10px 12px; border-radius:9px; color:#8B93A5; font-size:.88rem; font-weight:600; cursor:pointer; background:none; border:none; text-align:left;}
 .sidebar .side-icon .ic{font-size:1rem; width:18px; text-align:center; flex-shrink:0;}
-.sidebar .side-icon.active{background:var(--gold); color:#fff;}
+.sidebar .side-icon{position:relative; z-index:1;}
+.sidebar .side-icon.active{background:none; color:#fff;}
 .sidebar .side-icon:hover:not(.active){background:#2A3040; color:#C7CDD6;}
+/* A single highlight element that slides/resizes to the active tab's position instead
+   of the background just appearing on a different button each time - JS-positioned
+   (see updateSideHighlight) since the sidebar's own layout axis flips between rows
+   (desktop, vertical stack) and columns (mobile, horizontal bar). */
+.side-highlight{position:absolute; background:var(--gold); border-radius:9px; z-index:0; pointer-events:none; opacity:0; transition:top .28s cubic-bezier(.4,0,.2,1), left .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1), height .28s cubic-bezier(.4,0,.2,1), opacity .15s ease;}
+.side-highlight.show{opacity:1;}
 .sidebar .side-spacer{flex:1;}
 .sidebar-link-btn{display:flex; align-items:center; gap:12px; width:100%; background:none; border:none; color:#8B93A5; font-size:.82rem; font-weight:600; cursor:pointer; padding:10px 12px; text-align:left; border-radius:9px; font-family:inherit;}
 .sidebar-link-btn .ic{font-size:1rem; width:18px; text-align:center; flex-shrink:0;}
@@ -626,6 +633,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
    whose flex gap:12px is what the -8px above is calibrated against; .inline-source-panel has
    no such gap, so it needs its own positive spacing instead. */
 .inline-source-panel .tx-assign-sub{margin-top:4px; margin-bottom:10px;}
+.tx-view-diff{color:var(--gold); font-weight:600;}
 .tx-rules-box .tx-assign-sub{margin-top:4px;}
 .tx-assign-list{max-height:260px; overflow-y:auto; border:1px solid var(--rule); border-radius:10px; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
 .tx-rules-box{max-width:420px;}
@@ -766,7 +774,13 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
      before this - once the panel actually opens and needs more room. */
   .balance-bar{flex-direction:row; flex-wrap:wrap; align-items:center; gap:10px;}
   .balance-bar-left{flex:1; min-width:200px;}
-  .balance-bar-right{flex:0 0 auto; justify-content:flex-start;}
+  .balance-bar-right{flex:0 0 auto; justify-content:flex-start; max-width:100%;}
+  /* max-width:100% on the opened panel resolves against .balance-bar-right, which is
+     itself shrink-to-fit (flex:0 0 auto) - a percentage against an auto-sized ancestor
+     doesn't reliably cap anything, so the panel was expanding to its own preferred
+     content width and overflowing past the screen edge. Pin it to the true viewport
+     width instead, which can't be fooled by an ancestor's own circular sizing. */
+  .month-actions-panel.open{max-width:calc(100vw - 56px);}
   .or-summary-bar{grid-template-columns:1fr;}
   .month-nav{flex-wrap:nowrap;}
   .month-dropdown-btn{width:96px; font-size:.82rem; padding:5px 4px;}
@@ -879,6 +893,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 <div class="app-shell">
   <div class="sidebar">
     <div class="brand"><span class="mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="17.5" cy="3" r="1.7" fill="currentColor" stroke="none"/><rect x="7" y="5" width="10" height="3" rx="1.2"/><path d="M6.5 8.5v10a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-10"/><path d="M9 16l2.5-2.5 2 2L18 11"/><path d="M15 11h3v3"/></svg></span>Budget</div>
+    <div class="side-highlight" id="sideHighlight"></div>
     <button class="side-icon active" data-view="ledger" title="Budget"><span class="ic">◆</span>Budget</button>
     <button class="side-icon" data-view="dashboard" title="Dashboard"><span class="ic">◱</span>Dashboard</button>
     <button class="side-icon" data-view="template" title="Template"><span class="ic">▥</span>Template</button>
@@ -2127,6 +2142,7 @@ function renderIncome(){
     const txPanelOpen = expandedTxPanels.has(`income:${i.id}`);
     const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}" data-tx-view-item="${i.id}" data-tx-view-cat="income" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg></button>` : '';
     return `<div class="lrow ${charged?'charged':''}" data-item-row="${i.id}" data-cat="income" data-item="${i.id}">
+      ${incomeEmojiHtml(i, 'data-income-emoji-picker')}
       <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. salary" value="${escapeAttr(i.name)}" data-cat="income" data-item="${i.id}" data-field="name"></div>
       ${txBadge}
       <div class="amt-wrap plain"><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${i.amount||''}" data-cat="income" data-item="${i.id}" data-field="amount"></div>
@@ -2613,8 +2629,14 @@ function renderTxPanelHtml(catId, itemId){
     const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-AU', {day:'numeric', month:'short'}) : '';
     return `<div class="tx-view-row"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div><button class="up-tx-exclude-btn" data-tx-unassign-view="${t.txId}" data-tip="Unassign this transaction">×</button></div></div>`;
   }).join('') || '<div class="tx-assign-empty">No transactions linked yet.</div>';
+  // item.amount can legitimately sit above the linked transactions' total (e.g. edited
+  // up manually as a buffer) - surface that gap here rather than leaving it silently
+  // unexplained, since the transaction list alone won't show where the rest went.
+  const diff = Math.round(((Number(item.amount)||0) - total) * 100) / 100;
+  const diffHtml = diff > 0.01 ? `<div class="tx-assign-sub tx-view-diff">${money(diff)} more than these transactions add up to</div>` : '';
   return `<button class="panel-close-btn" data-close-tx-panel="${escapeAttr(catId)}:${escapeAttr(itemId)}" title="Close">${X_SVG}</button><div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(item.name)}"</span></div>
     <div class="tx-assign-sub">${txs.length} transaction${txs.length!==1?'s':''} — <span class="tx-view-sub-total">${money(total)} total</span></div>
+    ${diffHtml}
     <div class="tx-view-list">${rows}</div>`;
 }
 function renderOpenInlinePanels(){
@@ -2917,6 +2939,23 @@ function updateCatEmojiSpan(span, cat){
   span.textContent = val || '+';
   span.classList.toggle('cat-emoji-empty', !val);
 }
+// Income has no name-derived auto-match like categories do (categoryEmoji) - it defaults
+// to a plain money emoji until the user picks their own, still distinguishing "never
+// touched" (undefined) from "explicitly chose no emoji" ('').
+function getIncomeEmoji(inc){
+  if(!inc) return '';
+  return inc.emoji != null ? inc.emoji : '💵';
+}
+function incomeEmojiHtml(inc, pickerAttr){
+  const val = getIncomeEmoji(inc);
+  return `<span class="cat-emoji${val?'':' cat-emoji-empty'}" ${pickerAttr}="${inc.id}" title="Change emoji">${val || '+'}</span>`;
+}
+function updateIncomeEmojiSpan(span, inc){
+  if(!span) return;
+  const val = getIncomeEmoji(inc);
+  span.textContent = val || '+';
+  span.classList.toggle('cat-emoji-empty', !val);
+}
 // A much broader set for manually browsing/searching in the picker - separate from
 // CATEGORY_EMOJI_KEYWORDS above, which is deliberately small and tuned only for
 // matching common budget-category names automatically. Each entry is [emoji, keyword
@@ -3026,13 +3065,24 @@ function repositionCatEmojiPicker(panel, anchorEl){
   panel.style.top = top + 'px';
   panel.style.left = Math.max(8, left) + 'px';
 }
-function openCatEmojiPicker(anchorEl, catId, isTemplate){
+// kind identifies both which list an id belongs to and which trigger attribute anchors
+// the picker back to its span: 'cat'/'tplCat' for categories (month/template), 'income'/
+// 'tplIncome' for income line items (month/template).
+const EMOJI_PICKER_TRIGGER_ATTR = {cat:'data-cat-emoji-picker', tplCat:'data-tpl-emoji-picker', income:'data-income-emoji-picker', tplIncome:'data-tpl-income-emoji-picker'};
+function emojiPickerListFor(kind){
+  if(kind === 'cat') return monthData?.categories;
+  if(kind === 'tplCat') return monthTemplate?.categories;
+  if(kind === 'income') return monthData?.income;
+  if(kind === 'tplIncome') return monthTemplate?.income;
+  return null;
+}
+function openCatEmojiPicker(anchorEl, id, kind){
   closeCatEmojiPicker();
   const panel = document.createElement('div');
   panel.id = 'catEmojiPicker';
   panel.className = 'cat-emoji-picker';
-  panel.dataset.catId = catId;
-  panel.dataset.isTemplate = isTemplate ? '1' : '0';
+  panel.dataset.catId = id;
+  panel.dataset.kind = kind;
   panel.innerHTML = `
     <div class="cat-emoji-picker-hdr">
       <input type="text" class="cat-emoji-search" placeholder="Search…" autocomplete="off">
@@ -3046,37 +3096,39 @@ function openCatEmojiPicker(anchorEl, catId, isTemplate){
 document.addEventListener('input', (e) => {
   if(!e.target.matches('.cat-emoji-search')) return;
   const panel = e.target.closest('#catEmojiPicker');
-  const anchorSelector = panel.dataset.isTemplate === '1'
-    ? `[data-tpl-emoji-picker="${panel.dataset.catId}"]`
-    : `[data-cat-emoji-picker="${panel.dataset.catId}"]`;
+  const anchorSelector = `[${EMOJI_PICKER_TRIGGER_ATTR[panel.dataset.kind]}="${panel.dataset.catId}"]`;
   const anchorEl = document.querySelector(anchorSelector);
   panel.querySelector('.cat-emoji-grid').innerHTML = renderCatEmojiGrid(e.target.value);
   if(anchorEl) repositionCatEmojiPicker(panel, anchorEl);
 });
 document.addEventListener('click', (e) => {
-  const trigger = e.target.closest('[data-cat-emoji-picker], [data-tpl-emoji-picker]');
+  const trigger = e.target.closest('[data-cat-emoji-picker], [data-tpl-emoji-picker], [data-income-emoji-picker], [data-tpl-income-emoji-picker]');
   if(trigger){
     e.stopPropagation();
     const existing = document.getElementById('catEmojiPicker');
-    const isTemplate = trigger.hasAttribute('data-tpl-emoji-picker');
-    const catId = isTemplate ? trigger.dataset.tplEmojiPicker : trigger.dataset.catEmojiPicker;
-    if(existing && existing.dataset.catId === catId){ closeCatEmojiPicker(); return; }
-    openCatEmojiPicker(trigger, catId, isTemplate);
+    const kind = Object.keys(EMOJI_PICKER_TRIGGER_ATTR).find(k => trigger.hasAttribute(EMOJI_PICKER_TRIGGER_ATTR[k]));
+    const id = trigger.getAttribute(EMOJI_PICKER_TRIGGER_ATTR[kind]);
+    if(existing && existing.dataset.kind === kind && existing.dataset.catId === id){ closeCatEmojiPicker(); return; }
+    openCatEmojiPicker(trigger, id, kind);
     return;
   }
   const choiceBtn = e.target.closest('.cat-emoji-opt');
   if(choiceBtn){
     const panel = choiceBtn.closest('#catEmojiPicker');
-    const catId = panel.dataset.catId;
-    const isTemplate = panel.dataset.isTemplate === '1';
-    const list = isTemplate ? monthTemplate?.categories : monthData?.categories;
-    const cat = list && list.find(c => c.id === catId);
-    if(cat){
-      cat.emoji = choiceBtn.dataset.emojiChoice;
-      const wrapper = document.querySelector(isTemplate ? `[data-tpl-group="${catId}"] .grow-name` : `[data-group="${catId}"] .grow-name`);
-      const emojiEl = wrapper && wrapper.querySelector('.cat-emoji');
-      updateCatEmojiSpan(emojiEl, cat);
-      if(isTemplate) scheduleTemplateSave(); else scheduleSave();
+    const id = panel.dataset.catId;
+    const kind = panel.dataset.kind;
+    const list = emojiPickerListFor(kind);
+    const obj = list && list.find(x => x.id === id);
+    if(obj){
+      obj.emoji = choiceBtn.dataset.emojiChoice;
+      if(kind === 'cat' || kind === 'tplCat'){
+        const wrapper = document.querySelector(kind==='tplCat' ? `[data-tpl-group="${id}"] .grow-name` : `[data-group="${id}"] .grow-name`);
+        updateCatEmojiSpan(wrapper && wrapper.querySelector('.cat-emoji'), obj);
+      } else {
+        const emojiEl = document.querySelector(`[${EMOJI_PICKER_TRIGGER_ATTR[kind]}="${id}"]`);
+        updateIncomeEmojiSpan(emojiEl, obj);
+      }
+      if(kind === 'tplCat' || kind === 'tplIncome') scheduleTemplateSave(); else scheduleSave();
     }
     closeCatEmojiPicker();
     return;
@@ -3303,6 +3355,7 @@ function scheduleTemplateSave(){
 }
 function tplIncomeRowHtml(item){
   return `<div class="lrow" data-tpl-item-row="${item.id}">
+    ${incomeEmojiHtml(item, 'data-tpl-income-emoji-picker')}
     <input class="name-input" type="text" placeholder="e.g. salary" value="${escapeAttr(item.name)}" data-tpl-cat="income" data-tpl-item="${item.id}" data-tpl-field="name">
     <div class="amt-wrap plain"><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-tpl-cat="income" data-tpl-item="${item.id}" data-tpl-field="amount"></div>
     <div class="del-cell"><button data-tpl-cat="income" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
@@ -3834,6 +3887,20 @@ document.getElementById('view-ledger').addEventListener('input', (e) => {
 });
 document.getElementById('view-ledger').addEventListener('focusout', async (e) => {
   const t = e.target;
+  if(t.classList.contains('amt-input') && t.dataset.cat && t.dataset.item){
+    const linkedTotal = getTxsForItem(t.dataset.cat, t.dataset.item).reduce((s,tx)=>s+Math.abs(Number(tx.amt)||0),0);
+    if(linkedTotal > 0){
+      const list = findList(t.dataset.cat);
+      const item = list && list.find(i=>i.id===t.dataset.item);
+      if(item && Number(item.amount) < linkedTotal - 0.001){
+        item.amount = Math.round(linkedTotal*100)/100;
+        t.value = item.amount;
+        updateSummary(); scheduleSave();
+        toast(`Can’t be less than ${money(linkedTotal)} — that’s what its linked transactions add up to.`);
+      }
+    }
+    return;
+  }
   if(!t.classList.contains('name-input') || !t.closest('.lrow.leaf')) return;
   if(!t.value.trim() || !monthData) return;
   const similar = findSimilarPrevItemName(t.value);
@@ -4247,10 +4314,21 @@ document.addEventListener('touchend', (e) => {
   const nextBtn = document.querySelector(`.side-icon[data-view="${tabOrder[nextIdx]}"]`);
   if(nextBtn) nextBtn.click();
 });
+function updateSideHighlight(){
+  const highlight = document.getElementById('sideHighlight');
+  const active = document.querySelector('.side-icon.active');
+  if(!active){ highlight.classList.remove('show'); return; }
+  highlight.style.top = active.offsetTop + 'px';
+  highlight.style.left = active.offsetLeft + 'px';
+  highlight.style.width = active.offsetWidth + 'px';
+  highlight.style.height = active.offsetHeight + 'px';
+  highlight.classList.add('show');
+}
 document.querySelectorAll('.side-icon').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.side-icon').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
+    updateSideHighlight();
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
     document.getElementById('monthNavWrap').style.visibility = btn.dataset.view==='ledger' ? 'visible' : 'hidden';
@@ -4263,6 +4341,7 @@ document.querySelectorAll('.side-icon').forEach(btn => {
     if(btn.dataset.view==='admin') renderAdminTab();
   });
 });
+window.addEventListener('resize', updateSideHighlight);
 document.getElementById('insightTimeframeRow').addEventListener('click', (e) => {
   const btn = e.target.closest('.timeframe-btn');
   if(!btn) return;
@@ -4682,7 +4761,7 @@ function autoApplyTxRules(){
     if(!target) return;
     const found = findCatItemByName(target.categoryName, target.itemName);
     if(!found) return;
-    found.item.amount = Math.round(((Number(found.item.amount)||0) + Math.abs(amt)) * 100) / 100;
+    applyTxAmountToItem(found.cat.id, found.item, amt);
     const merchantKey = extractMerchantKey(t.attributes.description, amt);
     txAssignments[t.id] = {monthKey: settings.currentMonth, catId: found.cat.id, itemId: found.item.id, itemName: found.item.name, categoryName: found.cat.name, merchantKey, txAmt: Math.abs(amt), desc: t.attributes.description, date: t.attributes.createdAt};
     changed = true;
@@ -5027,6 +5106,20 @@ function findCatById(catId){
   if(catId === 'income') return {id:'income', name:'Income', items: monthData.income};
   return monthData.categories.find(c=>c.id===catId) || null;
 }
+// Adds a transaction's amount onto an item's running total - except for an income item
+// that doesn't yet have any other real transaction linked, where the current value is
+// just the template's unedited estimate (a placeholder, not accumulated real income),
+// so the first actual pay should replace that estimate outright rather than stack on
+// top of it. A second real pay in the same month still adds normally, since by then the
+// value reflects an actual received amount rather than an estimate.
+function applyTxAmountToItem(catId, item, txAmt){
+  const amt = Math.abs(Number(txAmt)) || 0;
+  if(catId === 'income' && getTxsForItem(catId, item.id).length === 0){
+    item.amount = Math.round(amt * 100) / 100;
+    return;
+  }
+  item.amount = Math.round(((Number(item.amount)||0) + amt) * 100) / 100;
+}
 function completeTxAssignment(catId, itemId, itemName){
   if(!txAssignCurrent || !monthData) return;
   const cat = findCatById(catId);
@@ -5034,7 +5127,7 @@ function completeTxAssignment(catId, itemId, itemName){
   if(!item) return;
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
   reverseTxAssignmentIfSameMonth(txAssignCurrent.id);
-  item.amount = Math.round(((Number(item.amount)||0) + Math.abs(txAssignCurrent.amt)) * 100) / 100;
+  applyTxAmountToItem(catId, item, txAssignCurrent.amt);
   const merchantKey = extractMerchantKey(txAssignCurrent.desc, txAssignCurrent.amt);
   txAssignments[txAssignCurrent.id] = {monthKey: settings.currentMonth, catId, itemId, itemName, categoryName: cat.name, merchantKey, txAmt: Math.abs(txAssignCurrent.amt), desc: txAssignCurrent.desc, date: txAssignCurrent.date};
   saveTxAssignments();
@@ -5243,7 +5336,7 @@ function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date){
   if(!found){ toast(`Couldn\u2019t find "${itemName}" in this month \u2014 assign manually instead`); openTxAssignModal(txId, amt, desc, date); return; }
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
   reverseTxAssignmentIfSameMonth(txId);
-  found.item.amount = Math.round(((Number(found.item.amount)||0) + Math.abs(Number(amt))) * 100) / 100;
+  applyTxAmountToItem(found.cat.id, found.item, amt);
   const merchantKey = extractMerchantKey(desc, amt);
   txAssignments[txId] = {monthKey: settings.currentMonth, catId: found.cat.id, itemId: found.item.id, itemName: found.item.name, categoryName: found.cat.name, merchantKey, txAmt: Math.abs(Number(amt)), desc, date};
   saveTxAssignments();
@@ -5627,13 +5720,20 @@ document.addEventListener('click', (e) => { if(!e.target.closest('[data-donut-sl
 // normally and only intervenes on touchend: a short tap is left alone (input still
 // focuses, normal click still fires); a long hold instead shows the full text in the
 // floating tooltip and suppresses the click that would otherwise have followed.
-function bindLongPressReveal(container, selector, getText){
+// preventEdit:true is for elements that are normally focusable/editable (the .name-input
+// inputs) - touchstart's default (native tap-to-focus, which is what was still letting
+// a long-press edit the field even though touchend's preventDefault suppressed the
+// synthetic click afterwards) has to be blocked unconditionally and up front, since it
+// can't be un-done retroactively once a long-press is detected. A short tap then
+// manually re-focuses the field on touchend to restore normal editing.
+function bindLongPressReveal(container, selector, getText, opts={}){
   const THRESHOLD_MS = 480, MOVE_TOLERANCE = 10;
-  let timer = null, longPressed = false, startX = 0, startY = 0, activeEl = null;
+  let timer = null, longPressed = false, moved = false, startX = 0, startY = 0, activeEl = null;
   container.addEventListener('touchstart', (e) => {
     const el = e.target.closest(selector);
     if(!el){ return; }
-    activeEl = el; longPressed = false;
+    if(opts.preventEdit) e.preventDefault();
+    activeEl = el; longPressed = false; moved = false;
     const t = e.touches[0];
     startX = t.clientX; startY = t.clientY;
     clearTimeout(timer);
@@ -5643,12 +5743,13 @@ function bindLongPressReveal(container, selector, getText){
       const text = getText(activeEl);
       if(text) showFloatTooltip(text, startX, startY - 40);
     }, THRESHOLD_MS);
-  }, {passive:true});
+  }, {passive:!opts.preventEdit});
   container.addEventListener('touchmove', (e) => {
     if(!activeEl) return;
     const t = e.touches[0];
     if(Math.abs(t.clientX-startX) > MOVE_TOLERANCE || Math.abs(t.clientY-startY) > MOVE_TOLERANCE){
       clearTimeout(timer);
+      moved = true;
     }
   }, {passive:true});
   container.addEventListener('touchend', (e) => {
@@ -5656,11 +5757,13 @@ function bindLongPressReveal(container, selector, getText){
     if(longPressed){
       e.preventDefault();
       setTimeout(hideFloatTooltip, 1500);
+    } else if(opts.preventEdit && activeEl && !moved){
+      activeEl.focus();
     }
     activeEl = null;
   });
 }
-bindLongPressReveal(document.body, '.name-input, .sh-name-input', el => el.value);
+bindLongPressReveal(document.body, '.name-input, .sh-name-input', el => el.value, {preventEdit:true});
 bindLongPressReveal(document.body, '.up-tx-desc-chip, .tx-view-row-desc, .mover-name', el => el.textContent);
 document.getElementById('insightGrid').addEventListener('mouseover', (e) => {
   const el = e.target.closest('[data-donut-slice]');
@@ -6366,6 +6469,7 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   renderFeatureToggle('monthlycosts');
   renderBalletCardChrome();
   document.getElementById('adminNavBtn').style.display = isAdmin ? '' : 'none';
+  updateSideHighlight();
   refreshInsertDropdowns();
   refreshUpSpendingBalance();
   setInterval(() => {
