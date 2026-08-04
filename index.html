@@ -824,6 +824,23 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   #darkModeSwitch.on::before{content:'☀︎'; font-size:1.5rem;}
   /* Full width - no side gutters on phones */
   .wrap{max-width:100%; padding:12px 8px 60px;}
+  /* Tells the browser vertical scrolling anywhere in here is always its own, native,
+     immediate business - it never has to wait on (or ask) JS first to find out. Without
+     this, EVERY touchmove on the page runs through the pager's non-passive listener
+     before the browser can even begin scrolling, which is exactly what a hand-rolled JS
+     swipe gesture living on document costs: a real, if usually tiny, delay on the very
+     first samples of every touch, before axis-lock has even had a chance to decide
+     anything. That delay eats into how a fast flick's momentum gets measured, most
+     noticeably on a flick starting high up the screen where there's little travel
+     distance to begin with (reported as vertical scrolling feeling "locked to a smaller
+     window" unless dragging from further down) - this removes the delay at the browser
+     level instead of trying to out-tune the axis-lock thresholds. Horizontal panning is
+     deliberately left off the allowed list, so it's still routed to the pager's own
+     touchmove/preventDefault instead of being silently absorbed as a native scroll (there
+     being nothing to natively pan horizontally in .wrap anyway). Scoped to .wrap, not
+     body/html, so .sidebar - a sibling, not a descendant - keeps its own native
+     horizontal tab-strip scrolling with no override needed. */
+  .wrap{touch-action:pan-y;}
   /* Swipeable pager (phone only - see activateTab()/pagerDrag* in the script for the
      JS half). #viewPagerViewport clips to the screen; the negative margin cancels
      .wrap's own 8px side padding so views can span the FULL viewport width edge to
@@ -877,7 +894,9 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .inline-source-panel{left:8px !important; right:8px; width:auto !important; max-width:none !important;}
   .panel-close-btn{display:flex;}
   .tx-assign-hdr{padding-right:28px;}
-  .rec-table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  /* Needs both directions (it scrolls a wide table vertically too) - touch-action:auto
+     overrides .wrap's pan-y above back to the real default for this element specifically. */
+  .rec-table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; touch-action:auto;}
   /* A stronger, tap-friendly highlight on the small screen where it needs to double as
      the only feedback a touch gets (no hover state to fall back on) - desktop keeps the
      original subtle version above. */
@@ -4698,7 +4717,11 @@ function activateTab(view){
   if(view==='template') renderTemplateEditor();
   if(view==='ledger'){ updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths(); }
   if(view==='other'){ updateAllRtableNameWidths(); }
-  if(view==='admin') renderAdminTab();
+  // Same "keep loaded" idea as the Up tab's own upTransactions.length check just above -
+  // once the user list has been fetched once (at boot, if already admin - see init()),
+  // revisiting this tab shouldn't re-fetch and re-render from scratch every time, which
+  // would also silently re-collapse any card the admin had left expanded.
+  if(view==='admin' && adminUsersCache.length === 0) renderAdminTab();
   if(view==='settings') showAccountSettingsTab();
   updatePagerPosition(true);
 }
@@ -7302,6 +7325,10 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   // ahead of time, the first swipe into it shows blank/stale content that then pops in
   // once renderDashboard()/renderInsights() finish - the jitter this was fixing.
   renderDashboard(); renderInsights();
+  // Same idea again, for whoever's actually an admin: the Users tab's own view already
+  // sits in the pager off-screen like every other tab, so pre-fetching the list here means
+  // the first swipe into it shows the real thing immediately instead of a "Loading…" flash.
+  if(isAdmin) renderAdminTab();
   renderTechRows();
   document.getElementById('groceryEatOut').value = grocery.eatOut || 0;
   renderGroceryRows(); updateGroceryTotal();
