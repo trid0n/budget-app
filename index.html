@@ -791,8 +791,15 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
      Payments / Savers" bar, which trades "see everything" for "each tab gets real
      breathing room." Active/inactive is plain text colour/weight (no pill background),
      also matching Up - #sideHighlight (the sliding pill) is hidden below. */
+  /* position:fixed, not sticky - sticky elements are still part of normal flow and get
+     re-evaluated against the page's own scroll position continuously, which on iOS Safari
+     specifically has a long history of edge-case bugs around scroll/overscroll/compositing
+     interactions (this is a documented category of browser quirks, not something specific
+     to this app). Fixed is computed once relative to the viewport and never touches scroll
+     position math at all - a fixed height + .wrap's matching margin-top (below) replaces
+     the space sticky used to reserve for itself automatically by staying in flow. */
   .sidebar{
-    width:100%; height:auto; position:sticky; top:0; z-index:80;
+    width:100%; height:56px; box-sizing:border-box; position:fixed; top:0; left:0; right:0; z-index:80;
     flex-direction:row; align-items:center; flex-wrap:nowrap; justify-content:flex-start;
     padding:14px 16px 12px; gap:22px;
     overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;
@@ -832,7 +839,9 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
      match the moon's visual weight instead of just its declared size. */
   #darkModeSwitch.on::before{content:'☀︎'; font-size:1.5rem;}
   /* Full width - no side gutters on phones */
-  .wrap{max-width:100%; padding:12px 8px 60px;}
+  /* margin-top reserves the space .sidebar no longer occupies in flow now that it's
+     position:fixed (see .sidebar above) - must match its height exactly. */
+  .wrap{max-width:100%; padding:12px 8px 60px; margin-top:56px;}
   /* Tells the browser vertical scrolling anywhere in here is always its own, native,
      immediate business - it never has to wait on (or ask) JS first to find out. Without
      this, EVERY touchmove on the page runs through the pager's non-passive listener
