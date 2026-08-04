@@ -4659,16 +4659,22 @@ function updatePagerPosition(animate){
 // status) since a hidden tab is skipped entirely rather than reserving its slot.
 function setupPagerViewPositions(){
   const order = visibleTabOrder();
+  const visibleSet = new Set(order);
   order.forEach((view, i) => {
     const el = document.getElementById('view-' + view);
     if(el) el.style.left = (i*100) + 'vw';
   });
-  // A view this user can't reach right now (Users, for a non-admin) still exists in the
-  // DOM and is display:block under this layout - visibleTabOrder() skips it above, which
-  // left `left` unset entirely, resolving to 0 and overlapping whichever view IS first.
-  // Park it safely past the last real page instead.
+  // A view this user can't reach right now (Users, for a non-admin - or any tab a feature
+  // flag just hid) still exists in the DOM and is display:block under this layout, so it
+  // needs parking safely past the last real page rather than left at whatever `left` it
+  // last had. Checking only "never been positioned at all" (style.left === '') isn't
+  // enough on its own - a view that WAS visible a moment ago already has a real left from
+  // that, and toggling it off here doesn't clear it, so it would keep sitting in its old
+  // slot and silently overlap whichever view the shrunk order later reassigns that same
+  // slot to. Re-park anything not in the current order, regardless of prior position.
   document.querySelectorAll('#viewPagerTrack .view').forEach(v => {
-    if(v.style.left === '') v.style.left = (order.length*100) + 'vw';
+    const view = v.id.replace(/^view-/, '');
+    if(!visibleSet.has(view)) v.style.left = (order.length*100) + 'vw';
   });
 }
 // The single source of truth for "switch to this tab" - used by a tap on the sidebar,
