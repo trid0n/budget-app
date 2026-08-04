@@ -51,8 +51,17 @@ body{transition:background .15s ease, color .15s ease;}
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
 input[type=number]{-moz-appearance:textfield;}
-html{scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper); overflow-y:scroll; overflow-x:hidden; scrollbar-gutter:stable;}
-body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased;}
+html{scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper); overflow-y:scroll; overflow-x:hidden; scrollbar-gutter:stable; overscroll-behavior-y:none;}
+/* Without this, scrolling past the top/bottom of the page hands off to the browser's own
+   native rubber-band bounce - which on a page with a position:sticky sidebar can detach
+   the sidebar and reveal blank background above/below it (the "darker blue" gap). Also a
+   likely contributor to the pager's touch handling looking glitchy specifically near a
+   scroll boundary: the native bounce is a whole separate gesture system layered on top of
+   normal scrolling, momentarily shifting the entire viewport in a way nothing here
+   accounts for. None here is a hard stop with no give at all - a softer custom "pull the
+   next card down slightly" bounce (closer to what Up itself does) is a separate follow-up,
+   not implemented yet. */
+body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; overscroll-behavior-y:none;}
 ::-webkit-scrollbar{width:9px;height:9px;}
 ::-webkit-scrollbar-track{background:var(--paper);}
 ::-webkit-scrollbar-thumb{background:var(--rule); border-radius:5px;}
