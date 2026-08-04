@@ -666,6 +666,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-rule-del:hover{border-color:var(--debit); color:var(--debit);}
 .account-settings-box{max-width:380px;}
 .account-settings-box .auth-field{margin-top:14px; margin-bottom:0;}
+.acct-feature-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:16px; font-size:.82rem; font-weight:600; color:var(--ink-soft);}
 .acct-verify-row{display:flex; align-items:center; gap:10px; margin-top:6px;}
 .acct-verify-badge{font-size:.72rem; font-weight:700; padding:3px 9px; border-radius:20px;}
 .acct-verify-badge.verified{background:var(--credit-bg); color:var(--credit);}
@@ -938,6 +939,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <div class="side-highlight" id="sideHighlight"></div>
     <button class="side-icon active" data-view="ledger" title="Budget"><span class="ic">◆</span>Budget</button>
     <button class="side-icon" data-view="dashboard" title="Dashboard"><span class="ic">◱</span>Dashboard</button>
+    <button class="side-icon" data-view="up" id="upNavBtn" title="Up Bank"><span class="ic">▲</span>Up</button>
     <button class="side-icon" data-view="template" title="Template"><span class="ic">▥</span>Template</button>
     <button class="side-icon" data-view="other" title="Other records"><span class="ic">▤</span>Records</button>
     <button class="side-icon" data-view="admin" id="adminNavBtn" title="Users" style="display:none;"><span class="ic">▧</span>Users</button>
@@ -1078,6 +1080,53 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 
     <!-- ================= DASHBOARD VIEW ================= -->
     <div class="view" id="view-dashboard">
+    <div class="rec-card" id="biggestMoversCard" style="display:none;">
+      <h2>Biggest price changes <span class="rc-sub">last month, vs the 3 months before it</span></h2>
+      <div class="rec-body">
+        <div class="biggest-movers-list" id="biggestMoversList"></div>
+      </div>
+    </div>
+    <div class="rec-card collapsible open" id="savingsDashboardCard">
+      <div class="rec-summary" data-rec-toggle><h2>Savings Dashboard <span class="rc-sub">history across all tracked months</span></h2></div>
+      <div class="rec-body" style="max-height:none;"><div class="rec-body-inner">
+        <div class="timeframe-row" id="dashTimeframeRow">
+          <button class="timeframe-btn" data-tf="3">3 months</button>
+          <button class="timeframe-btn" data-tf="6">6 months</button>
+          <button class="timeframe-btn" data-tf="12">1 year</button>
+          <button class="timeframe-btn active" data-tf="all">All time</button>
+        </div>
+        <div class="rec-hero">
+          <div><div class="rh-num" id="dashTotalSaved">$0.00</div><div class="rh-lbl">Total saved to date</div></div>
+          <div><div class="rh-num" id="dashMonthsTracked">0</div><div class="rh-lbl">Months tracked</div></div>
+          <div><div class="rh-num" id="dashAvgSaved">$0.00</div><div class="rh-lbl">Average per month</div></div>
+        </div>
+        <div class="chart" id="dashChart"></div>
+        <div class="rec-table-wrap">
+          <table class="rtable">
+            <thead><tr><th>Month</th><th style="text-align:right;">Income</th><th style="text-align:right;">Costs</th><th style="text-align:right;">Difference</th><th style="text-align:right;">Running total</th></tr></thead>
+            <tbody id="dashTableBody"></tbody>
+          </table>
+        </div>
+        <div class="rec-actions"><button class="mini-btn" id="exportCsvBtn">Export CSV</button></div>
+      </div></div>
+    </div>
+
+    <div class="rec-card collapsible open" id="insightsCard">
+      <div class="rec-summary" data-rec-toggle><h2>Insights <span class="rc-sub">patterns pulled from your own history</span></h2></div>
+      <div class="rec-body" style="max-height:none;"><div class="rec-body-inner">
+        <div class="timeframe-row" id="insightTimeframeRow">
+          <button class="timeframe-btn" data-tf="3">3 months</button>
+          <button class="timeframe-btn" data-tf="6">6 months</button>
+          <button class="timeframe-btn" data-tf="12">1 year</button>
+          <button class="timeframe-btn active" data-tf="all">All time</button>
+        </div>
+        <div class="insight-grid" id="insightGrid"></div>
+      </div></div>
+    </div>
+    </div>
+
+    <!-- ================= UP BANK VIEW ================= -->
+    <div class="view" id="view-up">
     <div class="rec-card collapsible open" id="upBankCard">
       <div class="rec-summary" data-rec-toggle><h2>Up Bank <span class="rc-sub">live accounts &amp; transactions</span></h2></div>
       <div class="rec-body" style="max-height:none;"><div class="rec-body-inner">
@@ -1155,49 +1204,6 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <div class="up-accounts" id="upAccounts"></div>
         </div>
         <div class="live-balance-error" id="upError"></div>
-      </div></div>
-    </div>
-    <div class="rec-card" id="biggestMoversCard" style="display:none;">
-      <h2>Biggest price changes <span class="rc-sub">last month, vs the 3 months before it</span></h2>
-      <div class="rec-body">
-        <div class="biggest-movers-list" id="biggestMoversList"></div>
-      </div>
-    </div>
-    <div class="rec-card collapsible open" id="savingsDashboardCard">
-      <div class="rec-summary" data-rec-toggle><h2>Savings Dashboard <span class="rc-sub">history across all tracked months</span></h2></div>
-      <div class="rec-body" style="max-height:none;"><div class="rec-body-inner">
-        <div class="timeframe-row" id="dashTimeframeRow">
-          <button class="timeframe-btn" data-tf="3">3 months</button>
-          <button class="timeframe-btn" data-tf="6">6 months</button>
-          <button class="timeframe-btn" data-tf="12">1 year</button>
-          <button class="timeframe-btn active" data-tf="all">All time</button>
-        </div>
-        <div class="rec-hero">
-          <div><div class="rh-num" id="dashTotalSaved">$0.00</div><div class="rh-lbl">Total saved to date</div></div>
-          <div><div class="rh-num" id="dashMonthsTracked">0</div><div class="rh-lbl">Months tracked</div></div>
-          <div><div class="rh-num" id="dashAvgSaved">$0.00</div><div class="rh-lbl">Average per month</div></div>
-        </div>
-        <div class="chart" id="dashChart"></div>
-        <div class="rec-table-wrap">
-          <table class="rtable">
-            <thead><tr><th>Month</th><th style="text-align:right;">Income</th><th style="text-align:right;">Costs</th><th style="text-align:right;">Difference</th><th style="text-align:right;">Running total</th></tr></thead>
-            <tbody id="dashTableBody"></tbody>
-          </table>
-        </div>
-        <div class="rec-actions"><button class="mini-btn" id="exportCsvBtn">Export CSV</button></div>
-      </div></div>
-    </div>
-
-    <div class="rec-card collapsible open" id="insightsCard">
-      <div class="rec-summary" data-rec-toggle><h2>Insights <span class="rc-sub">patterns pulled from your own history</span></h2></div>
-      <div class="rec-body" style="max-height:none;"><div class="rec-body-inner">
-        <div class="timeframe-row" id="insightTimeframeRow">
-          <button class="timeframe-btn" data-tf="3">3 months</button>
-          <button class="timeframe-btn" data-tf="6">6 months</button>
-          <button class="timeframe-btn" data-tf="12">1 year</button>
-          <button class="timeframe-btn active" data-tf="all">All time</button>
-        </div>
-        <div class="insight-grid" id="insightGrid"></div>
       </div></div>
     </div>
     </div>
@@ -1375,6 +1381,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
       <button type="button" class="mini-btn" id="acctResendVerifyBtn" style="display:none;">Resend verification email</button>
     </div>
     <label class="auth-field">New password<input type="password" id="acctNewPassword" autocomplete="new-password" minlength="6" placeholder="Leave blank to keep current password"></label>
+    <div class="acct-feature-row"><span>Show Up Bank tab</span><button class="dm-switch feature-toggle-switch" data-feature="up" title="Show or hide the Up tab in the sidebar"></button></div>
     <div class="auth-error" id="acctError"></div>
     <div class="acct-success" id="acctSuccess"></div>
     <div class="modal-actions">
@@ -1752,7 +1759,7 @@ let settings = { currentMonth: DEFAULT_MONTH, theme: 'light', lastGoal: 0, balan
 // applied — settingsRow's feature_*/is_admin columns come back undefined rather than
 // erroring, so an unmigrated database preserves exactly today's behavior for everyone.
 let isAdmin = false;
-let featureFlags = { tech: true, grocery: true, monthlycosts: true, ballet: false };
+let featureFlags = { tech: true, grocery: true, monthlycosts: true, ballet: false, up: true };
 let displayName = '';
 // The calendar-month key "today" belongs to for budgeting purposes. Equal to the real
 // calendar month unless periodMode is 'paycycle', in which case it's the month after
@@ -2137,6 +2144,7 @@ async function loadEverything(){
       grocery: settingsRow.feature_grocery !== false,
       monthlycosts: settingsRow.feature_monthlycosts !== false,
       ballet: !!settingsRow.feature_ballet,
+      up: settingsRow.feature_up !== false,
     };
     displayName = settingsRow.display_name || '';
   }
@@ -2198,7 +2206,7 @@ function updateSummary(){
     balSubEl.textContent = usingManual ? 'Entered manually' : (usingRememberedUp ? 'Last known balance — reconnecting…' : (!isCurrentPeriod(settings.currentMonth) ? 'Not counted — viewing a different month' : ''));
   } else {
     balAmtEl.textContent = '—';
-    balSubEl.textContent = upToken ? 'Fetching…' : 'Connect Up Bank on the Dashboard tab, or switch to Manual';
+    balSubEl.textContent = upToken ? 'Fetching…' : 'Connect Up Bank on the Up tab, or switch to Manual';
   }
 
   const card = document.getElementById('assignCard');
@@ -2599,10 +2607,17 @@ function toggleRecCard(card){
   }
 }
 const FEATURE_CARD_IDS = { tech:'techRecordCard', grocery:'groceryRecordCard', monthlycosts:'monthlyCostsRecordCard' };
-const FEATURE_COLUMNS = { tech:'feature_tech', grocery:'feature_grocery', monthlycosts:'feature_monthlycosts' };
+const FEATURE_COLUMNS = { tech:'feature_tech', grocery:'feature_grocery', monthlycosts:'feature_monthlycosts', up:'feature_up' };
 function renderFeatureToggle(feature){
   const btn = document.querySelector(`.feature-toggle-switch[data-feature="${feature}"]`);
   if(btn) btn.classList.toggle('on', !!featureFlags[feature]);
+  // 'up' is a whole nav tab, not a card within one - toggling it shows/hides the sidebar
+  // entry instead of a card's display.
+  if(feature === 'up'){
+    const navBtn = document.getElementById('upNavBtn');
+    if(navBtn) navBtn.style.display = featureFlags.up ? '' : 'none';
+    return;
+  }
   const cardEl = document.getElementById(FEATURE_CARD_IDS[feature]);
   if(cardEl) cardEl.style.display = featureFlags[feature] ? '' : 'none';
 }
@@ -2616,6 +2631,11 @@ async function onFeatureToggleClick(btn){
   featureFlags[feature] = newVal;
   try{ await db.saveSettings({ [FEATURE_COLUMNS[feature]]: newVal }); }catch(e){}
   renderFeatureToggle(feature);
+  // Hiding the Up tab's own nav button while it's the one currently open would strand the
+  // user on a page with no way back to it via the sidebar - send them to Budget instead.
+  if(feature === 'up' && !newVal && document.querySelector('.side-icon.active')?.dataset.view === 'up'){
+    document.querySelector('.side-icon[data-view="ledger"]').click();
+  }
   renderGroups();
   updateSummary();
   renderTemplateEditor();
@@ -2672,7 +2692,9 @@ document.getElementById('view-other').addEventListener('click', (e) => {
 // shipped) but remember a collapsed state across sessions, unlike Other Records' cards
 // which intentionally reset to collapsed every load.
 const DASHBOARD_COLLAPSIBLE_CARD_IDS = ['upBankCard', 'savingsDashboardCard', 'insightsCard'];
-document.getElementById('view-dashboard').addEventListener('click', (e) => {
+// Shared by #view-dashboard and #view-up (upBankCard moved into its own tab, but is
+// still one of the collapsible cards this same toggle/remember-state logic covers).
+function handleRecToggleClick(e){
   const toggle = e.target.closest('[data-rec-toggle]');
   if(!toggle) return;
   const card = toggle.closest('.rec-card');
@@ -2682,7 +2704,9 @@ document.getElementById('view-dashboard').addEventListener('click', (e) => {
   const willBeOpen = !card.classList.contains('open');
   toggleRecCard(card);
   if(card.id) localStorage.setItem('dashCardOpen_' + card.id, willBeOpen ? '1' : '0');
-});
+}
+document.getElementById('view-dashboard').addEventListener('click', handleRecToggleClick);
+document.getElementById('view-up').addEventListener('click', handleRecToggleClick);
 (function applyStoredDashboardCardState(){
   DASHBOARD_COLLAPSIBLE_CARD_IDS.forEach(id => {
     if(localStorage.getItem('dashCardOpen_' + id) !== '0') return;
@@ -4459,7 +4483,8 @@ document.querySelectorAll('.side-icon').forEach(btn => {
     document.getElementById('monthNavWrap').style.display = btn.dataset.view==='ledger' ? '' : 'none';
     document.getElementById('undoBtn').style.display = btn.dataset.view==='ledger' ? '' : 'none';
     document.getElementById('jumpToCurrentMonthBtn').style.display = btn.dataset.view==='ledger' ? '' : 'none';
-    if(btn.dataset.view==='dashboard'){ renderDashboard(); renderInsights(); renderUpConnectState(); if(upToken && upTransactions.length === 0) refreshUpData(); }
+    if(btn.dataset.view==='dashboard'){ renderDashboard(); renderInsights(); }
+    if(btn.dataset.view==='up'){ renderUpConnectState(); if(upToken && upTransactions.length === 0) refreshUpData(); }
     if(btn.dataset.view==='template') renderTemplateEditor();
     if(btn.dataset.view==='ledger'){ updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths(); }
     if(btn.dataset.view==='other'){ updateAllRtableNameWidths(); }
@@ -4640,7 +4665,7 @@ document.getElementById('periodModeGroup').addEventListener('click', (e) => {
   recomputeEffectivePeriod();
   updateSummary();
   if(mode === 'paycycle' && !upIncomeSourceKey){
-    toast('Pay cycle is on, but nothing will change until you choose an income source — do that on the Dashboard tab under Up Bank');
+    toast('Pay cycle is on, but nothing will change until you choose an income source — do that on the Up tab');
   } else {
     toast(mode === 'paycycle' ? 'Now budgeting between pays — the current month rolls over as soon as your linked income lands' : 'Now budgeting by calendar month');
   }
@@ -6638,7 +6663,12 @@ document.getElementById('accountSettingsBtn').addEventListener('click', () => {
   document.getElementById('acctError').textContent = '';
   document.getElementById('acctSuccess').textContent = '';
   renderAccountVerifyBadge();
+  renderFeatureToggle('up');
   document.getElementById('accountSettingsOverlay').classList.add('show');
+});
+document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => {
+  const switchBtn = e.target.closest('.feature-toggle-switch');
+  if(switchBtn) onFeatureToggleClick(switchBtn);
 });
 document.getElementById('acctCloseBtn').addEventListener('click', () => document.getElementById('accountSettingsOverlay').classList.remove('show'));
 document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => { if(e.target.id === 'accountSettingsOverlay') document.getElementById('accountSettingsOverlay').classList.remove('show'); });
@@ -6734,6 +6764,7 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   renderFeatureToggle('tech');
   renderFeatureToggle('grocery');
   renderFeatureToggle('monthlycosts');
+  renderFeatureToggle('up');
   renderBalletCardChrome();
   document.getElementById('adminNavBtn').style.display = isAdmin ? '' : 'none';
   updateSideHighlight();

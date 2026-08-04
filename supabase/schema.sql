@@ -38,6 +38,7 @@ create table if not exists public.user_settings (
   feature_grocery       boolean not null default true,  -- Groceries calculator — optional per user, default on
   feature_monthlycosts boolean not null default true,  -- Monthly Costs calculator — optional per user, default on
   feature_ballet        boolean not null default false, -- non-admin users only see this if an admin grants it (relabelled "Flexible Tracker") — see index.html's balletFeatureAvailable()
+  feature_up           boolean not null default true,  -- Up Bank tab — optional per user (self-toggled from Account settings), default on
   updated_at     timestamptz not null default now()
 );
 
