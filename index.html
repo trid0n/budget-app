@@ -761,23 +761,35 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
 /* ===================== MOBILE LAYOUT (phone-width only - desktop above these breakpoints is untouched) ===================== */
 @media (max-width:680px){
   .app-shell{flex-direction:column; min-height:auto;}
+  /* Up-style condensed tab strip: content-sized tabs (not flex:1-stretched to fill the
+     row) in a single non-wrapping line that scrolls horizontally - deliberately NOT
+     trying to fit every tab on screen at once, same as Up's own "Up / Activity /
+     Payments / Savers" bar, which trades "see everything" for "each tab gets real
+     breathing room." Active/inactive is plain text colour/weight (no pill background),
+     also matching Up - #sideHighlight (the sliding pill) is hidden below. */
   .sidebar{
     width:100%; height:auto; position:sticky; top:0; z-index:80;
-    flex-direction:row; align-items:center;
-    padding:6px 8px; gap:2px;
+    flex-direction:row; align-items:center; flex-wrap:nowrap; justify-content:flex-start;
+    padding:14px 16px 12px; gap:22px;
+    overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;
   }
+  .sidebar::-webkit-scrollbar{display:none;}
   .sidebar .brand{display:none;}
-  /* white-space:normal (not nowrap+ellipsis) - with 5-6 items sharing one row, a longer
-     label like "Other records" could get shrunk enough to lose its own trailing letters
-     (worse still with a 6th item for admins) before ellipsis even had room to show. Wrapping
-     onto a second line keeps the whole word readable instead of silently clipping it. */
-  .sidebar .side-icon, .sidebar .sidebar-link-btn{width:auto; flex:1 1 0; min-width:0; flex-direction:column; gap:2px; padding:5px 2px; font-size:.56rem; line-height:1.15; text-align:center; white-space:normal; overflow:hidden;}
-  .sidebar .side-icon .ic, .sidebar .sidebar-link-btn .ic{font-size:1rem;}
+  #sideHighlight{display:none;}
+  .sidebar .side-icon, .sidebar .sidebar-link-btn{
+    width:auto; flex:0 0 auto; flex-direction:row; gap:6px; padding:0;
+    font-size:.92rem; font-weight:600; color:#8B93A5; white-space:nowrap; background:none;
+    scroll-snap-align:start;
+  }
+  .sidebar .side-icon:hover:not(.active){background:none;}
+  .sidebar .side-icon.active{color:#fff; font-weight:700; background:none;}
+  .sidebar .side-icon .ic, .sidebar .sidebar-link-btn .ic{font-size:.85rem;}
   .sidebar .side-spacer{display:none;}
   .sidebar .logout-row{display:none;}
-  /* Dark mode: a plain icon button on mobile (not a switch-with-label) to save width -
-     same #darkModeSwitch element/click-handler/state, just restyled + re-labelled via
-     the existing .on class applyTheme() already toggles. */
+  /* Dark mode + Settings sit at the end of the same scrollable strip (not swipeable
+     pages themselves - visibleTabOrder() only ever looks at [data-view] elements) so
+     they stay reachable without needing a whole separate settings-access pattern. */
+  .sidebar .sidebar-link-btn{flex-shrink:0;}
   .sidebar .dark-toggle{border-top:none; margin-top:0; padding:0; flex:0 0 auto; gap:0;}
   .sidebar .dark-toggle .dt-label{display:none;}
   /* Scoped to the #darkModeSwitch id specifically - .dm-switch is a shared "looks like
@@ -797,6 +809,26 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   #darkModeSwitch.on::before{content:'☀︎'; font-size:1.5rem;}
   /* Full width - no side gutters on phones */
   .wrap{max-width:100%; padding:12px 8px 60px;}
+  /* Swipeable pager (phone only - see activateTab()/pagerDrag* in the script for the
+     JS half). #viewPagerViewport clips to the screen; the negative margin cancels
+     .wrap's own 8px side padding so views can span the FULL viewport width edge to
+     edge (each view restores that 8px itself, below) rather than being width:100% of
+     an already-padded, narrower box. Views are position:absolute (not a flex row) -
+     a flex/static row's own height is always its TALLEST child, so with all 6 views
+     simultaneously in the DOM (needed so dragging between them shows real content, not
+     blank space), the page would carry every other tab's leftover scroll height even
+     while looking at the shortest one. Absolute positioning takes them out of flow
+     entirely; #viewPagerTrack's own height is instead kept in sync with just the
+     active view's height via a ResizeObserver (see observePagerActiveHeight()). Each
+     view's left offset (0vw, 100vw, 200vw...) is set once in JS to match its DOM
+     order, and #viewPagerTrack's transform:translateX(-activeIndex * 100vw) - vw, not
+     %, so it's never resolved against its own auto-sized parent (the same circular-
+     sizing trap documented elsewhere in this file for #monthActionsPanel/.amt-wrap) -
+     slides the whole group together to bring the active one into view. */
+  #viewPagerViewport{position:relative; overflow-x:hidden; width:calc(100% + 16px); margin:0 -8px;}
+  #viewPagerTrack{position:relative;}
+  #viewPagerTrack .view{position:absolute; top:0; width:100vw; max-width:100vw; box-sizing:border-box; padding:0 8px; display:block !important;}
+  #viewPagerTrack.pager-animate{transition:transform .28s cubic-bezier(.22,.61,.36,1);}
   .topbar{flex-direction:column; gap:10px;}
   .assign-card, .progress-card, .summary-mini{width:100%; flex-basis:auto; height:auto; min-height:130px;}
   .notes-box{min-width:0; height:auto; min-height:110px;}
@@ -977,6 +1009,13 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
       </div>
     </header>
 
+    <!-- Wraps all .view pages. Inert on desktop (plain block, no special layout) - on
+         mobile this becomes a horizontally swipeable pager (see the max-width:680px
+         rules): #viewPagerViewport clips to the screen width, #viewPagerTrack is the
+         actual flex row of all views side by side, translated via JS to whichever one
+         is "active" (see activateTab()/the pager drag handlers). -->
+    <div id="viewPagerViewport">
+    <div id="viewPagerTrack">
     <!-- ================= LEDGER (ASSIGN) VIEW ================= -->
     <div class="view active" id="view-ledger">
       <div id="monthEmptyState" style="display:none;"></div>
@@ -1326,6 +1365,8 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <tbody id="adminUsersBody"></tbody>
         </table>
       </div>
+    </div>
+    </div>
     </div>
 
   </div>
@@ -2631,10 +2672,18 @@ async function onFeatureToggleClick(btn){
   featureFlags[feature] = newVal;
   try{ await db.saveSettings({ [FEATURE_COLUMNS[feature]]: newVal }); }catch(e){}
   renderFeatureToggle(feature);
-  // Hiding the Up tab's own nav button while it's the one currently open would strand the
-  // user on a page with no way back to it via the sidebar - send them to Budget instead.
-  if(feature === 'up' && !newVal && document.querySelector('.side-icon.active')?.dataset.view === 'up'){
-    document.querySelector('.side-icon[data-view="ledger"]').click();
+  if(feature === 'up'){
+    // The Up tab's nav button just appeared/disappeared - every later tab's pager
+    // position shifts by one slot, so positions need recomputing regardless of which
+    // way this went.
+    setupPagerViewPositions();
+    // Hiding it while it's the one currently open would strand the user on a page with
+    // no way back to it via the sidebar - send them to Budget instead.
+    if(!newVal && document.querySelector('.side-icon.active')?.dataset.view === 'up'){
+      document.querySelector('.side-icon[data-view="ledger"]').click();
+    } else {
+      updatePagerPosition(false);
+    }
   }
   renderGroups();
   updateSummary();
@@ -2721,14 +2770,7 @@ function jumpToRecordCard(source){
   const map = {tech:'techRecordCard', grocery:'groceryRecordCard', ballet:'balletRecordCard', monthlycost:'monthlyCostsRecordCard'};
   const cardId = map[source];
   if(!cardId) return;
-  document.querySelectorAll('.side-icon').forEach(b=>b.classList.remove('active'));
-  const otherBtn = document.querySelector('.side-icon[data-view="other"]');
-  if(otherBtn) otherBtn.classList.add('active');
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.getElementById('view-other').classList.add('active');
-  document.getElementById('monthNavWrap').style.display = 'none';
-  document.getElementById('undoBtn').style.display = 'none';
-  document.getElementById('jumpToCurrentMonthBtn').style.display = 'none';
+  activateTab('other');
   const card = document.getElementById(cardId);
   if(card){
     if(!card.classList.contains('open')) toggleRecCard(card);
@@ -4438,31 +4480,7 @@ document.addEventListener('click', (e) => { if(!e.target.closest('#monthDropdown
 function visibleTabOrder(){
   return [...document.querySelectorAll('.side-icon')].filter(b => b.offsetParent !== null).map(b => b.dataset.view);
 }
-let swipeStartX = null, swipeStartY = null, swipeBlocked = false;
-document.addEventListener('touchstart', (e) => {
-  if(e.touches.length !== 1) return;
-  const t = e.target;
-  swipeBlocked = !!t.closest('.grip-handle, .chart, .rec-table-wrap, .up-tx-list, .custom-select-list, .date-select-row, .inline-source-panel, .month-dropdown-list, textarea, input');
-  swipeStartX = e.touches[0].clientX;
-  swipeStartY = e.touches[0].clientY;
-}, {passive:true});
-document.addEventListener('touchend', (e) => {
-  if(swipeBlocked || swipeStartX === null) { swipeStartX = null; return; }
-  const touch = e.changedTouches[0];
-  const dx = touch.clientX - swipeStartX;
-  const dy = touch.clientY - swipeStartY;
-  swipeStartX = null;
-  if(Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy)*2) return;
-  const activeBtn = document.querySelector('.side-icon.active');
-  if(!activeBtn) return;
-  const tabOrder = visibleTabOrder();
-  const idx = tabOrder.indexOf(activeBtn.dataset.view);
-  if(idx === -1) return;
-  const nextIdx = dx < 0 ? idx+1 : idx-1;
-  if(nextIdx < 0 || nextIdx >= tabOrder.length) return;
-  const nextBtn = document.querySelector(`.side-icon[data-view="${tabOrder[nextIdx]}"]`);
-  if(nextBtn) nextBtn.click();
-});
+function isMobilePagerActive(){ return window.matchMedia('(max-width:680px)').matches; }
 function updateSideHighlight(){
   const highlight = document.getElementById('sideHighlight');
   const active = document.querySelector('.side-icon.active');
@@ -4473,25 +4491,154 @@ function updateSideHighlight(){
   highlight.style.height = active.offsetHeight + 'px';
   highlight.classList.add('show');
 }
-document.querySelectorAll('.side-icon').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.side-icon').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    updateSideHighlight();
-    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-    document.getElementById('view-'+btn.dataset.view).classList.add('active');
-    document.getElementById('monthNavWrap').style.display = btn.dataset.view==='ledger' ? '' : 'none';
-    document.getElementById('undoBtn').style.display = btn.dataset.view==='ledger' ? '' : 'none';
-    document.getElementById('jumpToCurrentMonthBtn').style.display = btn.dataset.view==='ledger' ? '' : 'none';
-    if(btn.dataset.view==='dashboard'){ renderDashboard(); renderInsights(); }
-    if(btn.dataset.view==='up'){ renderUpConnectState(); if(upToken && upTransactions.length === 0) refreshUpData(); }
-    if(btn.dataset.view==='template') renderTemplateEditor();
-    if(btn.dataset.view==='ledger'){ updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths(); }
-    if(btn.dataset.view==='other'){ updateAllRtableNameWidths(); }
-    if(btn.dataset.view==='admin') renderAdminTab();
+// Brings the active tab strip button into view - on a phone the strip is intentionally
+// too narrow to show every tab at once (see the mobile CSS), same as the Up app's own
+// top nav, so switching tabs has to be able to scroll the strip itself too.
+function scrollActiveTabIntoStrip(){
+  const active = document.querySelector('.side-icon.active');
+  if(active && active.scrollIntoView) active.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+}
+// Keeps #viewPagerTrack's own height matched to whichever view is actually active,
+// continuously - the views are position:absolute (see the mobile CSS) specifically so
+// inactive ones don't contribute to layout height at all, but that also means nothing
+// updates the track's height automatically as the active view's own content grows or
+// shrinks (a card expanding, a new line item, an inline panel opening). A ResizeObserver
+// re-pointed at whichever view is active keeps this in sync without every single
+// content-changing call site needing to remember to ask for a re-measure.
+let pagerHeightObserver = null;
+function observePagerActiveHeight(activeEl){
+  if(!pagerHeightObserver){
+    pagerHeightObserver = new ResizeObserver(entries => {
+      const track = document.getElementById('viewPagerTrack');
+      if(track && entries[0]) track.style.height = entries[0].contentRect.height + 'px';
+    });
+  } else {
+    pagerHeightObserver.disconnect();
+  }
+  if(activeEl) pagerHeightObserver.observe(activeEl);
+}
+// Positions the swipeable pager to whichever view is active - a no-op on desktop, since
+// the pager CSS (position:absolute row, transform) only exists under the same
+// max-width:680px breakpoint isMobilePagerActive() checks.
+function updatePagerPosition(animate){
+  if(!isMobilePagerActive()) return;
+  const track = document.getElementById('viewPagerTrack');
+  const tabOrder = visibleTabOrder();
+  const activeView = document.querySelector('.side-icon.active')?.dataset.view;
+  const idx = Math.max(0, tabOrder.indexOf(activeView));
+  track.classList.toggle('pager-animate', !!animate);
+  track.style.transform = `translateX(${-idx * window.innerWidth}px)`;
+  const activeEl = activeView && document.getElementById('view-' + activeView);
+  observePagerActiveHeight(activeEl);
+  scrollActiveTabIntoStrip();
+}
+// Each view's left offset is its position in visibleTabOrder() (0vw, 100vw, 200vw...),
+// NOT raw HTML source order - the .view divs' order in the file has never had to match
+// the sidebar's own button order (display:none/.active toggling never cared), and in
+// fact doesn't (Template's view is declared before Dashboard's, while the sidebar always
+// lists Dashboard first) - silently harmless before, but exactly the mismatch that sends
+// the pager to the wrong page if left offsets were assigned by DOM order instead. Must
+// be re-run any time the set of visible tabs can change (a feature-flag toggle, admin
+// status) since a hidden tab is skipped entirely rather than reserving its slot.
+function setupPagerViewPositions(){
+  const order = visibleTabOrder();
+  order.forEach((view, i) => {
+    const el = document.getElementById('view-' + view);
+    if(el) el.style.left = (i*100) + 'vw';
   });
+  // A view this user can't reach right now (Users, for a non-admin) still exists in the
+  // DOM and is display:block under this layout - visibleTabOrder() skips it above, which
+  // left `left` unset entirely, resolving to 0 and overlapping whichever view IS first.
+  // Park it safely past the last real page instead.
+  document.querySelectorAll('#viewPagerTrack .view').forEach(v => {
+    if(v.style.left === '') v.style.left = (order.length*100) + 'vw';
+  });
+}
+// The single source of truth for "switch to this tab" - used by a tap on the sidebar,
+// the pager's drag-release snap, and jumpToRecordCard()'s "take me to this card"
+// shortcut, so the pager's position and the various per-view render-on-activate side
+// effects can never drift out of sync with each other.
+function activateTab(view){
+  const btn = document.querySelector(`.side-icon[data-view="${view}"]`);
+  if(!btn) return;
+  document.querySelectorAll('.side-icon').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  updateSideHighlight();
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+view).classList.add('active');
+  document.getElementById('monthNavWrap').style.display = view==='ledger' ? '' : 'none';
+  document.getElementById('undoBtn').style.display = view==='ledger' ? '' : 'none';
+  document.getElementById('jumpToCurrentMonthBtn').style.display = view==='ledger' ? '' : 'none';
+  if(view==='dashboard'){ renderDashboard(); renderInsights(); }
+  if(view==='up'){ renderUpConnectState(); if(upToken && upTransactions.length === 0) refreshUpData(); }
+  if(view==='template') renderTemplateEditor();
+  if(view==='ledger'){ updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths(); }
+  if(view==='other'){ updateAllRtableNameWidths(); }
+  if(view==='admin') renderAdminTab();
+  updatePagerPosition(true);
+}
+document.querySelectorAll('.side-icon').forEach(btn => {
+  btn.addEventListener('click', () => activateTab(btn.dataset.view));
 });
-window.addEventListener('resize', updateSideHighlight);
+window.addEventListener('resize', () => { updateSideHighlight(); updatePagerPosition(false); });
+// Finger-tracked horizontal paging (phone only) - content follows the drag 1:1 in real
+// time and snaps to whichever tab is closest on release, modelled on the Up app's own
+// tab behaviour. Reuses the same "don't hijack a drag that started inside scrollable
+// content" selector list the old discrete swipe-then-switch gesture used (removed - this
+// replaces it on phone; desktop/tablet-width touch devices never see either).
+const PAGER_DRAG_BLOCKED_SELECTOR = '.grip-handle, .chart, .rec-table-wrap, .up-tx-list, .custom-select-list, .date-select-row, .inline-source-panel, .month-dropdown-list, textarea, input';
+let pagerDrag = null;
+const viewPagerViewport = document.getElementById('viewPagerViewport');
+const viewPagerTrack = document.getElementById('viewPagerTrack');
+viewPagerViewport.addEventListener('touchstart', (e) => {
+  if(!isMobilePagerActive() || e.touches.length !== 1) return;
+  if(e.target.closest(PAGER_DRAG_BLOCKED_SELECTOR)) return;
+  const tabOrder = visibleTabOrder();
+  const activeView = document.querySelector('.side-icon.active')?.dataset.view;
+  const idx = tabOrder.indexOf(activeView);
+  if(idx === -1) return;
+  pagerDrag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, baseOffsetPx: -idx * window.innerWidth, axis: null, tabOrder, idx };
+}, {passive:true});
+viewPagerViewport.addEventListener('touchmove', (e) => {
+  if(!pagerDrag) return;
+  const t = e.touches[0];
+  const dx = t.clientX - pagerDrag.startX, dy = t.clientY - pagerDrag.startY;
+  if(pagerDrag.axis === null){
+    if(Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    pagerDrag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    if(pagerDrag.axis === 'y'){ pagerDrag = null; return; } // a normal vertical scroll - hands off entirely
+    viewPagerTrack.classList.remove('pager-animate');
+  }
+  if(pagerDrag.axis !== 'x') return;
+  e.preventDefault(); // stop vertical bounce/scroll while horizontally dragging a page
+  const width = window.innerWidth;
+  let offset = pagerDrag.baseOffsetPx + dx;
+  const minOffset = -(pagerDrag.tabOrder.length - 1) * width;
+  // Rubber-band resistance past the first/last page instead of a hard stop.
+  if(offset > 0) offset *= 0.35;
+  else if(offset < minOffset) offset = minOffset + (offset - minOffset) * 0.35;
+  viewPagerTrack.style.transform = `translateX(${offset}px)`;
+}, {passive:false});
+function endPagerDrag(e){
+  if(!pagerDrag) return;
+  if(pagerDrag.axis !== 'x'){ pagerDrag = null; return; }
+  const touch = e.changedTouches[0];
+  const dx = touch.clientX - pagerDrag.startX;
+  const width = window.innerWidth;
+  const threshold = width * 0.2;
+  let newIdx = pagerDrag.idx;
+  if(dx <= -threshold && pagerDrag.idx < pagerDrag.tabOrder.length - 1) newIdx++;
+  else if(dx >= threshold && pagerDrag.idx > 0) newIdx--;
+  const tabOrder = pagerDrag.tabOrder;
+  pagerDrag = null;
+  if(newIdx !== tabOrder.indexOf(document.querySelector('.side-icon.active')?.dataset.view)){
+    activateTab(tabOrder[newIdx]);
+  } else {
+    updatePagerPosition(true); // snap back to where we started
+  }
+}
+viewPagerViewport.addEventListener('touchend', endPagerDrag);
+viewPagerViewport.addEventListener('touchcancel', () => { pagerDrag = null; updatePagerPosition(true); });
 document.getElementById('insightTimeframeRow').addEventListener('click', (e) => {
   const btn = e.target.closest('.timeframe-btn');
   if(!btn) return;
@@ -6768,6 +6915,8 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   renderBalletCardChrome();
   document.getElementById('adminNavBtn').style.display = isAdmin ? '' : 'none';
   updateSideHighlight();
+  setupPagerViewPositions();
+  updatePagerPosition(false);
   refreshInsertDropdowns();
   refreshUpSpendingBalance();
   setInterval(() => {
