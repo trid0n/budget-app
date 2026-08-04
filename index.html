@@ -860,7 +860,7 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
      blank space), the page would carry every other tab's leftover scroll height even
      while looking at the shortest one. Absolute positioning takes them out of flow
      entirely; #viewPagerTrack's own height is instead kept in sync with just the
-     active view's height via a continuous per-frame loop (see pagerHeightSyncLoop()). Each
+     active view's height via a ResizeObserver (see observePagerActiveHeight()). Each
      view's left offset (0vw, 100vw, 200vw...) is set once in JS to match its DOM
      order, and #viewPagerTrack's transform:translateX(-activeIndex * 100vw) - vw, not
      %, so it's never resolved against its own auto-sized parent (the same circular-
@@ -4643,30 +4643,30 @@ function updateSidebarHighlightDrag(fIdx, tabOrder){
 function clearSidebarHighlightDrag(){
   document.querySelectorAll('.side-icon').forEach(btn => { btn.style.color = ''; btn.style.fontWeight = ''; });
 }
-// Keeps #viewPagerTrack's own height matched to whichever view is actually active,
-// continuously - the views are position:absolute (see the mobile CSS) specifically so
-// inactive ones don't contribute to layout height at all, but that also means nothing
-// updates the track's height automatically as the active view's own content grows or
-// shrinks (a card expanding, a new line item, an inline panel opening, a CSS transition
-// mid-flight). A ResizeObserver re-pointed at the active view was tried here first, but
-// its callback doesn't necessarily run in lockstep with every paint - any gap between the
-// active view's real height and what the track was last set to caps how far the page can
-// actually be scrolled for that gap, which is what "can't scroll down"/"the scrollable
-// area shrank" reports turned out to be, not a touch-gesture bug at all. A plain rAF loop
-// re-measuring every single frame closes that gap entirely - same self-healing pattern
-// already used for #inlinePanelHost's reposition-on-scroll loop elsewhere in this file.
-(function pagerHeightSyncLoop(){
-  if(isMobilePagerActive()){
-    const activeView = document.querySelector('.side-icon.active')?.dataset.view;
-    const activeEl = activeView && document.getElementById('view-' + activeView);
-    const track = document.getElementById('viewPagerTrack');
-    if(activeEl && track){
-      const h = activeEl.offsetHeight + 'px';
-      if(track.style.height !== h) track.style.height = h;
-    }
+// Keeps #viewPagerTrack's own height matched to whichever view is actually active - the
+// views are position:absolute (see the mobile CSS) specifically so inactive ones don't
+// contribute to layout height at all, but that also means nothing updates the track's
+// height automatically as the active view's own content grows or shrinks (a card
+// expanding, a new line item, an inline panel opening). A per-frame rAF loop measuring
+// offsetHeight was tried here instead of this for a round - reverted, since forcing a
+// synchronous layout read every single frame (not just when something actually needs
+// re-measuring) fights the browser's own scroll/scrollbar rendering during an active
+// touch-scroll, and was the direct cause of a duplicated-scrollbar-thumb glitch. A
+// ResizeObserver re-pointed at the active view is what this originally was; it's browser-
+// native and only actually fires when the observed box's size genuinely changes, no
+// per-frame forced reflow.
+let pagerHeightObserver = null;
+function observePagerActiveHeight(activeEl){
+  if(!pagerHeightObserver){
+    pagerHeightObserver = new ResizeObserver(entries => {
+      const track = document.getElementById('viewPagerTrack');
+      if(track && entries[0]) track.style.height = entries[0].contentRect.height + 'px';
+    });
+  } else {
+    pagerHeightObserver.disconnect();
   }
-  requestAnimationFrame(pagerHeightSyncLoop);
-})();
+  if(activeEl) pagerHeightObserver.observe(activeEl);
+}
 // Positions the swipeable pager to whichever view is active - a no-op on desktop, since
 // the pager CSS (position:absolute row, transform) only exists under the same
 // max-width:680px breakpoint isMobilePagerActive() checks.
@@ -4678,6 +4678,8 @@ function updatePagerPosition(animate){
   const idx = Math.max(0, tabOrder.indexOf(activeView));
   track.classList.toggle('pager-animate', !!animate);
   track.style.transform = `translateX(${-idx * window.innerWidth}px)`;
+  const activeEl = activeView && document.getElementById('view-' + activeView);
+  observePagerActiveHeight(activeEl);
   scrollActiveTabIntoStrip();
 }
 // Each view's left offset is its position in visibleTabOrder() (0vw, 100vw, 200vw...),
