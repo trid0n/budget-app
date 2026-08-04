@@ -252,6 +252,10 @@ end $$;
 -- that never includes up_token, and (c) for writes, match the target column against a
 -- hardcoded list rather than interpolating client input into SQL.
 
+-- Postgres won't let CREATE OR REPLACE change a function's return row shape (only the
+-- body) - needed once here since feature_up/dashboard/records/template were added to
+-- this function's RETURNS TABLE after it already existed in earlier installs.
+drop function if exists public.admin_list_users();
 create or replace function public.admin_list_users()
 returns table(
   user_id uuid, email text, display_name text, is_admin boolean,
