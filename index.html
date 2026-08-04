@@ -364,7 +364,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .month-actions-panel.open{opacity:1; pointer-events:auto; transform:translateY(0);}
 .month-actions-panel .chip-btn, .month-actions-panel .timeframe-btn{margin-left:0; width:100%; justify-content:flex-start; text-align:left; box-sizing:border-box;}
 .period-mode-group{display:flex; align-items:center; gap:6px; flex-shrink:0;}
-.ledger-top-toggle-row{display:flex; margin-bottom:14px;}
+.ledger-top-toggle-row{display:flex; justify-content:center; margin-bottom:14px;}
 .month-actions-gear{flex-shrink:0;}
 .up-refresh-btn{flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;}
 .month-actions-gear .btn-ic{display:inline-flex; transition:transform .4s ease;}
@@ -1811,7 +1811,7 @@ let settings = { currentMonth: DEFAULT_MONTH, theme: 'light', lastGoal: 0, balan
 // applied — settingsRow's feature_*/is_admin columns come back undefined rather than
 // erroring, so an unmigrated database preserves exactly today's behavior for everyone.
 let isAdmin = false;
-let featureFlags = { tech: true, grocery: true, monthlycosts: true, ballet: false, up: true };
+let featureFlags = { tech: true, grocery: true, monthlycosts: true, ballet: false, up: true, dashboard: true, records: true, template: true };
 let displayName = '';
 // The calendar-month key "today" belongs to for budgeting purposes. Equal to the real
 // calendar month unless periodMode is 'paycycle', in which case it's the month after
@@ -2197,6 +2197,9 @@ async function loadEverything(){
       monthlycosts: settingsRow.feature_monthlycosts !== false,
       ballet: !!settingsRow.feature_ballet,
       up: settingsRow.feature_up !== false,
+      dashboard: settingsRow.feature_dashboard !== false,
+      records: settingsRow.feature_records !== false,
+      template: settingsRow.feature_template !== false,
     };
     displayName = settingsRow.display_name || '';
   }
@@ -2659,15 +2662,18 @@ function toggleRecCard(card){
   }
 }
 const FEATURE_CARD_IDS = { tech:'techRecordCard', grocery:'groceryRecordCard', monthlycosts:'monthlyCostsRecordCard' };
-const FEATURE_COLUMNS = { tech:'feature_tech', grocery:'feature_grocery', monthlycosts:'feature_monthlycosts', up:'feature_up' };
+const FEATURE_COLUMNS = { tech:'feature_tech', grocery:'feature_grocery', monthlycosts:'feature_monthlycosts', up:'feature_up', dashboard:'feature_dashboard', records:'feature_records', template:'feature_template' };
+// These are each a whole nav tab, not a card nested within one - toggling one shows/hides
+// the matching sidebar entry (data-view) instead of a card's display. 'records' is the
+// odd one out: the feature/flag name is "records" but the actual view id is "other" (the
+// sidebar's own historical name for that tab).
+const FEATURE_NAV_VIEWS = { up:'up', dashboard:'dashboard', records:'other', template:'template' };
 function renderFeatureToggle(feature){
   const btn = document.querySelector(`.feature-toggle-switch[data-feature="${feature}"]`);
   if(btn) btn.classList.toggle('on', !!featureFlags[feature]);
-  // 'up' is a whole nav tab, not a card within one - toggling it shows/hides the sidebar
-  // entry instead of a card's display.
-  if(feature === 'up'){
-    const navBtn = document.getElementById('upNavBtn');
-    if(navBtn) navBtn.style.display = featureFlags.up ? '' : 'none';
+  if(FEATURE_NAV_VIEWS[feature]){
+    const navBtn = document.querySelector(`.side-icon[data-view="${FEATURE_NAV_VIEWS[feature]}"]`);
+    if(navBtn) navBtn.style.display = featureFlags[feature] ? '' : 'none';
     return;
   }
   const cardEl = document.getElementById(FEATURE_CARD_IDS[feature]);
@@ -2683,14 +2689,13 @@ async function onFeatureToggleClick(btn){
   featureFlags[feature] = newVal;
   try{ await db.saveSettings({ [FEATURE_COLUMNS[feature]]: newVal }); }catch(e){}
   renderFeatureToggle(feature);
-  if(feature === 'up'){
-    // The Up tab's nav button just appeared/disappeared - every later tab's pager
-    // position shifts by one slot, so positions need recomputing regardless of which
-    // way this went.
+  if(FEATURE_NAV_VIEWS[feature]){
+    // A nav tab's button just appeared/disappeared - every later tab's pager position
+    // shifts by one slot, so positions need recomputing regardless of which way this went.
     setupPagerViewPositions();
     // Hiding it while it's the one currently open would strand the user on a page with
     // no way back to it via the sidebar - send them to Budget instead.
-    if(!newVal && document.querySelector('.side-icon.active')?.dataset.view === 'up'){
+    if(!newVal && document.querySelector('.side-icon.active')?.dataset.view === FEATURE_NAV_VIEWS[feature]){
       document.querySelector('.side-icon[data-view="ledger"]').click();
     } else {
       updatePagerPosition(false);
@@ -2721,6 +2726,10 @@ function adminUserCardHtml(u){
       <div class="admin-user-flag-row"><span>Groceries</span><button class="dm-switch admin-flag-switch ${u.feature_grocery?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_grocery"></button></div>
       <div class="admin-user-flag-row"><span>Monthly Costs</span><button class="dm-switch admin-flag-switch ${u.feature_monthlycosts?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_monthlycosts"></button></div>
       <div class="admin-user-flag-row"><span>Flexible Tracker grant</span><button class="dm-switch admin-flag-switch ${u.feature_ballet?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_ballet" ${u.is_admin?'disabled title="Admins already see the real Ballet feature"':''}></button></div>
+      <div class="admin-user-flag-row"><span>Dashboard tab</span><button class="dm-switch admin-flag-switch ${u.feature_dashboard?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_dashboard"></button></div>
+      <div class="admin-user-flag-row"><span>Records tab</span><button class="dm-switch admin-flag-switch ${u.feature_records?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_records"></button></div>
+      <div class="admin-user-flag-row"><span>Template tab</span><button class="dm-switch admin-flag-switch ${u.feature_template?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_template"></button></div>
+      <div class="admin-user-flag-row"><span>Up tab</span><button class="dm-switch admin-flag-switch ${u.feature_up?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_up"></button></div>
     </div></div>
   </div>`;
 }
@@ -4614,7 +4623,6 @@ function observePagerActiveHeight(activeEl){
 function updatePagerPosition(animate){
   if(!isMobilePagerActive()) return;
   const track = document.getElementById('viewPagerTrack');
-  const viewport = document.getElementById('viewPagerViewport');
   const tabOrder = visibleTabOrder();
   const activeView = document.querySelector('.side-icon.active')?.dataset.view;
   const idx = Math.max(0, tabOrder.indexOf(activeView));
@@ -4623,13 +4631,6 @@ function updatePagerPosition(animate){
   const activeEl = activeView && document.getElementById('view-' + activeView);
   observePagerActiveHeight(activeEl);
   scrollActiveTabIntoStrip();
-  // A tab shorter than the screen (Records, Users) would otherwise leave the space below
-  // its content outside #viewPagerViewport's own box - which is where the touchstart
-  // listener lives - so a swipe started from down there was silently ignored ("the void").
-  // Floor the viewport at the remaining screen height so it's swipeable everywhere,
-  // regardless of which tab's content happens to be short.
-  const top = viewport.getBoundingClientRect().top;
-  viewport.style.minHeight = Math.max(0, window.innerHeight - top) + 'px';
 }
 // Each view's left offset is its position in visibleTabOrder() (0vw, 100vw, 200vw...),
 // NOT raw HTML source order - the .view divs' order in the file has never had to match
@@ -4702,17 +4703,46 @@ document.addEventListener('click', (e) => {
 // scrolls under them, so left open during a scroll they'd drift visually away from
 // whatever they were anchored to. Simplest correct behaviour, matching how a native
 // select/menu usually behaves once you scroll: just close it.
-window.addEventListener('scroll', closeFloatingMenus, {passive:true});
+// capture:true, not just passive - a scroll happening inside some nested scrollable
+// element (not the page itself) never bubbles a 'scroll' event up to window, but capture-
+// phase listeners on an ancestor still see it on the way down. Same technique already
+// used for #inlinePanelHost's own reposition-on-scroll a bit further up this file.
+window.addEventListener('scroll', closeFloatingMenus, {passive:true, capture:true});
+// A phone keyboard's Done/checkmark/Go button on a plain text input dispatches this same
+// Enter keydown - covers every search box that lives inside one of these floating popups
+// (#upTxSearchPanel, #adminSearchPanel, any future one) without needing a listener per box.
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter' && e.target.closest('.month-actions-panel')){
+    e.target.blur();
+    closeFloatingMenus();
+  }
+});
 // Finger-tracked horizontal paging (phone only) - content follows the drag 1:1 in real
 // time and snaps to whichever tab is closest on release, modelled on the Up app's own
 // tab behaviour. Reuses the same "don't hijack a drag that started inside scrollable
 // content" selector list the old discrete swipe-then-switch gesture used (removed - this
 // replaces it on phone; desktop/tablet-width touch devices never see either).
-const PAGER_DRAG_BLOCKED_SELECTOR = '.grip-handle, .chart, .rec-table-wrap, .up-tx-list, .custom-select-list, .date-select-row, .inline-source-panel, .month-dropdown-list, textarea, input';
+// .sidebar and .modal-overlay/.month-actions-panel/#inlinePanelHost matter here in a way
+// they didn't before this list was attached to #viewPagerViewport specifically: none of
+// them are descendants of it (the sidebar is its sibling; modals/popups live outside the
+// pager track entirely, same reason #floatTip etc. do - see elsewhere in this file), so a
+// touch starting on any of them was never something the pager's old listener could even
+// see. Now that the listener is on document (see below), it can - so the sidebar's own
+// native horizontal scroll, and not accidentally switching tabs underneath an open modal
+// or popup, both need to be listed explicitly to keep working the same as before.
+const PAGER_DRAG_BLOCKED_SELECTOR = '.grip-handle, .chart, .rec-table-wrap, .up-tx-list, .custom-select-list, .date-select-row, .inline-source-panel, .month-dropdown-list, textarea, input, .sidebar, .modal-overlay, .month-actions-panel, #inlinePanelHost';
 let pagerDrag = null;
-const viewPagerViewport = document.getElementById('viewPagerViewport');
 const viewPagerTrack = document.getElementById('viewPagerTrack');
-viewPagerViewport.addEventListener('touchstart', (e) => {
+// Bound to document, not #viewPagerViewport - a tab shorter than the screen (Records,
+// Users, Settings) means #viewPagerViewport's own box ends where that tab's content
+// does, so a listener scoped to it could never see a touch that starts in the blank
+// space below. (A min-height on the viewport to "fix" that was tried and reverted - it
+// worked for touch capture, but as a real block-level box in document flow it also grew
+// the page's actual scrollHeight, which meant normal vertical scrolling could reach that
+// blank space too - not what was wanted, just swipe-to-change-tabs working from anywhere
+// on screen.) document's hit area is the whole viewport regardless of content height,
+// with no layout side effects, so this gets swipeability without the extra scroll room.
+document.addEventListener('touchstart', (e) => {
   if(!isMobilePagerActive() || e.touches.length !== 1) return;
   if(e.target.closest(PAGER_DRAG_BLOCKED_SELECTOR)) return;
   const tabOrder = visibleTabOrder();
@@ -4731,7 +4761,7 @@ viewPagerViewport.addEventListener('touchstart', (e) => {
   });
   pagerDrag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, baseOffsetPx: -idx * window.innerWidth, axis: null, tabOrder, idx, sidebar, tabCenters };
 }, {passive:true});
-viewPagerViewport.addEventListener('touchmove', (e) => {
+document.addEventListener('touchmove', (e) => {
   if(!pagerDrag) return;
   const t = e.touches[0];
   const dx = t.clientX - pagerDrag.startX, dy = t.clientY - pagerDrag.startY;
@@ -4784,8 +4814,8 @@ function endPagerDrag(e){
     updatePagerPosition(true); // snap back to where we started
   }
 }
-viewPagerViewport.addEventListener('touchend', endPagerDrag);
-viewPagerViewport.addEventListener('touchcancel', () => { pagerDrag = null; clearSidebarHighlightDrag(); updatePagerPosition(true); });
+document.addEventListener('touchend', endPagerDrag);
+document.addEventListener('touchcancel', () => { pagerDrag = null; clearSidebarHighlightDrag(); updatePagerPosition(true); });
 document.getElementById('insightTimeframeRow').addEventListener('click', (e) => {
   const btn = e.target.closest('.timeframe-btn');
   if(!btn) return;
@@ -6417,10 +6447,14 @@ document.getElementById('insightGrid').addEventListener('click', (e) => {
 // A tapped (not hovered) slice's tooltip/dimming has nothing to naturally dismiss it on a
 // phone - no mouseleave ever fires from touch - so it would otherwise sit there forever
 // once you've scrolled past the chart entirely. Clear both as soon as the page moves.
+// capture:true (see the closeFloatingMenus scroll listener above for why) - without it,
+// a scroll happening inside some nested scrollable element rather than the page itself
+// never reaches a plain bubble-phase window listener at all, which is exactly the "still
+// stays visible when I scroll" report this was meant to fix in the first place.
 window.addEventListener('scroll', () => {
   hideFloatTooltip();
   document.querySelectorAll('#insightGrid .donut-hover').forEach(m => m.classList.remove('donut-hover'));
-}, {passive:true});
+}, {passive:true, capture:true});
 document.getElementById('dashChart').addEventListener('click', (e) => {
   const el = e.target.closest('.chart-bar-wrap');
   if(!el) return;
@@ -7260,6 +7294,9 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   renderFeatureToggle('grocery');
   renderFeatureToggle('monthlycosts');
   renderFeatureToggle('up');
+  renderFeatureToggle('dashboard');
+  renderFeatureToggle('records');
+  renderFeatureToggle('template');
   renderBalletCardChrome();
   document.getElementById('adminNavBtn').style.display = isAdmin ? '' : 'none';
   updateSideHighlight();

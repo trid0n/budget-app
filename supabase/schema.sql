@@ -38,7 +38,10 @@ create table if not exists public.user_settings (
   feature_grocery       boolean not null default true,  -- Groceries calculator — optional per user, default on
   feature_monthlycosts boolean not null default true,  -- Monthly Costs calculator — optional per user, default on
   feature_ballet        boolean not null default false, -- non-admin users only see this if an admin grants it (relabelled "Flexible Tracker") — see index.html's balletFeatureAvailable()
-  feature_up           boolean not null default true,  -- Up Bank tab — optional per user (self-toggled from Account settings), default on
+  feature_up           boolean not null default true,  -- Up Bank tab — self-toggled from Account settings, AND admin-toggleable from the Users tab, default on
+  feature_dashboard    boolean not null default true,  -- Dashboard tab — admin-toggleable per user from the Users tab, default on
+  feature_records      boolean not null default true,  -- Other Records tab — admin-toggleable per user from the Users tab, default on
+  feature_template     boolean not null default true,  -- Template tab — admin-toggleable per user from the Users tab, default on
   updated_at     timestamptz not null default now()
 );
 
@@ -252,7 +255,8 @@ end $$;
 create or replace function public.admin_list_users()
 returns table(
   user_id uuid, email text, display_name text, is_admin boolean,
-  feature_tech boolean, feature_grocery boolean, feature_monthlycosts boolean, feature_ballet boolean
+  feature_tech boolean, feature_grocery boolean, feature_monthlycosts boolean, feature_ballet boolean,
+  feature_up boolean, feature_dashboard boolean, feature_records boolean, feature_template boolean
 )
 language plpgsql security definer set search_path = public as $$
 begin
@@ -266,7 +270,8 @@ begin
     -- auth.users.email is varchar(255), not text - cast explicitly or Postgres rejects
     -- this with "structure of query does not match function result type".
     select u.id, u.email::text, s.display_name, coalesce(s.is_admin,false), coalesce(s.feature_tech,true),
-           coalesce(s.feature_grocery,true), coalesce(s.feature_monthlycosts,true), coalesce(s.feature_ballet,false)
+           coalesce(s.feature_grocery,true), coalesce(s.feature_monthlycosts,true), coalesce(s.feature_ballet,false),
+           coalesce(s.feature_up,true), coalesce(s.feature_dashboard,true), coalesce(s.feature_records,true), coalesce(s.feature_template,true)
     from auth.users u left join public.user_settings s on s.user_id = u.id
     order by u.created_at asc;
 end; $$;
@@ -277,7 +282,7 @@ begin
   if not exists (select 1 from public.user_settings where user_id = auth.uid() and is_admin) then
     raise exception 'not authorized';
   end if;
-  if feature_name not in ('feature_tech','feature_grocery','feature_monthlycosts','feature_ballet') then
+  if feature_name not in ('feature_tech','feature_grocery','feature_monthlycosts','feature_ballet','feature_up','feature_dashboard','feature_records','feature_template') then
     raise exception 'unknown feature';
   end if;
   insert into public.user_settings(user_id) values (target_user_id) on conflict (user_id) do nothing;
@@ -285,6 +290,10 @@ begin
   elsif feature_name = 'feature_grocery' then update public.user_settings set feature_grocery = enabled where user_id = target_user_id;
   elsif feature_name = 'feature_monthlycosts' then update public.user_settings set feature_monthlycosts = enabled where user_id = target_user_id;
   elsif feature_name = 'feature_ballet' then update public.user_settings set feature_ballet = enabled where user_id = target_user_id;
+  elsif feature_name = 'feature_up' then update public.user_settings set feature_up = enabled where user_id = target_user_id;
+  elsif feature_name = 'feature_dashboard' then update public.user_settings set feature_dashboard = enabled where user_id = target_user_id;
+  elsif feature_name = 'feature_records' then update public.user_settings set feature_records = enabled where user_id = target_user_id;
+  elsif feature_name = 'feature_template' then update public.user_settings set feature_template = enabled where user_id = target_user_id;
   end if;
 end; $$;
 
