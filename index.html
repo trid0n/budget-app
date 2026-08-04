@@ -541,8 +541,8 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .ballet-result-lbl{font-size:.76rem; color:var(--ink-soft); margin-top:2px;}
 .ballet-sub{font-size:.78rem; color:var(--ink-faint); margin-top:10px; text-align:center;}
 .timeframe-row{display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;}
-.up-pay-cycle-row{display:inline-flex; max-width:100%; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; padding:10px 12px; background:var(--paper-dim); border:1px solid var(--rule); border-radius:8px;}
-.up-pay-cycle-empty-lbl{font-size:.8rem; color:var(--ink-faint); font-style:italic;}
+.up-status-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px;}
+.up-tx-actions-row{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
 .up-income-chip{display:flex; align-items:center; gap:6px; background:var(--gold-bg); border:1px solid var(--gold); border-radius:999px; padding:5px 6px 5px 10px;}
 .up-income-chip-ic{font-size:.85rem; line-height:1;}
 .up-income-chip-lbl{font-size:.8rem; color:var(--gold); font-weight:700; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -608,8 +608,6 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-acc-name{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .up-goal-flag{display:inline-block; background:rgba(255,255,255,.22); color:#fff; border-radius:20px; padding:2px 8px; font-size:.6rem; text-transform:none; letter-spacing:0; font-weight:700; margin-left:6px; vertical-align:middle;}
 .up-acc-bal{font-size:1rem; font-weight:800; color:var(--ink); font-variant-numeric:tabular-nums;}
-.up-tx-hdr{display:flex; align-items:center; justify-content:space-between; font-size:.8rem; font-weight:700; color:var(--ink-soft); margin-bottom:8px;}
-.up-tx-hdr-actions{display:flex; align-items:center; gap:8px;}
 .up-tx-search{width:100%; box-sizing:border-box; border:1px solid var(--rule); border-radius:8px; background:var(--paper-dim); padding:8px 12px; font-family:'Inter',sans-serif; font-size:.85rem; color:var(--ink); margin-bottom:10px;}
 .up-tx-search:focus{outline:none; border-color:var(--gold); background:var(--surface);}
 .up-tx-list{border:1px solid var(--rule); border-radius:10px; overflow:hidden; max-height:420px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
@@ -617,24 +615,23 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-tx-list::-webkit-scrollbar-track{background:var(--paper-dim); border-radius:8px;}
 .up-tx-list::-webkit-scrollbar-thumb{background:var(--rule); border-radius:8px;}
 .up-tx-loadmore-row{display:flex; justify-content:center; margin-top:10px;}
-.up-tx-row{display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid var(--rule); font-size:.85rem; transition:background-color .1s;}
-.up-tx-row:hover{background:var(--paper-dim);}
-.up-tx-row:last-child{border-bottom:none;}
-.up-tx-desc-chip{flex:0 1 auto; max-width:320px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:color-mix(in srgb, var(--gold) 10%, var(--paper-dim)); border:1px solid color-mix(in srgb, var(--gold) 20%, var(--rule)); border-radius:20px; padding:5px 14px; font-size:.82rem; font-weight:600; color:var(--ink); position:relative;}
-.up-tx-desc-chip[data-tx-income-select]{cursor:pointer;}
-.up-tx-desc-chip[data-tx-income-select]:hover{border-color:var(--credit); background:color-mix(in srgb, var(--credit) 12%, var(--paper-dim));}
-.up-tx-desc-chip.is-income-source{border-color:var(--credit); background:var(--credit-bg); color:var(--credit);}
-.up-tx-assign-btn{flex-shrink:0; font-family:'Inter',sans-serif; font-size:.74rem; font-weight:700; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-soft); border-radius:16px; padding:5px 12px; cursor:pointer; transition:border-color .15s, color .15s; position:relative;}
-.up-tx-assign-btn-text{display:inline-block; max-width:126px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:bottom;}
-.up-tx-assign-btn:hover{border-color:var(--gold); color:var(--gold);}
-.up-tx-assign-btn.assigned{background:var(--credit-bg); border-color:color-mix(in srgb, var(--credit) 35%, var(--rule)); color:var(--credit);}
-.up-tx-assign-btn.guess{background:var(--gold-bg); border-color:color-mix(in srgb, var(--gold) 40%, var(--rule)); color:var(--gold); font-weight:800;}
-.up-tx-assign-btn.guess.rough{opacity:.6; font-weight:700;}
-.up-tx-assign-btn.excluded{background:var(--paper-dim); border-color:var(--rule); color:var(--ink-faint); font-style:italic;}
+.up-tx-month-hdr{display:flex; align-items:baseline; justify-content:space-between; padding:12px 14px 6px; font-size:.78rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); background:var(--paper-dim);}
+.up-tx-date-hdr{padding:8px 14px 2px; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint);}
+.up-tx-row2{display:flex; align-items:center; gap:10px; padding:9px 14px; border-bottom:1px solid var(--rule); font-size:.85rem; transition:background-color .1s; cursor:default;}
+.up-tx-row2:hover{background:var(--paper-dim);}
+.up-tx-row2:last-child{border-bottom:none;}
+.up-tx-row2.is-income-source{background:var(--credit-bg);}
+.up-tx-status{flex-shrink:0; width:26px; height:26px; border-radius:50%; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-faint); font-size:.85rem; font-weight:800; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:border-color .15s, color .15s; position:relative;}
+.up-tx-status.assigned{background:var(--credit-bg); border-color:color-mix(in srgb, var(--credit) 35%, var(--rule)); color:var(--credit);}
+.up-tx-status.guess{background:var(--gold-bg); border-color:color-mix(in srgb, var(--gold) 40%, var(--rule)); color:var(--gold);}
+.up-tx-status.excluded{background:var(--paper-dim); border-color:var(--rule); color:var(--ink-faint);}
+.up-tx-status.unassigned:hover, .up-tx-status.guess:hover{border-color:var(--gold); color:var(--gold);}
+.up-tx-row2-main{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px;}
+.up-tx-row2-name{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font-weight:600; display:flex; align-items:center; gap:6px;}
+.up-tx-row2-date{color:var(--ink-faint); font-size:.72rem;}
+.up-tx-note-dot{color:var(--gold); font-size:.5rem;}
 .up-tx-exclude-btn{flex-shrink:0; width:22px; height:22px; border-radius:50%; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-faint); font-size:.9rem; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:border-color .15s, color .15s; position:relative;}
-.up-tx-note{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-soft); font-size:.78rem; font-style:italic;}
 .up-tx-exclude-btn:hover{border-color:var(--debit); color:var(--debit);}
-.up-tx-assign-btn.guess:hover{background:var(--gold); color:#fff; border-color:var(--gold);}
 .tx-assign-box{max-width:520px; width:92%; display:flex; flex-direction:column; gap:12px;}
 .tx-view-list{max-height:300px; overflow-y:auto; overflow-x:hidden; border:1px solid var(--rule); border-radius:10px; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
 .tx-view-row{display:flex; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid var(--rule); font-size:.85rem; transition:background-color .12s;}
@@ -701,13 +698,12 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-assign-suggestion-name{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .tx-assign-suggestion-meta{color:var(--ink-faint); font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; flex-shrink:0;}
 .tx-assign-select-btn{min-width:110px;}
-.up-tx-date{color:var(--ink-faint); font-size:.76rem; flex-shrink:0; margin-left:auto;}
 .up-tx-cover-icon{flex-shrink:0; color:var(--gold); display:flex; align-items:center; cursor:default; position:relative;}
 .up-tx-cover-icon[data-tip]::before{left:auto; right:0; transform:translateY(-4px);}
 .up-tx-cover-icon[data-tip]:hover::before{transform:translateY(0);}
-.up-tx-amt{font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0; width:90px; text-align:right;}
-.up-tx-amt.neg{color:var(--debit);}
-.up-tx-amt.pos{color:var(--credit);}
+.up-tx-row2-amt{font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0; text-align:right;}
+.up-tx-row2-amt.neg{color:var(--debit);}
+.up-tx-row2-amt.pos{color:var(--credit);}
 .chart{display:flex; align-items:flex-end; gap:5px; height:110px; margin:14px 0 4px; padding-bottom:2px;}
 .chart::-webkit-scrollbar{height:6px;}
 .chart::-webkit-scrollbar-track{background:transparent;}
@@ -882,12 +878,6 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .up-connect-row{flex-direction:column; align-items:stretch;}
   .up-connect-row .lb-field-wide{min-width:0;}
   .date-select-row{flex-wrap:wrap;}
-  /* Up Bank transaction rows: let the description take a full line of its own instead
-     of being squeezed to a sliver next to the assign button/date/amount. */
-  .up-tx-hdr{flex-wrap:wrap;}
-  .up-tx-row{flex-wrap:wrap;}
-  .up-tx-desc-chip{max-width:none; flex-basis:100%; order:1;}
-  .up-tx-row > *:not(.up-tx-desc-chip){order:2;}
   /* Prevent iOS auto-zoom-on-focus: it triggers whenever a focused input/textarea has
      a computed font-size under 16px, which most of this app's compact inputs do. */
   input[type="text"], input[type="number"], input[type="email"], input[type="password"], input[type="search"], textarea{
@@ -895,7 +885,7 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   }
   /* Long-press on a truncated name should reveal it (see bindLongPressReveal), not
      trigger the native text-selection highlight / iOS callout menu. */
-  .name-input, .sh-name-input, .up-tx-desc-chip, .tx-view-row-desc, .mover-name{
+  .name-input, .sh-name-input, .up-tx-row2-name, .tx-view-row-desc, .mover-name{
     -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
   }
 }
@@ -1165,86 +1155,82 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     </div>
 
     <!-- ================= UP BANK VIEW ================= -->
+    <!-- No card/collapsible wrapper - the tab itself (titled "Up") is already the
+         container, so a second "Up Bank" title bar on top of that was redundant. -->
     <div class="view" id="view-up">
-    <div class="rec-card collapsible open" id="upBankCard">
-      <div class="rec-summary" data-rec-toggle><h2>Up Bank <span class="rc-sub">live accounts &amp; transactions</span></h2></div>
-      <div class="rec-body" style="max-height:none;"><div class="rec-body-inner">
-        <div class="up-connect-row" id="upConnectRow">
-          <label class="grocery-field lb-field-wide">Personal access token<input type="text" id="upTokenInput" class="token-masked" placeholder="up:yeah:..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"></label>
-          <button class="mini-btn gold" id="upConnectBtn">Connect</button>
-          <button class="mini-btn" id="upDisconnectBtn" style="display:none;">Disconnect</button>
+      <div class="up-connect-row" id="upConnectRow">
+        <label class="grocery-field lb-field-wide">Personal access token<input type="text" id="upTokenInput" class="token-masked" placeholder="up:yeah:..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"></label>
+        <button class="mini-btn gold" id="upConnectBtn">Connect</button>
+        <button class="mini-btn" id="upDisconnectBtn" style="display:none;">Disconnect</button>
+      </div>
+      <div class="up-status-row" id="upStatusRow" style="display:none;">
+        <button class="mini-btn" id="upChangeTokenBtn">🔑 Connected — change token</button>
+        <button class="mini-btn" id="upChooseIncomeBtn" data-tip="Click, then click a transaction below to set it as your income source">Choose income</button>
+        <div class="up-income-chip" id="upIncomeChip" style="display:none;">
+          <span class="up-income-chip-ic">💵</span>
+          <span class="up-income-chip-lbl" id="upPayCycleLbl"></span>
+          <button class="up-income-chip-clear" id="upPayCycleClearBtn" data-tip="Clear income source">&times;</button>
         </div>
-        <button class="mini-btn" id="upChangeTokenBtn" style="display:none;">🔑 Connected — change token</button>
-        <div id="upContent" style="display:none;">
-          <div class="up-tx-hdr">Recent transactions <span class="up-tx-hdr-actions"><button class="mini-btn" id="manageTxRulesBtn">Manage rules</button></span></div>
-          <div class="timeframe-row" id="upTxTimeframeRow">
-            <button class="timeframe-btn" data-tf="1">Last month</button>
-            <button class="timeframe-btn" data-tf="3">3 months</button>
-            <button class="timeframe-btn" data-tf="6">6 months</button>
-            <button class="mini-btn up-refresh-btn" id="upRefreshBtn" title="Refresh"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
-            <button class="mini-btn month-actions-gear" id="upTxMoreToggle" title="More options"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
-          </div>
-          <div class="month-actions-panel timeframe-row" id="upTxMorePanel">
-            <button class="timeframe-btn" data-tf="12">1 year</button>
-            <button class="timeframe-btn active" data-tf="all">All time</button>
-            <button class="timeframe-btn" data-tf="custom">Custom range</button>
-            <button class="timeframe-btn" data-tf="since_last_pay" id="upPayCycleSinceBtn">Since last pay</button>
-            <button class="timeframe-btn" data-tf="between_last_2_pays" id="upPayCycleBetweenBtn">Between last 2 pays</button>
-          </div>
-          <div class="up-pay-cycle-row" id="upPayCycleRow">
-            <button class="mini-btn" id="upChooseIncomeBtn" data-tip="Click, then click a transaction below to set it as your income source">Choose income</button>
-            <span class="up-pay-cycle-empty-lbl" id="upPayCycleEmptyLbl">No income source set</span>
-            <div class="up-income-chip" id="upIncomeChip" style="display:none;">
-              <span class="up-income-chip-ic">💵</span>
-              <span class="up-income-chip-lbl" id="upPayCycleLbl"></span>
-              <button class="up-income-chip-clear" id="upPayCycleClearBtn" data-tip="Clear income source">&times;</button>
-            </div>
-          </div>
-          <div class="up-tx-custom-range" id="upTxCustomRange" style="display:none;">
-            <div class="grocery-field">From
-              <div class="date-select-row">
-                <div class="custom-select" id="upTxFromDayWrap" data-part="day">
-                  <button type="button" class="custom-select-btn date-select" id="upTxFromDayBtn">Day</button>
-                  <div class="custom-select-list" id="upTxFromDayList"></div>
-                </div>
-                <div class="custom-select" id="upTxFromMonthWrap" data-part="month">
-                  <button type="button" class="custom-select-btn date-select date-select-month" id="upTxFromMonthBtn">Month</button>
-                  <div class="custom-select-list" id="upTxFromMonthList"></div>
-                </div>
-                <div class="custom-select" id="upTxFromYearWrap" data-part="year">
-                  <button type="button" class="custom-select-btn date-select" id="upTxFromYearBtn">Year</button>
-                  <div class="custom-select-list" id="upTxFromYearList"></div>
-                </div>
+      </div>
+      <div id="upContent" style="display:none;">
+        <div class="up-tx-actions-row">
+          <button class="mini-btn up-refresh-btn" id="upRefreshBtn" title="Refresh"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
+          <button class="mini-btn month-actions-gear" id="upTxMoreToggle" title="Timeframe"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2.5"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span></button>
+          <button class="mini-btn" id="manageTxRulesBtn">Manage rules</button>
+        </div>
+        <div class="month-actions-panel up-tf-menu" id="upTxMorePanel">
+          <button class="timeframe-btn" data-tf="1">Last month</button>
+          <button class="timeframe-btn" data-tf="3">3 months</button>
+          <button class="timeframe-btn" data-tf="6">6 months</button>
+          <button class="timeframe-btn" data-tf="12">1 year</button>
+          <button class="timeframe-btn active" data-tf="all">All time</button>
+          <button class="timeframe-btn" data-tf="custom">Custom range</button>
+          <button class="timeframe-btn" data-tf="since_last_pay" id="upPayCycleSinceBtn">Since last pay</button>
+          <button class="timeframe-btn" data-tf="between_last_2_pays" id="upPayCycleBetweenBtn">Between last 2 pays</button>
+        </div>
+        <div class="up-tx-custom-range" id="upTxCustomRange" style="display:none;">
+          <div class="grocery-field">From
+            <div class="date-select-row">
+              <div class="custom-select" id="upTxFromDayWrap" data-part="day">
+                <button type="button" class="custom-select-btn date-select" id="upTxFromDayBtn">Day</button>
+                <div class="custom-select-list" id="upTxFromDayList"></div>
+              </div>
+              <div class="custom-select" id="upTxFromMonthWrap" data-part="month">
+                <button type="button" class="custom-select-btn date-select date-select-month" id="upTxFromMonthBtn">Month</button>
+                <div class="custom-select-list" id="upTxFromMonthList"></div>
+              </div>
+              <div class="custom-select" id="upTxFromYearWrap" data-part="year">
+                <button type="button" class="custom-select-btn date-select" id="upTxFromYearBtn">Year</button>
+                <div class="custom-select-list" id="upTxFromYearList"></div>
               </div>
             </div>
-            <div class="grocery-field">To
-              <div class="date-select-row">
-                <div class="custom-select" id="upTxToDayWrap" data-part="day">
-                  <button type="button" class="custom-select-btn date-select" id="upTxToDayBtn">Day</button>
-                  <div class="custom-select-list" id="upTxToDayList"></div>
-                </div>
-                <div class="custom-select" id="upTxToMonthWrap" data-part="month">
-                  <button type="button" class="custom-select-btn date-select date-select-month" id="upTxToMonthBtn">Month</button>
-                  <div class="custom-select-list" id="upTxToMonthList"></div>
-                </div>
-                <div class="custom-select" id="upTxToYearWrap" data-part="year">
-                  <button type="button" class="custom-select-btn date-select" id="upTxToYearBtn">Year</button>
-                  <div class="custom-select-list" id="upTxToYearList"></div>
-                </div>
+          </div>
+          <div class="grocery-field">To
+            <div class="date-select-row">
+              <div class="custom-select" id="upTxToDayWrap" data-part="day">
+                <button type="button" class="custom-select-btn date-select" id="upTxToDayBtn">Day</button>
+                <div class="custom-select-list" id="upTxToDayList"></div>
+              </div>
+              <div class="custom-select" id="upTxToMonthWrap" data-part="month">
+                <button type="button" class="custom-select-btn date-select date-select-month" id="upTxToMonthBtn">Month</button>
+                <div class="custom-select-list" id="upTxToMonthList"></div>
+              </div>
+              <div class="custom-select" id="upTxToYearWrap" data-part="year">
+                <button type="button" class="custom-select-btn date-select" id="upTxToYearBtn">Year</button>
+                <div class="custom-select-list" id="upTxToYearList"></div>
               </div>
             </div>
-            <button class="mini-btn gold" id="upTxApplyRangeBtn">Apply</button>
           </div>
-          <input type="text" id="upTxSearch" class="up-tx-search" placeholder="Search transactions by description...">
-          <div class="tx-loading-bar" id="upTxLoadingBar" style="display:none;"><div class="tx-loading-bar-inner"></div></div>
-          <div class="up-tx-list" id="upTxList"></div>
-          <div class="up-tx-loadmore-row"><button class="mini-btn" id="upLoadMoreBtn" style="display:none;">Load more</button></div>
-          <div class="pc-faint" id="upMeta"></div>
-          <div class="up-accounts" id="upAccounts"></div>
+          <button class="mini-btn gold" id="upTxApplyRangeBtn">Apply</button>
         </div>
-        <div class="live-balance-error" id="upError"></div>
-      </div></div>
-    </div>
+        <input type="text" id="upTxSearch" class="up-tx-search" placeholder="Search transactions by description...">
+        <div class="tx-loading-bar" id="upTxLoadingBar" style="display:none;"><div class="tx-loading-bar-inner"></div></div>
+        <div class="up-tx-list" id="upTxList"></div>
+        <div class="up-tx-loadmore-row"><button class="mini-btn" id="upLoadMoreBtn" style="display:none;">Load more</button></div>
+        <div class="pc-faint" id="upMeta"></div>
+        <div class="up-accounts" id="upAccounts"></div>
+      </div>
+      <div class="live-balance-error" id="upError"></div>
     </div>
 
     <!-- ================= OTHER RECORDS VIEW ================= -->
@@ -2740,9 +2726,7 @@ document.getElementById('view-other').addEventListener('click', (e) => {
 // Dashboard cards start open (so existing users see no change on first load after this
 // shipped) but remember a collapsed state across sessions, unlike Other Records' cards
 // which intentionally reset to collapsed every load.
-const DASHBOARD_COLLAPSIBLE_CARD_IDS = ['upBankCard', 'savingsDashboardCard', 'insightsCard'];
-// Shared by #view-dashboard and #view-up (upBankCard moved into its own tab, but is
-// still one of the collapsible cards this same toggle/remember-state logic covers).
+const DASHBOARD_COLLAPSIBLE_CARD_IDS = ['savingsDashboardCard', 'insightsCard'];
 function handleRecToggleClick(e){
   const toggle = e.target.closest('[data-rec-toggle]');
   if(!toggle) return;
@@ -2755,7 +2739,6 @@ function handleRecToggleClick(e){
   if(card.id) localStorage.setItem('dashCardOpen_' + card.id, willBeOpen ? '1' : '0');
 }
 document.getElementById('view-dashboard').addEventListener('click', handleRecToggleClick);
-document.getElementById('view-up').addEventListener('click', handleRecToggleClick);
 (function applyStoredDashboardCardState(){
   DASHBOARD_COLLAPSIBLE_CARD_IDS.forEach(id => {
     if(localStorage.getItem('dashCardOpen_' + id) !== '0') return;
@@ -4597,7 +4580,17 @@ viewPagerViewport.addEventListener('touchstart', (e) => {
   const activeView = document.querySelector('.side-icon.active')?.dataset.view;
   const idx = tabOrder.indexOf(activeView);
   if(idx === -1) return;
-  pagerDrag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, baseOffsetPx: -idx * window.innerWidth, axis: null, tabOrder, idx };
+  // Precompute each tab button's centered scroll position up front, so the strip can be
+  // repositioned by simple interpolation on every touchmove instead of recomputing layout
+  // mid-gesture (matches the Up app's tab tiles sliding along with the page drag).
+  const sidebar = document.querySelector('.sidebar');
+  const maxScroll = sidebar.scrollWidth - sidebar.clientWidth;
+  const tabCenters = tabOrder.map(v => {
+    const btn = document.querySelector(`.side-icon[data-view="${v}"]`);
+    if(!btn) return 0;
+    return Math.min(Math.max(0, btn.offsetLeft + btn.offsetWidth/2 - sidebar.clientWidth/2), Math.max(0, maxScroll));
+  });
+  pagerDrag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, baseOffsetPx: -idx * window.innerWidth, axis: null, tabOrder, idx, sidebar, tabCenters };
 }, {passive:true});
 viewPagerViewport.addEventListener('touchmove', (e) => {
   if(!pagerDrag) return;
@@ -4618,6 +4611,9 @@ viewPagerViewport.addEventListener('touchmove', (e) => {
   if(offset > 0) offset *= 0.35;
   else if(offset < minOffset) offset = minOffset + (offset - minOffset) * 0.35;
   viewPagerTrack.style.transform = `translateX(${offset}px)`;
+  const fIdx = Math.min(Math.max(0, pagerDrag.idx - dx / width), pagerDrag.tabOrder.length - 1);
+  const lowIdx = Math.floor(fIdx), highIdx = Math.ceil(fIdx), frac = fIdx - lowIdx;
+  pagerDrag.sidebar.scrollLeft = pagerDrag.tabCenters[lowIdx] + (pagerDrag.tabCenters[highIdx] - pagerDrag.tabCenters[lowIdx]) * frac;
 }, {passive:false});
 function endPagerDrag(e){
   if(!pagerDrag) return;
@@ -4650,18 +4646,17 @@ document.getElementById('insightTimeframeRow').addEventListener('click', (e) => 
 function isoDateStr(d){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-// "1 year"/"All time"/"Custom range"/"Since last pay"/"Between last 2 pays" live in the
-// collapsible #upTxMorePanel rather than the always-visible #upTxTimeframeRow, so
-// "active" has to be cleared across both containers together regardless of which one
-// was clicked, or two buttons (one per container) could end up marked active at once.
 function clearAllTimeframeActive(){
-  document.querySelectorAll('#upTxTimeframeRow .timeframe-btn, #upTxMorePanel .timeframe-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#upTxMorePanel .timeframe-btn').forEach(b => b.classList.remove('active'));
 }
-const HIDDEN_TIMEFRAME_TFS = ['12','all','custom','since_last_pay','between_last_2_pays'];
+// All timeframe options now live behind the calendar icon (see #upTxMorePanel) rather
+// than splitting "common" ones out into their own always-visible row - some button is
+// therefore always marked .active, so the icon's own highlight has to come from the
+// underlying state (is it the default view?) instead of "is anything active in there."
 function updateUpTxMoreToggleIndicator(){
   const toggle = document.getElementById('upTxMoreToggle');
-  const activeInPanel = document.querySelector('#upTxMorePanel .timeframe-btn.active');
-  toggle.classList.toggle('has-active-filter', !!activeInPanel);
+  const isDefault = upTxTimeframe === 'all' && !upPayCycleFilter;
+  toggle.classList.toggle('has-active-filter', !isDefault);
 }
 function handleTimeframeBtnClick(e){
   const btn = e.target.closest('.timeframe-btn');
@@ -4690,7 +4685,6 @@ function handleTimeframeBtnClick(e){
     fetchUpTransactionsFresh();
   }
 }
-document.getElementById('upTxTimeframeRow').addEventListener('click', handleTimeframeBtnClick);
 document.getElementById('upTxMorePanel').addEventListener('click', handleTimeframeBtnClick);
 document.getElementById('upTxMorePanel').addEventListener('click', (e) => {
   if(e.target.closest('.timeframe-btn')){
@@ -4702,7 +4696,6 @@ document.getElementById('upTxMoreToggle').addEventListener('click', () => {
   const open = document.getElementById('upTxMorePanel').classList.toggle('open');
   document.getElementById('upTxMoreToggle').classList.toggle('open', open);
 });
-updateUpTxMoreToggleIndicator();
 document.getElementById('upTxApplyRangeBtn').addEventListener('click', fetchUpTransactionsFresh);
 document.getElementById('dashTimeframeRow').addEventListener('click', (e) => {
   const btn = e.target.closest('.timeframe-btn');
@@ -4868,7 +4861,7 @@ function renderUpConnectState(){
   const disconnectBtn = document.getElementById('upDisconnectBtn');
   const tokenInput = document.getElementById('upTokenInput');
   const connectRow = document.getElementById('upConnectRow');
-  const changeBtn = document.getElementById('upChangeTokenBtn');
+  const statusRow = document.getElementById('upStatusRow');
   if(upToken){
     content.style.display = 'block';
     disconnectBtn.style.display = '';
@@ -4876,17 +4869,17 @@ function renderUpConnectState(){
     tokenInput.placeholder = 'Paste a new token to replace it';
     if(!upTokenRowExpanded){
       connectRow.style.display = 'none';
-      changeBtn.style.display = '';
+      statusRow.style.display = '';
     } else {
       connectRow.style.display = '';
-      changeBtn.style.display = 'none';
+      statusRow.style.display = 'none';
     }
   } else {
     content.style.display = 'none';
     disconnectBtn.style.display = 'none';
     tokenInput.placeholder = 'up:yeah:...';
     connectRow.style.display = '';
-    changeBtn.style.display = 'none';
+    statusRow.style.display = 'none';
   }
   updatePeriodToggleVisibility();
 }
@@ -5121,16 +5114,16 @@ function renderPayCycleRow(){
   const sinceBtn = document.getElementById('upPayCycleSinceBtn');
   const betweenBtn = document.getElementById('upPayCycleBetweenBtn');
   const chip = document.getElementById('upIncomeChip');
-  const emptyLbl = document.getElementById('upPayCycleEmptyLbl');
+  const chooseBtn = document.getElementById('upChooseIncomeBtn');
   if(upIncomeSourceKey){
     lbl.textContent = upIncomeSourceLabel;
     chip.style.display = '';
-    emptyLbl.style.display = 'none';
+    chooseBtn.style.display = 'none';
     sinceBtn.disabled = false;
     betweenBtn.disabled = false;
   } else {
     chip.style.display = 'none';
-    emptyLbl.style.display = '';
+    chooseBtn.style.display = '';
     sinceBtn.disabled = true;
     betweenBtn.disabled = true;
   }
@@ -5165,44 +5158,88 @@ function renderUpTxList(){
       });
     }
   }
-  document.getElementById('upTxList').innerHTML = filtered.map(t => {
-    const amt = parseFloat(t.attributes.amount.value);
-    const date = new Date(t.attributes.createdAt).toLocaleDateString('en-AU', {day:'numeric', month:'short'});
-    const held = t.attributes.status === 'HELD' ? ' (pending)' : '';
-    const assignment = txAssignments[t.id];
-    const transferAccountId = isInternalTransfer(t) ? (t.relationships.transferAccount.data.id || '') : '';
-    const transferAttr = transferAccountId ? ` data-tx-transfer-account="${escapeAttr(transferAccountId)}"` : '';
-    let assignBtn, showExclude = false;
-    if(assignment && assignment.excluded){
-      assignBtn = `<button class="up-tx-assign-btn excluded" data-tx-unexclude="${t.id}" data-tip="Excluded from budget categories. Click to undo.">Excluded</button>`;
-    } else if(assignment && assignment.catId){
-      // findCatById looks at the currently-open month, which may not be the month this
-      // transaction was actually assigned in (or the category could've since been
-      // deleted) - fall back to deriving from the saved category name in that case.
-      const assignedCat = findCatById(assignment.catId);
-      const catEmoji = assignedCat ? getCategoryEmoji(assignedCat) : categoryEmoji(assignment.categoryName);
-      assignBtn = `<button class="up-tx-assign-btn assigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="${escapeAttr(assignment.itemName)}">\u2713 ${catEmoji} <span class="up-tx-assign-btn-text">${escapeAttr(assignment.itemName)}</span></button>`;
-    } else {
-      const guess = findGuessForTx(t.attributes.description, amt, t);
-      if(guess){
-        assignBtn = `<button class="up-tx-assign-btn guess ${guess.reason==='amount_rough'?'rough':''}" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}"${transferAttr} data-tip="${escapeAttr(guess.itemName)}"><span class="up-tx-assign-btn-text">${escapeAttr(guess.itemName)}</span> ?</button>`;
-        showExclude = true;
-      } else {
-        assignBtn = `<button class="up-tx-assign-btn" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Assign to a budget line item">Assign</button>`;
-      }
-    }
-    const excludeBtn = showExclude ? `<button class="up-tx-exclude-btn" data-tx-exclude="${t.id}" data-tip="Exclude \u2014 don\u2019t count this toward any budget category">\u00d7</button>` : '';
-    const coverSource = findCoverSourceForTx(t);
-    const coverIcon = coverSource ? `<span class="up-tx-cover-icon" data-tip="Covered from &quot;${escapeAttr(coverSource)}&quot;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg></span>` : '';
-    const merchantKeyHere = extractMerchantKey(t.attributes.description, amt);
-    const isIncomeSource = upIncomeSourceKey && merchantKeyHere === upIncomeSourceKey;
-    const descClickable = amt > 0 ? ` data-tx-income-select="${t.id}"` : '';
-    const descTip = amt > 0 ? (isIncomeSource ? 'This is your set income source. Click to unset.' : `${t.attributes.description} \u2014 click to set as your income source`) : `${t.attributes.description}${held}`;
-    const noteHtml = t.attributes.message ? `<div class="up-tx-note" data-tip="${escapeAttr(t.attributes.message)}">${escapeAttr(t.attributes.message)}</div>` : '';
-    return `<div class="up-tx-row"><div class="up-tx-desc-chip${isIncomeSource?' is-income-source':''}"${descClickable} data-tip="${escapeAttr(descTip)}">${escapeAttr(t.attributes.description)}${held}</div>${assignBtn}${excludeBtn}${noteHtml}<div class="up-tx-date">${date}</div>${coverIcon}<div class="up-tx-amt ${amt<0?'neg':'pos'}">${amt<0?'-':'+'}${money(Math.abs(amt))}</div></div>`;
-  }).join('') || `<div class="pc-faint" style="padding:12px;">${upIncomeFilterActive ? 'No incoming (+) transactions in this range.' : term ? 'No transactions match your search.' : 'No recent transactions.'}</div>`;
+  document.getElementById('upTxList').innerHTML = filtered.length ? renderUpTxGroups(filtered)
+    : `<div class="pc-faint" style="padding:12px;">${upIncomeFilterActive ? 'No incoming (+) transactions in this range.' : term ? 'No transactions match your search.' : 'No recent transactions.'}</div>`;
   const loadMoreBtn = document.getElementById('upLoadMoreBtn');
   loadMoreBtn.style.display = (!term && upTxNextUrl) ? '' : 'none';
+}
+// Small status button covering all four assignment states (excluded/assigned/guessed/
+// unassigned) - carries whichever data-tx-* attributes the existing delegated click
+// handler on #upTxList already knows how to act on, so this is purely a presentation
+// change, not a behaviour one.
+function buildUpTxStatusHtml(t, amt, transferAttr){
+  const assignment = txAssignments[t.id];
+  if(assignment && assignment.excluded){
+    return `<button class="up-tx-status excluded" data-tx-unexclude="${t.id}" data-tip="Excluded from budget categories \u2014 tap to undo">\u2013</button>`;
+  }
+  if(assignment && assignment.catId){
+    return `<button class="up-tx-status assigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Categorised as \u201c${escapeAttr(assignment.itemName)}\u201d \u2014 tap to change">\u2713</button>`;
+  }
+  const guess = findGuessForTx(t.attributes.description, amt, t);
+  if(guess){
+    return `<button class="up-tx-status guess" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}"${transferAttr} data-tip="Guessing \u201c${escapeAttr(guess.itemName)}\u201d \u2014 tap to confirm">?</button><button class="up-tx-exclude-btn" data-tx-exclude="${t.id}" data-tip="Exclude \u2014 don\u2019t count this toward any budget category">\u00d7</button>`;
+  }
+  return `<button class="up-tx-status unassigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Not categorised \u2014 tap to assign">+</button>`;
+}
+function buildUpTxRowHtml(t){
+  const amt = parseFloat(t.attributes.amount.value);
+  const date = new Date(t.attributes.createdAt).toLocaleDateString('en-AU', {day:'numeric', month:'short'});
+  const held = t.attributes.status === 'HELD' ? ' (pending)' : '';
+  const transferAccountId = isInternalTransfer(t) ? (t.relationships.transferAccount.data.id || '') : '';
+  const transferAttr = transferAccountId ? ` data-tx-transfer-account="${escapeAttr(transferAccountId)}"` : '';
+  const statusHtml = buildUpTxStatusHtml(t, amt, transferAttr);
+  const coverSource = findCoverSourceForTx(t);
+  const coverIcon = coverSource ? `<span class="up-tx-cover-icon" data-tip="Covered from &quot;${escapeAttr(coverSource)}&quot;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg></span>` : '';
+  const merchantKeyHere = extractMerchantKey(t.attributes.description, amt);
+  const isIncomeSource = upIncomeSourceKey && merchantKeyHere === upIncomeSourceKey;
+  const descClickable = amt > 0 ? ` data-tx-income-select="${t.id}"` : '';
+  const descTip = amt > 0 ? (isIncomeSource ? 'This is your set income source \u2014 tap to unset' : 'Tap to set as your income source') : '';
+  // Up's own transaction message is read-only bank data (e.g. a note the sender attached
+  // to a payment) - this app has no way to write one back, so tapping a row just shows
+  // whatever's already there rather than opening an editor.
+  const noteText = t.attributes.message || '';
+  const noteDot = noteText ? `<span class="up-tx-note-dot" data-tip="Has a note \u2014 tap the row to view it">\u25cf</span>` : '';
+  return `<div class="up-tx-row2${isIncomeSource?' is-income-source':''}" data-tx-note="${escapeAttr(noteText)}">
+    ${statusHtml}
+    <div class="up-tx-row2-main"${descClickable}${descTip?` data-tip="${escapeAttr(descTip)}"`:''}>
+      <div class="up-tx-row2-name">${escapeAttr(t.attributes.description)}${held}${noteDot}${coverIcon}</div>
+      <div class="up-tx-row2-date">${date}</div>
+    </div>
+    <div class="up-tx-row2-amt ${amt<0?'neg':'pos'}">${amt<0?'\u2212':'+'}${money(Math.abs(amt))}</div>
+  </div>`;
+}
+// Groups transactions the way the Up app itself does: a month banner (with that month's
+// total spend) over one date banner per day, over the transactions from that day - not
+// just a flat list.
+function renderUpTxGroups(list){
+  const months = [];
+  let curMonthKey = null, curMonth = null, curDateKey = null, curDateGroup = null;
+  list.forEach(t => {
+    const d = new Date(t.attributes.createdAt);
+    const monthKey = d.getFullYear() + '-' + d.getMonth();
+    const dateKey = d.toDateString();
+    if(monthKey !== curMonthKey){
+      curMonthKey = monthKey;
+      curMonth = { label: d.toLocaleDateString('en-AU', {month:'long', year:'numeric'}), total: 0, dates: [] };
+      months.push(curMonth);
+      curDateKey = null;
+    }
+    if(dateKey !== curDateKey){
+      curDateKey = dateKey;
+      curDateGroup = { label: d.toLocaleDateString('en-AU', {weekday:'short', day:'numeric', month:'short'}).toUpperCase(), txs: [] };
+      curMonth.dates.push(curDateGroup);
+    }
+    curDateGroup.txs.push(t);
+    const amt = parseFloat(t.attributes.amount.value);
+    if(amt < 0) curMonth.total += Math.abs(amt);
+  });
+  return months.map(m => `
+    <div class="up-tx-month-hdr"><span>${escapeAttr(m.label)}</span><span>${money(m.total)}</span></div>
+    ${m.dates.map(dg => `
+      <div class="up-tx-date-hdr">${escapeAttr(dg.label)}</div>
+      ${dg.txs.map(buildUpTxRowHtml).join('')}
+    `).join('')}
+  `).join('');
 }
 async function loadMoreUpTransactions(){
   if(!upTxNextUrl) return;
@@ -5845,8 +5882,19 @@ document.getElementById('upTxList').addEventListener('click', (e) => {
     return;
   }
   const btn = e.target.closest('[data-tx-assign]');
-  if(!btn) return;
-  openTxAssignModal(btn.dataset.txAssign, btn.dataset.txAmt, btn.dataset.txDesc, btn.dataset.txDate, btn.dataset.txTransferAccount);
+  if(btn){
+    openTxAssignModal(btn.dataset.txAssign, btn.dataset.txAmt, btn.dataset.txDesc, btn.dataset.txDate, btn.dataset.txTransferAccount);
+    return;
+  }
+  // Fallback: tapping anywhere else on a row (not a status/assign control) just shows
+  // its note, if it has one. Up's transaction message is read-only bank data, so this
+  // is view-only - there's nothing here to edit or write back.
+  const noteRow = e.target.closest('.up-tx-row2[data-tx-note]');
+  if(noteRow && noteRow.dataset.txNote){
+    const r = noteRow.getBoundingClientRect();
+    showFloatTooltip(noteRow.dataset.txNote, r.left + 12, r.bottom - 8, true);
+    setTimeout(hideFloatTooltip, 2200);
+  }
 });
 let upCategoriesCache = {};
 async function fetchUpCategories(){
@@ -6128,7 +6176,7 @@ document.body.addEventListener('click', (e) => {
   const infoBtn = e.target.closest('.tpl-info-btn');
   if(infoBtn){ e.stopPropagation(); showInfoBtnTooltip(infoBtn); }
 });
-document.addEventListener('click', (e) => { if(!e.target.closest('[data-donut-slice], .tpl-info-btn')) hideFloatTooltip(); });
+document.addEventListener('click', (e) => { if(!e.target.closest('[data-donut-slice], .tpl-info-btn, .up-tx-row2')) hideFloatTooltip(); });
 // Press-and-hold on truncated names: mobile long-press normally triggers native text
 // selection/highlight (or, on an <input>, the OS's selection loupe) rather than showing
 // the full text, which is what's actually wanted when a name is cut off. touchstart's
@@ -6185,7 +6233,7 @@ function bindLongPressReveal(container, selector, getText, opts={}){
   });
 }
 bindLongPressReveal(document.body, '.name-input, .sh-name-input', el => el.value, {preventEdit:true});
-bindLongPressReveal(document.body, '.up-tx-desc-chip, .tx-view-row-desc, .mover-name', el => el.textContent);
+bindLongPressReveal(document.body, '.up-tx-row2-name, .tx-view-row-desc, .mover-name', el => el.textContent);
 document.getElementById('insightGrid').addEventListener('mouseover', (e) => {
   const el = e.target.closest('[data-donut-slice]');
   if(!el) return;
@@ -6897,6 +6945,11 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   // just decide what to exclude) - re-render now that it definitely does, using whatever
   // refreshUpData() already fetched rather than a new network round-trip.
   if(upTransactions.length) renderUpTxList();
+  // Same idea as the Up transaction preload above: the pager keeps every tab's view
+  // permanently in the DOM (just positioned off-screen), so unless Dashboard is rendered
+  // ahead of time, the first swipe into it shows blank/stale content that then pops in
+  // once renderDashboard()/renderInsights() finish - the jitter this was fixing.
+  renderDashboard(); renderInsights();
   renderTechRows();
   document.getElementById('groceryEatOut').value = grocery.eatOut || 0;
   renderGroceryRows(); updateGroceryTotal();
