@@ -2679,15 +2679,13 @@ function renderFeatureToggle(feature){
   const cardEl = document.getElementById(FEATURE_CARD_IDS[feature]);
   if(cardEl) cardEl.style.display = featureFlags[feature] ? '' : 'none';
 }
-async function onFeatureToggleClick(btn){
-  const feature = btn.dataset.feature;
-  const newVal = !featureFlags[feature];
-  const ok = await customConfirm(newVal
-    ? 'Turn this feature back on? Your existing data is still there.'
-    : 'Turn this feature off? Your data stays saved — you can turn it back on any time.');
-  if(!ok) return;
+// Applies a feature flag change to the CURRENTLY LOADED session's live UI - shared by the
+// self-toggle switches (Account settings etc, always your own account) and the admin
+// Users-tab switches when an admin happens to toggle their own row. Anyone else's account
+// only picks the change up on its own next load, same as it always has - there's no live
+// cross-session push, this is purely about not leaving the account driving THIS page stale.
+function applyLiveFeatureFlagChange(feature, newVal){
   featureFlags[feature] = newVal;
-  try{ await db.saveSettings({ [FEATURE_COLUMNS[feature]]: newVal }); }catch(e){}
   renderFeatureToggle(feature);
   if(FEATURE_NAV_VIEWS[feature]){
     // A nav tab's button just appeared/disappeared - every later tab's pager position
@@ -2704,6 +2702,16 @@ async function onFeatureToggleClick(btn){
   renderGroups();
   updateSummary();
   renderTemplateEditor();
+}
+async function onFeatureToggleClick(btn){
+  const feature = btn.dataset.feature;
+  const newVal = !featureFlags[feature];
+  const ok = await customConfirm(newVal
+    ? 'Turn this feature back on? Your existing data is still there.'
+    : 'Turn this feature off? Your data stays saved — you can turn it back on any time.');
+  if(!ok) return;
+  try{ await db.saveSettings({ [FEATURE_COLUMNS[feature]]: newVal }); }catch(e){}
+  applyLiveFeatureFlagChange(feature, newVal);
   toast(newVal ? 'Feature turned back on' : 'Feature turned off — your data is safe');
 }
 // Admin-only Users tab. Reads/writes go through the security definer RPCs (db.adminListUsers/
@@ -2773,6 +2781,15 @@ document.getElementById('adminUsersList').addEventListener('click', async (e) =>
       if(flag === 'is_admin') await db.adminSetIsAdmin(targetUserId, newVal);
       else await db.adminSetFeature(targetUserId, flag, newVal);
       sw.classList.toggle('on', newVal);
+      // Toggling your own row here writes straight to the DB, same as anyone else's -
+      // which normally only takes effect on that account's next load. But "your own row"
+      // also means "the account currently driving this very page," so mirror the change
+      // into the live UI too rather than leaving the tab sitting there looking unchanged
+      // until a reload.
+      if(targetUserId === authUserId && flag !== 'is_admin'){
+        const featureKey = Object.keys(FEATURE_COLUMNS).find(k => FEATURE_COLUMNS[k] === flag);
+        if(featureKey) applyLiveFeatureFlagChange(featureKey, newVal);
+      }
     }catch(err){
       toast(err.message || 'Failed to update — you may not have permission.');
     }finally{
