@@ -42,11 +42,12 @@ create table if not exists public.user_settings (
 );
 
 create table if not exists public.month_template (
-  user_id     uuid primary key references auth.users(id) on delete cascade default auth.uid(),
-  income      jsonb not null default '[]'::jsonb,
-  categories  jsonb not null default '[]'::jsonb,
-  goal        numeric not null default 0,
-  updated_at  timestamptz not null default now()
+  user_id      uuid primary key references auth.users(id) on delete cascade default auth.uid(),
+  income       jsonb not null default '[]'::jsonb,
+  categories   jsonb not null default '[]'::jsonb,
+  goal         numeric not null default 0,
+  income_emoji text,  -- one emoji for the Income section header (like a category's own emoji) - see index.html's saveTemplateIncomeEmoji()
+  updated_at   timestamptz not null default now()
 );
 
 create table if not exists public.ballet (
@@ -75,13 +76,14 @@ create table if not exists public.grocery_settings (
 -- form for a single month, never queried piecemeal.
 
 create table if not exists public.months (
-  user_id     uuid references auth.users(id) on delete cascade default auth.uid(),
-  month_key   text not null,
-  income      jsonb not null default '[]'::jsonb,
-  categories  jsonb not null default '[]'::jsonb,
-  notes       text not null default '',
-  goal        numeric not null default 0,
-  updated_at  timestamptz not null default now(),
+  user_id      uuid references auth.users(id) on delete cascade default auth.uid(),
+  month_key    text not null,
+  income       jsonb not null default '[]'::jsonb,
+  categories   jsonb not null default '[]'::jsonb,
+  notes        text not null default '',
+  goal         numeric not null default 0,
+  income_emoji text,  -- one emoji for the Income section header (like a category's own emoji) - see index.html's saveMonthIncomeEmoji()
+  updated_at   timestamptz not null default now(),
   primary key (user_id, month_key)
 );
 

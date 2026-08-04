@@ -357,14 +357,22 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .balance-bar-lbl{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin-bottom:2px;}
 .balance-bar-amt{font-size:1.5rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums;}
 .balance-bar-sub{font-size:.74rem; color:var(--ink-faint); margin-top:2px;}
-.balance-bar-right{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+.balance-bar-right{display:flex; align-items:center; gap:12px; flex-wrap:wrap; position:relative;}
 .month-actions-panel{display:flex; align-items:center; flex-wrap:wrap; gap:10px; max-width:0; max-height:0; opacity:0; overflow:hidden; padding-left:8px; transition:max-width .32s ease, max-height .32s ease, opacity .22s ease;}
 .month-actions-panel.open{max-width:900px; max-height:300px; opacity:1;}
+/* #monthActionsPanel (budget tab) floats out of flow entirely, right-anchored to the
+   gear button it shares a row with - growing this way can never reflow/displace the
+   gear, unlike growing in normal flow (the previous approach), which shared a flex row
+   with the gear and dragged it along mid-animation. #upTxMorePanel (Up Bank tab) stays
+   in normal flow as its own full-width block below its own timeframe row instead (see
+   its override further down) - hence scoped to the ID here, not the shared class. */
+#monthActionsPanel{position:absolute; top:50%; right:calc(100% + 8px); left:auto; transform:translateY(-50%); flex-wrap:nowrap; padding-left:0; pointer-events:none; z-index:5;}
+#monthActionsPanel.open{pointer-events:auto;}
 /* The chips themselves fan out with a slight stagger once the container has room,
    rather than just riding along with the container's own width/opacity reveal - closing
    is left as a single quick fade (no stagger) since a reverse-fan on the way out reads as
    sluggish rather than tidy. */
-.month-actions-panel .chip-btn{opacity:0; transform:translateX(-10px); transition:opacity .22s ease, transform .22s ease;}
+.month-actions-panel .chip-btn{opacity:0; transform:translateX(10px); transition:opacity .22s ease, transform .22s ease; white-space:nowrap;}
 .month-actions-panel.open .chip-btn{opacity:1; transform:translateX(0);}
 .month-actions-panel.open .chip-btn:nth-child(1){transition-delay:.05s;}
 .month-actions-panel.open .chip-btn:nth-child(2){transition-delay:.1s;}
@@ -380,8 +388,8 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .ledger-top-toggle-row{display:flex; margin-bottom:14px;}
 .month-actions-gear{flex-shrink:0;}
 .up-refresh-btn{flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;}
-.month-actions-gear .btn-ic{display:inline-flex; transition:transform .3s ease;}
-.month-actions-gear.open .btn-ic{transform:rotate(75deg);}
+.month-actions-gear .btn-ic{display:inline-flex; transition:transform .4s ease;}
+.month-actions-gear.open .btn-ic{transform:rotate(180deg);}
 .month-actions-gear.has-active-filter{border-color:var(--gold); color:var(--gold);}
 .chip-btn{position:relative; display:inline-flex; align-items:center; border:none; border-radius:999px; padding:7px 14px 7px 20px; margin-left:8px; font-family:'Inter',sans-serif; font-size:.8rem; font-weight:500; cursor:pointer; flex-shrink:0;}
 .chip-ic{position:absolute; left:-8px; top:50%; transform:translateY(-50%); width:26px; height:26px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; border:2px solid var(--surface);}
@@ -1003,7 +1011,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         </div>
 
         <div class="income-card" id="incomeCard">
-          <div class="income-hdr" data-income-toggle><span class="chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span><span class="sh-static">Income</span><span class="section-hdr-total" id="incomeTotalDisplay"></span></div>
+          <div class="income-hdr" data-income-toggle><span class="chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span><span id="incomeHdrEmoji" class="cat-emoji" data-income-emoji-picker="income" title="Change emoji">💵</span><span class="sh-static">Income</span><span class="section-hdr-total" id="incomeTotalDisplay"></span></div>
           <div class="income-body"><div class="income-body-inner">
             <div id="incomeRows"></div>
             <div class="add-line-row"><button class="add-line-btn" data-add="income">+ add income line</button></div>
@@ -1037,7 +1045,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
       </div>
       <div id="templateCard">
         <div class="template-income-card">
-          <div class="income-hdr"><span class="sh-static">Income</span><span class="section-hdr-total" id="tplIncomeTotal"></span></div>
+          <div class="income-hdr"><span id="tplIncomeHdrEmoji" class="cat-emoji" data-tpl-income-emoji-picker="income" title="Change emoji">💵</span><span class="sh-static">Income</span><span class="section-hdr-total" id="tplIncomeTotal"></span></div>
           <div id="tplIncomeRows"></div>
           <div class="add-line-row"><button class="add-line-btn" data-tpl-add="income">+ add income line</button></div>
         </div>
@@ -1489,6 +1497,16 @@ const db = {
     const { error } = await sb.from('months').upsert({ user_id: authUserId, month_key: key, income: monthData.income, categories: monthData.categories, notes: monthData.notes, goal: monthData.goal }, { onConflict: 'user_id,month_key' });
     if(error) throw error;
   },
+  // Deliberately separate from saveMonth() above: income_emoji is a new column that may
+  // not exist yet (see schema.sql). Bundling it into every routine saveMonth() upsert
+  // would mean Supabase rejects the WHOLE row - amounts, names, everything - on an
+  // unrecognized column until the migration runs, not just this one field. Keeping it as
+  // its own narrow upsert means an unmigrated database only loses this one feature
+  // (caught and swallowed by saveIncomeEmoji() below), not every edit in the app.
+  async saveMonthIncomeEmoji(key, emoji){
+    const { error } = await sb.from('months').upsert({ user_id: authUserId, month_key: key, income_emoji: emoji }, { onConflict: 'user_id,month_key' });
+    if(error) throw error;
+  },
   async listMonthKeys(){
     const { data, error } = await sb.from('months').select('month_key').eq('user_id', authUserId);
     if(error) throw error;
@@ -1501,6 +1519,12 @@ const db = {
   },
   async saveMonthTemplate(tpl){
     const { error } = await sb.from('month_template').upsert({ user_id: authUserId, income: tpl.income, categories: tpl.categories, goal: tpl.goal }, { onConflict: 'user_id' });
+    if(error) throw error;
+  },
+  // See saveMonthIncomeEmoji's comment above - kept separate from saveMonthTemplate so an
+  // unmigrated database only loses this one feature, not every template edit.
+  async saveTemplateIncomeEmoji(emoji){
+    const { error } = await sb.from('month_template').upsert({ user_id: authUserId, income_emoji: emoji }, { onConflict: 'user_id' });
     if(error) throw error;
   },
   async loadBallet(){
@@ -1968,7 +1992,7 @@ function duplicateMonth(src){
   return {
     income: src.income.map(i => ({id:uid(), name:i.name, amount:i.amount, charged:false})),
     categories: src.categories.map(c => ({id:uid(), name:c.name, ...(c.emoji!=null?{emoji:c.emoji}:{}), items:c.items.map(i=>({id:uid(), name:i.name, amount:i.amount, planned:i.amount, charged:false}))})),
-    notes:'', goal: Number(src.goal)||0
+    notes:'', goal: Number(src.goal)||0, ...(src.incomeEmoji!=null?{incomeEmoji:src.incomeEmoji}:{})
   };
 }
 function monthTotals(m){
@@ -2013,13 +2037,15 @@ async function saveCurrentMonth(){
   }catch(e){ setSyncStatus('Save failed', true); }
 }
 function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(saveCurrentMonth, 500); }
+async function saveMonthIncomeEmoji(){ if(!monthData) return; try{ await db.saveMonthIncomeEmoji(settings.currentMonth, monthData.incomeEmoji); }catch(e){} }
+async function saveTemplateIncomeEmoji(){ if(!monthTemplate) return; try{ await db.saveTemplateIncomeEmoji(monthTemplate.incomeEmoji); }catch(e){} }
 async function saveTech(){ try{ await db.saveTechItems(techItems); }catch(e){} }
 async function saveGrocery(){ try{ await db.saveGrocery(grocery); }catch(e){} }
 async function saveBallet(){ try{ await db.saveBallet(ballet); }catch(e){} }
 async function saveMtg(){ try{ await db.saveMtg(mtg); }catch(e){} }
 
 function monthRowToData(row){
-  return row ? withIds({ income: row.income, categories: row.categories, notes: row.notes, goal: Number(row.goal)||0 }) : null;
+  return row ? withIds({ income: row.income, categories: row.categories, notes: row.notes, goal: Number(row.goal)||0, ...(row.income_emoji!=null?{incomeEmoji:row.income_emoji}:{}) }) : null;
 }
 async function loadMonth(key){
   try{ const row = await db.loadMonth(key); return monthRowToData(row); }catch(e){ return null; }
@@ -2111,7 +2137,7 @@ async function loadEverything(){
   ballet = balletRow ? { cost: Number(balletRow.cost)||0, dateCharged: balletRow.date_charged || '', balance: Number(balletRow.balance)||0 } : {cost:0, dateCharged:'', balance:0};
   mtg = mtgRes || {rows:[]};
   monthlyCosts = { items: (monthlyCostItems && monthlyCostItems.length) ? monthlyCostItems : [{id:uid('mc'), name:'Public Transport', cost:20}] };
-  monthTemplate = templateRow ? { income: templateRow.income, categories: templateRow.categories, goal: Number(templateRow.goal)||0 } : null;
+  monthTemplate = templateRow ? { income: templateRow.income, categories: templateRow.categories, goal: Number(templateRow.goal)||0, ...(templateRow.income_emoji!=null?{incomeEmoji:templateRow.income_emoji}:{}) } : null;
   txAssignments = txAssignmentsRes || {};
   txRules = txRulesRes || {};
   transferRules = transferRulesRes || {};
@@ -2205,13 +2231,13 @@ function toggleItemCharged(catId, itemId, row){
   updateSummary();
 }
 function renderIncome(){
+  updateIncomeEmojiSpan(document.getElementById('incomeHdrEmoji'), monthData);
   document.getElementById('incomeRows').innerHTML = monthData.income.map(i => {
     const charged = !!i.charged;
     const linkedTxCount = getTxsForItem('income', i.id).length;
     const txPanelOpen = expandedTxPanels.has(`income:${i.id}`);
     const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}" data-tx-view-item="${i.id}" data-tx-view-cat="income" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg></button>` : '';
     return `<div class="lrow ${charged?'charged':''}" data-item-row="${i.id}" data-cat="income" data-item="${i.id}">
-      ${incomeEmojiHtml(i, 'data-income-emoji-picker')}
       <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. salary" value="${escapeAttr(i.name)}" data-cat="income" data-item="${i.id}" data-field="name"></div>
       ${txBadge}
       <div class="amt-wrap plain"><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${i.amount||''}" data-cat="income" data-item="${i.id}" data-field="amount"></div>
@@ -2488,8 +2514,13 @@ function updateNameTooltip(wrapper, input){
   else wrapper.removeAttribute('data-tip');
 }
 function updateAllNameTooltips(){
+  // Income rows' name-input already sits inside a .leaf-name wrapper (matched by the line
+  // below) - a second, income-specific pass used to also stamp data-tip onto the outer
+  // .lrow, giving each income row two independent [data-tip]::before hosts. On mobile a
+  // long-press's sustained contact can trigger :hover on both at once, showing this
+  // native hover tooltip (positioned below) layered underneath the long-press gesture's
+  // own floating tooltip (positioned above) - the "note both above and below" bug.
   document.querySelectorAll('.leaf-name').forEach(w => updateNameTooltip(w, w.querySelector('.name-input')));
-  document.querySelectorAll('#incomeRows .lrow').forEach(w => updateNameTooltip(w, w.querySelector('.name-input')));
   document.querySelectorAll('.grow-name').forEach(w => updateNameTooltip(w, w.querySelector('.sh-name-input')));
 }
 let overflowResizeTimer = null;
@@ -3009,20 +3040,19 @@ function updateCatEmojiSpan(span, cat){
   span.textContent = val || '+';
   span.classList.toggle('cat-emoji-empty', !val);
 }
-// Income has no name-derived auto-match like categories do (categoryEmoji) - it defaults
-// to a plain money emoji until the user picks their own, still distinguishing "never
-// touched" (undefined) from "explicitly chose no emoji" ('').
-function getIncomeEmoji(inc){
-  if(!inc) return '';
-  return inc.emoji != null ? inc.emoji : '💵';
+// One emoji for the whole Income section header (like a category's own emoji), not per
+// line item - container is monthData or monthTemplate, whichever owns the header being
+// rendered. No name-derived auto-match like categories get (categoryEmoji) since
+// "Income" is a fixed label, not a user-chosen name - defaults to a plain money emoji
+// until explicitly changed, still distinguishing "never touched" (undefined) from
+// "explicitly chose no emoji" ('').
+function getIncomeEmoji(container){
+  if(!container) return '';
+  return container.incomeEmoji != null ? container.incomeEmoji : '💵';
 }
-function incomeEmojiHtml(inc, pickerAttr){
-  const val = getIncomeEmoji(inc);
-  return `<span class="cat-emoji${val?'':' cat-emoji-empty'}" ${pickerAttr}="${inc.id}" title="Change emoji">${val || '+'}</span>`;
-}
-function updateIncomeEmojiSpan(span, inc){
+function updateIncomeEmojiSpan(span, container){
   if(!span) return;
-  const val = getIncomeEmoji(inc);
+  const val = getIncomeEmoji(container);
   span.textContent = val || '+';
   span.classList.toggle('cat-emoji-empty', !val);
 }
@@ -3135,15 +3165,15 @@ function repositionCatEmojiPicker(panel, anchorEl){
   panel.style.top = top + 'px';
   panel.style.left = Math.max(8, left) + 'px';
 }
-// kind identifies both which list an id belongs to and which trigger attribute anchors
-// the picker back to its span: 'cat'/'tplCat' for categories (month/template), 'income'/
-// 'tplIncome' for income line items (month/template).
+// kind identifies which trigger attribute anchors the picker back to its span, and how
+// to resolve what it's changing the emoji of: 'cat'/'tplCat' look an id up in a list
+// (month/template categories); 'income'/'tplIncome' have only one instance each (the
+// Income section header, not a per-item list) and set incomeEmoji directly on
+// monthData/monthTemplate instead.
 const EMOJI_PICKER_TRIGGER_ATTR = {cat:'data-cat-emoji-picker', tplCat:'data-tpl-emoji-picker', income:'data-income-emoji-picker', tplIncome:'data-tpl-income-emoji-picker'};
 function emojiPickerListFor(kind){
   if(kind === 'cat') return monthData?.categories;
   if(kind === 'tplCat') return monthTemplate?.categories;
-  if(kind === 'income') return monthData?.income;
-  if(kind === 'tplIncome') return monthTemplate?.income;
   return null;
 }
 function openCatEmojiPicker(anchorEl, id, kind){
@@ -3187,18 +3217,23 @@ document.addEventListener('click', (e) => {
     const panel = choiceBtn.closest('#catEmojiPicker');
     const id = panel.dataset.catId;
     const kind = panel.dataset.kind;
-    const list = emojiPickerListFor(kind);
-    const obj = list && list.find(x => x.id === id);
-    if(obj){
-      obj.emoji = choiceBtn.dataset.emojiChoice;
-      if(kind === 'cat' || kind === 'tplCat'){
+    if(kind === 'income' || kind === 'tplIncome'){
+      const container = kind === 'tplIncome' ? monthTemplate : monthData;
+      if(container){
+        container.incomeEmoji = choiceBtn.dataset.emojiChoice;
+        const emojiEl = document.querySelector(`[${EMOJI_PICKER_TRIGGER_ATTR[kind]}="${id}"]`);
+        updateIncomeEmojiSpan(emojiEl, container);
+        if(kind === 'tplIncome') saveTemplateIncomeEmoji(); else saveMonthIncomeEmoji();
+      }
+    } else {
+      const list = emojiPickerListFor(kind);
+      const obj = list && list.find(x => x.id === id);
+      if(obj){
+        obj.emoji = choiceBtn.dataset.emojiChoice;
         const wrapper = document.querySelector(kind==='tplCat' ? `[data-tpl-group="${id}"] .grow-name` : `[data-group="${id}"] .grow-name`);
         updateCatEmojiSpan(wrapper && wrapper.querySelector('.cat-emoji'), obj);
-      } else {
-        const emojiEl = document.querySelector(`[${EMOJI_PICKER_TRIGGER_ATTR[kind]}="${id}"]`);
-        updateIncomeEmojiSpan(emojiEl, obj);
+        if(kind === 'tplCat') scheduleTemplateSave(); else scheduleSave();
       }
-      if(kind === 'tplCat' || kind === 'tplIncome') scheduleTemplateSave(); else scheduleSave();
     }
     closeCatEmojiPicker();
     return;
@@ -3332,7 +3367,7 @@ function buildFromTemplate(){
   return {
     income: monthTemplate.income.map(i => ({id:uid(), name:i.name, amount:i.amount, charged:false})),
     categories: monthTemplate.categories.map(c => ({id:uid(), name:c.name, col:c.col, ...(c.emoji!=null?{emoji:c.emoji}:{}), items:c.items.map(i=>({id:uid(), name:i.name, amount:i.amount, planned:i.amount, charged:false}))})),
-    notes:'', goal: Number(monthTemplate.goal)||0
+    notes:'', goal: Number(monthTemplate.goal)||0, ...(monthTemplate.incomeEmoji!=null?{incomeEmoji:monthTemplate.incomeEmoji}:{})
   };
 }
 function showEmptyState(){
@@ -3351,9 +3386,9 @@ function showEmptyState(){
   </div>`;
   document.getElementById('startBlankBtn').onclick = () => { monthData = blankMonth(); finishLoadMonth(); };
   const dup = document.getElementById('duplicateBtn');
-  if(dup) dup.onclick = async () => { const src = await loadMonth(prevKey); monthData = duplicateMonth(src); finishLoadMonth(); };
+  if(dup) dup.onclick = async () => { const src = await loadMonth(prevKey); monthData = duplicateMonth(src); finishLoadMonth(); saveMonthIncomeEmoji(); };
   const useTpl = document.getElementById('useTemplateBtn');
-  if(useTpl) useTpl.onclick = () => { monthData = buildFromTemplate(); finishLoadMonth(); };
+  if(useTpl) useTpl.onclick = () => { monthData = buildFromTemplate(); finishLoadMonth(); saveMonthIncomeEmoji(); };
 }
 async function finishLoadMonth(){
   document.getElementById('monthEmptyState').style.display='none';
@@ -3425,7 +3460,6 @@ function scheduleTemplateSave(){
 }
 function tplIncomeRowHtml(item){
   return `<div class="lrow" data-tpl-item-row="${item.id}">
-    ${incomeEmojiHtml(item, 'data-tpl-income-emoji-picker')}
     <input class="name-input" type="text" placeholder="e.g. salary" value="${escapeAttr(item.name)}" data-tpl-cat="income" data-tpl-item="${item.id}" data-tpl-field="name">
     <div class="amt-wrap plain"><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-tpl-cat="income" data-tpl-item="${item.id}" data-tpl-field="amount"></div>
     <div class="del-cell"><button data-tpl-cat="income" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
@@ -3466,6 +3500,7 @@ function ensureTplCategoryColumns(){
 function renderTemplateEditor(){
   ensureTemplateIds();
   ensureTplCategoryColumns();
+  updateIncomeEmojiSpan(document.getElementById('tplIncomeHdrEmoji'), monthTemplate);
   const incTotal = monthTemplate.income.reduce((s,i)=>s+(Number(i.amount)||0),0);
   document.getElementById('tplIncomeTotal').textContent = money(incTotal);
   document.getElementById('tplIncomeRows').innerHTML = monthTemplate.income.map(tplIncomeRowHtml).join('');
@@ -4272,7 +4307,7 @@ document.getElementById('view-ledger').addEventListener('click', async (e) => {
     return;
   }
   const incomeToggle = e.target.closest('[data-income-toggle]');
-  if(incomeToggle){
+  if(incomeToggle && !e.target.closest('.cat-emoji')){
     document.getElementById('incomeCard').classList.toggle('collapsed');
     return;
   }
@@ -4307,7 +4342,7 @@ document.getElementById('restoreFromTemplateBtn').addEventListener('click', asyn
   if(!ok) return;
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
   monthData = buildFromTemplate();
-  renderLedger(); updateSummary(); scheduleSave();
+  renderLedger(); updateSummary(); scheduleSave(); saveMonthIncomeEmoji();
   toast('Month restored from template');
 });
 document.getElementById('clearMonthBtn').addEventListener('click', async () => {
@@ -4325,10 +4360,11 @@ document.getElementById('useAsTemplateBtn').addEventListener('click', async () =
   monthTemplate = {
     income: monthData.income.map(i => ({id:uid(), name:i.name, amount:i.amount})),
     categories: monthData.categories.map(c => ({id:uid(), name:c.name, ...(c.emoji!=null?{emoji:c.emoji}:{}), items:c.items.map(i=>({id:uid(), name:i.name, amount:i.amount}))})),
-    goal: Number(monthData.goal)||0
+    goal: Number(monthData.goal)||0, ...(monthData.incomeEmoji!=null?{incomeEmoji:monthData.incomeEmoji}:{})
   };
   try{
     await db.saveMonthTemplate(monthTemplate);
+    saveTemplateIncomeEmoji();
     updateTechTotal();
     updateGroceryTotal();
     renderBalletCalc();
