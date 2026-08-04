@@ -354,32 +354,15 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .balance-bar-amt{font-size:1.5rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums;}
 .balance-bar-sub{font-size:.74rem; color:var(--ink-faint); margin-top:2px;}
 .balance-bar-right{display:flex; align-items:center; gap:12px; flex-wrap:wrap; position:relative;}
-.month-actions-panel{display:flex; align-items:center; flex-wrap:wrap; gap:10px; max-width:0; max-height:0; opacity:0; overflow:hidden; padding-left:8px; transition:max-width .32s ease, max-height .32s ease, opacity .22s ease;}
-.month-actions-panel.open{max-width:900px; max-height:300px; opacity:1;}
-/* #monthActionsPanel (budget tab) floats out of flow entirely, right-anchored to the
-   gear button it shares a row with - growing this way can never reflow/displace the
-   gear, unlike growing in normal flow (the previous approach), which shared a flex row
-   with the gear and dragged it along mid-animation. #upTxMorePanel (Up Bank tab) stays
-   in normal flow as its own full-width block below its own timeframe row instead (see
-   its override further down) - hence scoped to the ID here, not the shared class. */
-#monthActionsPanel{position:absolute; top:50%; right:calc(100% + 8px); left:auto; transform:translateY(-50%); flex-wrap:nowrap; padding-left:0; pointer-events:none; z-index:5;}
-#monthActionsPanel.open{pointer-events:auto;}
-/* The chips themselves fan out with a slight stagger once the container has room,
-   rather than just riding along with the container's own width/opacity reveal - closing
-   is left as a single quick fade (no stagger) since a reverse-fan on the way out reads as
-   sluggish rather than tidy. */
-.month-actions-panel .chip-btn{opacity:0; transform:translateX(10px); transition:opacity .22s ease, transform .22s ease; white-space:nowrap;}
-.month-actions-panel.open .chip-btn{opacity:1; transform:translateX(0);}
-.month-actions-panel.open .chip-btn:nth-child(1){transition-delay:.05s;}
-.month-actions-panel.open .chip-btn:nth-child(2){transition-delay:.1s;}
-.month-actions-panel.open .chip-btn:nth-child(3){transition-delay:.15s;}
-.month-actions-panel.open .chip-btn:nth-child(4){transition-delay:.2s;}
-/* #upTxMorePanel is already its own full-width block (unlike #monthActionsPanel, which
-   shares a row with its own gear button and genuinely needs to widen alongside it) - a
-   width-based collapse just makes its flex-wrap buttons reflow unpredictably mid-animation
-   as the width grows, which is what looked "broken." Pin it to full width always and let
-   max-height/opacity alone handle the reveal, like every other collapsible in this app. */
-#upTxMorePanel{max-width:none; padding-left:0;}
+/* A real floating popup (position:fixed, JS-positioned via positionFloatingMenu() and
+   clamped inside the viewport) rather than growing in normal document flow - the old
+   inline-expand approach could grow wider/taller than the space actually available
+   around its trigger button and spill off either edge of the screen (this is what was
+   happening to #monthActionsPanel, anchored to the LEFT of its gear button with no
+   clamping at all). Shared by #monthActionsPanel and #upTxMorePanel. */
+.month-actions-panel{position:fixed; z-index:120; background:var(--surface); border:1px solid var(--rule); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.22); padding:8px; display:flex; flex-direction:column; align-items:stretch; gap:2px; min-width:200px; max-width:calc(100vw - 16px); max-height:min(420px, calc(100vh - 16px)); overflow-y:auto; opacity:0; pointer-events:none; transform:translateY(-6px); transition:opacity .15s ease, transform .15s ease; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
+.month-actions-panel.open{opacity:1; pointer-events:auto; transform:translateY(0);}
+.month-actions-panel .chip-btn, .month-actions-panel .timeframe-btn{margin-left:0; width:100%; justify-content:flex-start; text-align:left; box-sizing:border-box;}
 .period-mode-group{display:flex; align-items:center; gap:6px; flex-shrink:0;}
 .ledger-top-toggle-row{display:flex; margin-bottom:14px;}
 .month-actions-gear{flex-shrink:0;}
@@ -397,9 +380,6 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .chip-green .chip-ic{background:var(--credit);}
 .chip-red{background:var(--debit-bg); color:var(--debit);}
 .chip-red .chip-ic{background:var(--debit);}
-@media (max-width:640px){
-  .month-actions-panel.open{max-width:100%; flex-wrap:wrap;}
-}
 .balance-mode-toggle{display:flex; gap:6px;}
 .modal-overlay{position:fixed; inset:0; background:rgba(10,12,16,.55); display:none; align-items:center; justify-content:center; z-index:200;}
 .modal-overlay.show{display:flex;}
@@ -541,7 +521,9 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .ballet-result-lbl{font-size:.76rem; color:var(--ink-soft); margin-top:2px;}
 .ballet-sub{font-size:.78rem; color:var(--ink-faint); margin-top:10px; text-align:center;}
 .timeframe-row{display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;}
-.up-status-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px;}
+.up-status-row{display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; margin-top:16px;}
+.up-search-menu{min-width:260px;}
+.up-search-menu .up-tx-search{margin-bottom:0;}
 .up-tx-actions-row{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
 .up-income-chip{display:flex; align-items:center; gap:6px; background:var(--gold-bg); border:1px solid var(--gold); border-radius:999px; padding:5px 6px 5px 10px;}
 .up-income-chip-ic{font-size:.85rem; line-height:1;}
@@ -646,6 +628,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-assign-hdr{font-weight:800; font-size:1rem; color:var(--ink);}
 .tx-assign-hdr span{color:var(--gold);}
 .tx-assign-sub{font-size:.8rem; color:var(--ink-faint); margin-top:-8px;}
+.tx-assign-current{font-size:.78rem; color:var(--gold); font-weight:700; margin-top:-2px;}
 /* .tx-assign-hdr/.tx-assign-sub are shared with the assign-transaction modal (.tx-assign-box),
    whose flex gap:12px is what the -8px above is calibrated against; .inline-source-panel has
    no such gap, so it needs its own positive spacing instead. */
@@ -662,6 +645,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-rule-del{flex-shrink:0; width:24px; height:24px; border-radius:50%; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-faint); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s, color .15s;}
 .tx-rule-del:hover{border-color:var(--debit); color:var(--debit);}
 .account-settings-box{max-width:380px;}
+.settings-form-content{max-width:420px;}
 .account-settings-box .auth-field{margin-top:14px; margin-bottom:0;}
 .acct-feature-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:16px; font-size:.82rem; font-weight:600; color:var(--ink-soft);}
 .acct-verify-row{display:flex; align-items:center; gap:10px; margin-top:6px;}
@@ -672,6 +656,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-assign-cat-hdr{padding:8px 14px 4px; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:700; background:var(--paper-dim);}
 .tx-assign-item{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 14px; cursor:pointer; font-size:.85rem; border-top:1px solid var(--rule);}
 .tx-assign-item:hover{background:var(--paper-dim);}
+.tx-assign-item.current{background:var(--gold-bg); box-shadow:inset 3px 0 0 var(--gold);}
 .tx-assign-item-name{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .tx-assign-item-amt{color:var(--ink-faint); flex-shrink:0; font-variant-numeric:tabular-nums;}
 .tx-assign-empty{padding:20px 14px; color:var(--ink-faint); font-size:.85rem; text-align:center;}
@@ -840,12 +825,6 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .balance-bar{flex-direction:row; flex-wrap:wrap; align-items:center; gap:10px;}
   .balance-bar-left{flex:1; min-width:200px;}
   .balance-bar-right{flex:0 0 auto; justify-content:flex-start; max-width:100%;}
-  /* max-width:100% on the opened panel resolves against .balance-bar-right, which is
-     itself shrink-to-fit (flex:0 0 auto) - a percentage against an auto-sized ancestor
-     doesn't reliably cap anything, so the panel was expanding to its own preferred
-     content width and overflowing past the screen edge. Pin it to the true viewport
-     width instead, which can't be fooled by an ancestor's own circular sizing. */
-  .month-actions-panel.open{max-width:calc(100vw - 56px);}
   .or-summary-bar{grid-template-columns:1fr;}
   .month-nav{flex-wrap:nowrap;}
   .month-dropdown-btn{width:96px; font-size:.82rem; padding:5px 4px;}
@@ -865,13 +844,23 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .panel-close-btn{display:flex;}
   .tx-assign-hdr{padding-right:28px;}
   .rec-table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  /* The Users table has 7 columns (most just an on/off toggle) - wide enough that reaching
+     the later ones meant scrolling the table sideways to find them. Below this width, turn
+     each row into its own card instead, one label/control pair per line, so every toggle
+     is reachable without any horizontal scrolling. */
+  #adminUsersTable, #adminUsersTable tbody, #adminUsersTable tr, #adminUsersTable td{display:block; width:auto;}
+  #adminUsersTable thead{display:none;}
+  #adminUsersTable tr{border:1px solid var(--rule); border-radius:10px; margin-bottom:12px; padding:4px 14px;}
+  #adminUsersTable td{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-top:1px solid var(--rule);}
+  #adminUsersTable td:first-child{border-top:none;}
+  #adminUsersTable td::before{content:attr(data-label); font-weight:700; color:var(--ink-faint); font-size:.72rem; text-transform:uppercase; letter-spacing:.03em;}
   /* A stronger, tap-friendly highlight on the small screen where it needs to double as
      the only feedback a touch gets (no hover state to fall back on) - desktop keeps the
      original subtle version above. */
   .insight-donut path.donut-hover{stroke-width:34;}
   .insight-donut:has(path.donut-hover) path:not(.donut-hover, .donut-hit){opacity:.35;}
   .donut-legend-row:hover, .donut-legend-row.donut-hover{background:color-mix(in srgb, var(--gold) 16%, transparent); border-left-color:var(--gold);}
-  .chart{overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:thin; scrollbar-color:var(--rule) transparent;}
+  .chart{overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:thin; scrollbar-color:var(--rule) transparent; touch-action:pan-x;}
   .chart-bar-wrap{flex:0 0 26px; width:26px;}
   .up-savers-grid .up-account-chip{flex-basis:calc(50% - 5px); width:auto;}
   .insight-grid{grid-template-columns:1fr 1fr;}
@@ -966,7 +955,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <button class="side-icon" data-view="other" title="Other records"><span class="ic">▤</span>Records</button>
     <button class="side-icon" data-view="admin" id="adminNavBtn" title="Users" style="display:none;"><span class="ic">▧</span>Users</button>
     <div class="side-spacer"></div>
-    <button type="button" class="sidebar-link-btn" id="accountSettingsBtn" title="Account settings"><span class="ic">⚙︎</span>Settings</button>
+    <button type="button" class="sidebar-link-btn side-icon" data-view="settings" id="accountSettingsBtn" title="Account settings"><span class="ic">⚙︎</span>Settings</button>
     <div class="dark-toggle">
       <span class="dt-label"><span class="ic">☾</span><span class="dt-text">Dark mode</span></span>
       <button class="dm-switch" id="darkModeSwitch"></button>
@@ -1163,19 +1152,11 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         <button class="mini-btn gold" id="upConnectBtn">Connect</button>
         <button class="mini-btn" id="upDisconnectBtn" style="display:none;">Disconnect</button>
       </div>
-      <div class="up-status-row" id="upStatusRow" style="display:none;">
-        <button class="mini-btn" id="upChangeTokenBtn">🔑 Connected — change token</button>
-        <button class="mini-btn" id="upChooseIncomeBtn" data-tip="Click, then click a transaction below to set it as your income source">Choose income</button>
-        <div class="up-income-chip" id="upIncomeChip" style="display:none;">
-          <span class="up-income-chip-ic">💵</span>
-          <span class="up-income-chip-lbl" id="upPayCycleLbl"></span>
-          <button class="up-income-chip-clear" id="upPayCycleClearBtn" data-tip="Clear income source">&times;</button>
-        </div>
-      </div>
       <div id="upContent" style="display:none;">
         <div class="up-tx-actions-row">
           <button class="mini-btn up-refresh-btn" id="upRefreshBtn" title="Refresh"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
           <button class="mini-btn month-actions-gear" id="upTxMoreToggle" title="Timeframe"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2.5"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span></button>
+          <button class="mini-btn month-actions-gear" id="upTxSearchToggle" title="Search"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></button>
           <button class="mini-btn" id="manageTxRulesBtn">Manage rules</button>
         </div>
         <div class="month-actions-panel up-tf-menu" id="upTxMorePanel">
@@ -1223,10 +1204,21 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           </div>
           <button class="mini-btn gold" id="upTxApplyRangeBtn">Apply</button>
         </div>
-        <input type="text" id="upTxSearch" class="up-tx-search" placeholder="Search transactions by description...">
+        <div class="month-actions-panel up-search-menu" id="upTxSearchPanel">
+          <input type="text" id="upTxSearch" class="up-tx-search" placeholder="Search transactions by description...">
+        </div>
         <div class="tx-loading-bar" id="upTxLoadingBar" style="display:none;"><div class="tx-loading-bar-inner"></div></div>
         <div class="up-tx-list" id="upTxList"></div>
         <div class="up-tx-loadmore-row"><button class="mini-btn" id="upLoadMoreBtn" style="display:none;">Load more</button></div>
+        <div class="up-status-row" id="upStatusRow" style="display:none;">
+          <button class="mini-btn" id="upChangeTokenBtn">🔑 Connected — change token</button>
+          <button class="mini-btn" id="upChooseIncomeBtn" data-tip="Click, then click a transaction below to set it as your income source">Choose income</button>
+          <div class="up-income-chip" id="upIncomeChip" style="display:none;">
+            <span class="up-income-chip-ic">💵</span>
+            <span class="up-income-chip-lbl" id="upPayCycleLbl"></span>
+            <button class="up-income-chip-clear" id="upPayCycleClearBtn" data-tip="Clear income source">&times;</button>
+          </div>
+        </div>
         <div class="pc-faint" id="upMeta"></div>
         <div class="up-accounts" id="upAccounts"></div>
       </div>
@@ -1352,6 +1344,30 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         </table>
       </div>
     </div>
+
+    <!-- ================= SETTINGS VIEW (phone: a real swipeable tab; desktop: this same
+         content is moved into #accountSettingsModalBox and shown as a popup instead -
+         see openAccountSettingsPopup()/showAccountSettingsTab() in the script) ================= -->
+    <div class="view" id="view-settings">
+      <div class="settings-form-content" id="settingsFormContent">
+        <h2>Account settings</h2>
+        <label class="auth-field">Your name<input type="text" id="acctNameInput" placeholder="Add your name" maxlength="60" autocomplete="name"></label>
+        <label class="auth-field">Email<input type="email" id="acctEmailInput" autocomplete="email"></label>
+        <div class="acct-verify-row" id="acctVerifyRow">
+          <span class="acct-verify-badge" id="acctVerifyBadge"></span>
+          <button type="button" class="mini-btn" id="acctResendVerifyBtn" style="display:none;">Resend verification email</button>
+        </div>
+        <label class="auth-field">New password<input type="password" id="acctNewPassword" autocomplete="new-password" minlength="6" placeholder="Leave blank to keep current password"></label>
+        <div class="acct-feature-row"><span>Show Up Bank tab</span><button class="dm-switch feature-toggle-switch" data-feature="up" title="Show or hide the Up tab in the sidebar"></button></div>
+        <div class="auth-error" id="acctError"></div>
+        <div class="acct-success" id="acctSuccess"></div>
+        <div class="modal-actions">
+          <button type="button" class="acct-logout-link" id="acctLogoutBtn">Log out</button>
+          <button class="mini-btn" id="acctCloseBtn">Close</button>
+          <button class="mini-btn gold" id="acctSaveBtn">Save changes</button>
+        </div>
+      </div>
+    </div>
     </div>
     </div>
 
@@ -1364,6 +1380,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
   <div class="modal-box tx-assign-box">
     <div class="tx-assign-hdr">Assign <span id="txAssignAmt"></span> from <span id="txAssignDesc"></span></div>
     <div class="tx-assign-sub">to a line item in <span id="txAssignMonthLbl"></span></div>
+    <div class="tx-assign-current" id="txAssignCurrentLbl" style="display:none;"></div>
     <input type="text" id="txAssignSearch" class="up-tx-search" placeholder="Search your categories and items...">
     <div class="tx-assign-list" id="txAssignList"></div>
     <div class="tx-assign-new">
@@ -1399,24 +1416,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
   </div>
 </div>
 <div class="modal-overlay" id="accountSettingsOverlay">
-  <div class="modal-box account-settings-box">
-    <div class="tx-assign-hdr">Account settings</div>
-    <label class="auth-field">Your name<input type="text" id="acctNameInput" placeholder="Add your name" maxlength="60" autocomplete="name"></label>
-    <label class="auth-field">Email<input type="email" id="acctEmailInput" autocomplete="email"></label>
-    <div class="acct-verify-row" id="acctVerifyRow">
-      <span class="acct-verify-badge" id="acctVerifyBadge"></span>
-      <button type="button" class="mini-btn" id="acctResendVerifyBtn" style="display:none;">Resend verification email</button>
-    </div>
-    <label class="auth-field">New password<input type="password" id="acctNewPassword" autocomplete="new-password" minlength="6" placeholder="Leave blank to keep current password"></label>
-    <div class="acct-feature-row"><span>Show Up Bank tab</span><button class="dm-switch feature-toggle-switch" data-feature="up" title="Show or hide the Up tab in the sidebar"></button></div>
-    <div class="auth-error" id="acctError"></div>
-    <div class="acct-success" id="acctSuccess"></div>
-    <div class="modal-actions">
-      <button type="button" class="acct-logout-link" id="acctLogoutBtn">Log out</button>
-      <button class="mini-btn" id="acctCloseBtn">Close</button>
-      <button class="mini-btn gold" id="acctSaveBtn">Save changes</button>
-    </div>
-  </div>
+  <div class="modal-box account-settings-box" id="accountSettingsModalBox"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -2686,13 +2686,13 @@ async function renderAdminTab(){
     const users = await db.adminListUsers();
     body.innerHTML = users.map(u => `
       <tr data-admin-row="${escapeAttr(u.user_id)}">
-        <td>${escapeAttr(u.display_name || '—')}</td>
-        <td>${escapeAttr(u.email || '(no email)')}</td>
-        <td><button class="dm-switch admin-flag-switch ${u.is_admin?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="is_admin" ${u.user_id===authUserId?'disabled title="You can’t remove your own admin access"':''}></button></td>
-        <td><button class="dm-switch admin-flag-switch ${u.feature_tech?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_tech"></button></td>
-        <td><button class="dm-switch admin-flag-switch ${u.feature_grocery?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_grocery"></button></td>
-        <td><button class="dm-switch admin-flag-switch ${u.feature_monthlycosts?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_monthlycosts"></button></td>
-        <td><button class="dm-switch admin-flag-switch ${u.feature_ballet?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_ballet" ${u.is_admin?'disabled title="Admins already see the real Ballet feature"':''}></button></td>
+        <td data-label="Name">${escapeAttr(u.display_name || '—')}</td>
+        <td data-label="Email">${escapeAttr(u.email || '(no email)')}</td>
+        <td data-label="Admin"><button class="dm-switch admin-flag-switch ${u.is_admin?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="is_admin" ${u.user_id===authUserId?'disabled title="You can’t remove your own admin access"':''}></button></td>
+        <td data-label="Tech Replacement"><button class="dm-switch admin-flag-switch ${u.feature_tech?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_tech"></button></td>
+        <td data-label="Groceries"><button class="dm-switch admin-flag-switch ${u.feature_grocery?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_grocery"></button></td>
+        <td data-label="Monthly Costs"><button class="dm-switch admin-flag-switch ${u.feature_monthlycosts?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_monthlycosts"></button></td>
+        <td data-label="Flexible Tracker grant"><button class="dm-switch admin-flag-switch ${u.feature_ballet?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_ballet" ${u.is_admin?'disabled title="Admins already see the real Ballet feature"':''}></button></td>
       </tr>`).join('') || '<tr><td colspan="7">No users found.</td></tr>';
   }catch(e){
     body.innerHTML = `<tr><td colspan="7">Couldn’t load users: ${escapeAttr(e.message||'unknown error')}</td></tr>`;
@@ -3233,6 +3233,34 @@ function repositionCatEmojiPicker(panel, anchorEl){
   panel.style.top = top + 'px';
   panel.style.left = Math.max(8, left) + 'px';
 }
+// Shared by every position:fixed popup menu anchored to a small trigger button
+// (#monthActionsPanel, #upTxMorePanel, #upTxSearchPanel) - right-aligns with the
+// anchor by default (these buttons tend to sit at the right edge of their row) and
+// flips to left-aligned, and/or above instead of below, whenever there isn't room,
+// so the popup can never spill off any edge of the screen the way the old inline-
+// expanding panels used to.
+function positionFloatingMenu(panel, anchorEl){
+  const rect = anchorEl.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  let left = rect.right - panelRect.width;
+  if(left < 8) left = rect.left;
+  left = Math.min(Math.max(8, left), window.innerWidth - panelRect.width - 8);
+  let top = rect.bottom + 6;
+  if(top + panelRect.height > window.innerHeight - 8) top = Math.max(8, rect.top - panelRect.height - 6);
+  panel.style.left = left + 'px';
+  panel.style.top = top + 'px';
+}
+// These three live inside #viewPagerTrack in the HTML (right next to the buttons that
+// open them, for readability) - but #viewPagerTrack carries a CSS transform for the
+// swipeable pager on mobile, and a transformed ancestor becomes the containing block for
+// any position:fixed descendant, silently turning "fixed to the viewport" into "fixed to
+// the (currently slid-off-screen) track" instead. Relocating them to be direct children
+// of <body> once, up front, sidesteps that entirely - same fix already used elsewhere in
+// this file for #floatTip/#inlinePanelHost/.modal-overlay/.toast.
+['monthActionsPanel', 'upTxMorePanel', 'upTxSearchPanel'].forEach(id => {
+  const el = document.getElementById(id);
+  if(el) document.body.appendChild(el);
+});
 // kind identifies which trigger attribute anchors the picker back to its span, and how
 // to resolve what it's changing the emoji of: 'cat'/'tplCat' look an id up in a list
 // (month/template categories); 'income'/'tplIncome' have only one instance each (the
@@ -4394,8 +4422,11 @@ document.getElementById('addCategoryBtn').addEventListener('click', () => {
   if(inputs.length){ const last = inputs[inputs.length-1]; last.focus(); last.select(); }
 });
 document.getElementById('monthActionsToggle').addEventListener('click', () => {
-  const open = document.getElementById('monthActionsPanel').classList.toggle('open');
-  document.getElementById('monthActionsToggle').classList.toggle('open', open);
+  const panel = document.getElementById('monthActionsPanel');
+  const btn = document.getElementById('monthActionsToggle');
+  const open = !panel.classList.contains('open');
+  closeFloatingMenus();
+  if(open){ positionFloatingMenu(panel, btn); panel.classList.add('open'); btn.classList.add('open'); }
 });
 document.getElementById('monthActionsPanel').addEventListener('click', (e) => {
   if(e.target.closest('button')){
@@ -4481,6 +4512,24 @@ function scrollActiveTabIntoStrip(){
   const active = document.querySelector('.side-icon.active');
   if(active && active.scrollIntoView) active.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
 }
+// Mid-drag equivalent of the .active class's mobile text style (see .sidebar .side-icon.
+// active) - blends each tab's colour/weight by its distance from the drag's current
+// fractional position, so the tab you're leaving fades out and the one you're arriving at
+// fades in together as you drag, instead of the highlight just jumping over on release.
+const SIDE_ICON_INACTIVE_RGB = [139,147,165], SIDE_ICON_ACTIVE_RGB = [255,255,255];
+function updateSidebarHighlightDrag(fIdx, tabOrder){
+  tabOrder.forEach((view, i) => {
+    const btn = document.querySelector(`.side-icon[data-view="${view}"]`);
+    if(!btn) return;
+    const proximity = Math.max(0, 1 - Math.abs(fIdx - i));
+    const mix = SIDE_ICON_INACTIVE_RGB.map((c, ci) => Math.round(c + (SIDE_ICON_ACTIVE_RGB[ci]-c)*proximity));
+    btn.style.color = `rgb(${mix[0]},${mix[1]},${mix[2]})`;
+    btn.style.fontWeight = Math.round(600 + 100*proximity);
+  });
+}
+function clearSidebarHighlightDrag(){
+  document.querySelectorAll('.side-icon').forEach(btn => { btn.style.color = ''; btn.style.fontWeight = ''; });
+}
 // Keeps #viewPagerTrack's own height matched to whichever view is actually active,
 // continuously - the views are position:absolute (see the mobile CSS) specifically so
 // inactive ones don't contribute to layout height at all, but that also means nothing
@@ -4506,6 +4555,7 @@ function observePagerActiveHeight(activeEl){
 function updatePagerPosition(animate){
   if(!isMobilePagerActive()) return;
   const track = document.getElementById('viewPagerTrack');
+  const viewport = document.getElementById('viewPagerViewport');
   const tabOrder = visibleTabOrder();
   const activeView = document.querySelector('.side-icon.active')?.dataset.view;
   const idx = Math.max(0, tabOrder.indexOf(activeView));
@@ -4514,6 +4564,13 @@ function updatePagerPosition(animate){
   const activeEl = activeView && document.getElementById('view-' + activeView);
   observePagerActiveHeight(activeEl);
   scrollActiveTabIntoStrip();
+  // A tab shorter than the screen (Records, Users) would otherwise leave the space below
+  // its content outside #viewPagerViewport's own box - which is where the touchstart
+  // listener lives - so a swipe started from down there was silently ignored ("the void").
+  // Floor the viewport at the remaining screen height so it's swipeable everywhere,
+  // regardless of which tab's content happens to be short.
+  const top = viewport.getBoundingClientRect().top;
+  viewport.style.minHeight = Math.max(0, window.innerHeight - top) + 'px';
 }
 // Each view's left offset is its position in visibleTabOrder() (0vw, 100vw, 200vw...),
 // NOT raw HTML source order - the .view divs' order in the file has never had to match
@@ -4558,12 +4615,28 @@ function activateTab(view){
   if(view==='ledger'){ updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths(); }
   if(view==='other'){ updateAllRtableNameWidths(); }
   if(view==='admin') renderAdminTab();
+  if(view==='settings') showAccountSettingsTab();
   updatePagerPosition(true);
 }
 document.querySelectorAll('.side-icon').forEach(btn => {
-  btn.addEventListener('click', () => activateTab(btn.dataset.view));
+  btn.addEventListener('click', () => {
+    // Settings is a real swipeable tab on a phone, same as every other tab, but stays a
+    // popup on desktop (the ask was specifically "for the phone") - desktop has no pager
+    // to swipe within anyway, so opening it as a tab there would just replace whatever
+    // tab was open with no way back except re-clicking that tab.
+    if(btn.dataset.view === 'settings' && !isMobilePagerActive()){ openAccountSettingsPopup(); return; }
+    activateTab(btn.dataset.view);
+  });
 });
-window.addEventListener('resize', () => { updateSideHighlight(); updatePagerPosition(false); });
+function closeFloatingMenus(){
+  document.querySelectorAll('.month-actions-panel.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.month-actions-gear.open').forEach(b => b.classList.remove('open'));
+}
+window.addEventListener('resize', () => { updateSideHighlight(); updatePagerPosition(false); closeFloatingMenus(); });
+document.addEventListener('click', (e) => {
+  if(e.target.closest('.month-actions-panel, .month-actions-gear')) return;
+  closeFloatingMenus();
+});
 // Finger-tracked horizontal paging (phone only) - content follows the drag 1:1 in real
 // time and snaps to whichever tab is closest on release, modelled on the Up app's own
 // tab behaviour. Reuses the same "don't hijack a drag that started inside scrollable
@@ -4597,8 +4670,14 @@ viewPagerViewport.addEventListener('touchmove', (e) => {
   const t = e.touches[0];
   const dx = t.clientX - pagerDrag.startX, dy = t.clientY - pagerDrag.startY;
   if(pagerDrag.axis === null){
-    if(Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-    pagerDrag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    // Require a clearer horizontal lean (not just "however many more px") before
+    // committing to a horizontal page-drag and calling preventDefault() on it - a
+    // near-vertical scroll started with a slightly wobbly first sample could otherwise
+    // get mis-locked to 'x', which then blocks the vertical scroll for the rest of that
+    // touch (reported as the page's scrollable range "shrinking" when a drag happens to
+    // start from higher up, where a slightly-off first sample is more likely).
+    if(Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+    pagerDrag.axis = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'x' : 'y';
     if(pagerDrag.axis === 'y'){ pagerDrag = null; return; } // a normal vertical scroll - hands off entirely
     viewPagerTrack.classList.remove('pager-animate');
   }
@@ -4614,6 +4693,7 @@ viewPagerViewport.addEventListener('touchmove', (e) => {
   const fIdx = Math.min(Math.max(0, pagerDrag.idx - dx / width), pagerDrag.tabOrder.length - 1);
   const lowIdx = Math.floor(fIdx), highIdx = Math.ceil(fIdx), frac = fIdx - lowIdx;
   pagerDrag.sidebar.scrollLeft = pagerDrag.tabCenters[lowIdx] + (pagerDrag.tabCenters[highIdx] - pagerDrag.tabCenters[lowIdx]) * frac;
+  updateSidebarHighlightDrag(fIdx, pagerDrag.tabOrder);
 }, {passive:false});
 function endPagerDrag(e){
   if(!pagerDrag) return;
@@ -4627,6 +4707,7 @@ function endPagerDrag(e){
   else if(dx >= threshold && pagerDrag.idx > 0) newIdx--;
   const tabOrder = pagerDrag.tabOrder;
   pagerDrag = null;
+  clearSidebarHighlightDrag();
   if(newIdx !== tabOrder.indexOf(document.querySelector('.side-icon.active')?.dataset.view)){
     activateTab(tabOrder[newIdx]);
   } else {
@@ -4634,7 +4715,7 @@ function endPagerDrag(e){
   }
 }
 viewPagerViewport.addEventListener('touchend', endPagerDrag);
-viewPagerViewport.addEventListener('touchcancel', () => { pagerDrag = null; updatePagerPosition(true); });
+viewPagerViewport.addEventListener('touchcancel', () => { pagerDrag = null; clearSidebarHighlightDrag(); updatePagerPosition(true); });
 document.getElementById('insightTimeframeRow').addEventListener('click', (e) => {
   const btn = e.target.closest('.timeframe-btn');
   if(!btn) return;
@@ -4693,8 +4774,11 @@ document.getElementById('upTxMorePanel').addEventListener('click', (e) => {
   }
 });
 document.getElementById('upTxMoreToggle').addEventListener('click', () => {
-  const open = document.getElementById('upTxMorePanel').classList.toggle('open');
-  document.getElementById('upTxMoreToggle').classList.toggle('open', open);
+  const panel = document.getElementById('upTxMorePanel');
+  const btn = document.getElementById('upTxMoreToggle');
+  const open = !panel.classList.contains('open');
+  closeFloatingMenus();
+  if(open){ positionFloatingMenu(panel, btn); panel.classList.add('open'); btn.classList.add('open'); }
 });
 document.getElementById('upTxApplyRangeBtn').addEventListener('click', fetchUpTransactionsFresh);
 document.getElementById('dashTimeframeRow').addEventListener('click', (e) => {
@@ -5257,7 +5341,18 @@ async function loadMoreUpTransactions(){
   btn.disabled = false; btn.textContent = 'Load more';
 }
 document.getElementById('upLoadMoreBtn').addEventListener('click', loadMoreUpTransactions);
-document.getElementById('upTxSearch').addEventListener('input', (e) => { upTxSearchTerm = e.target.value; renderUpTxList(); });
+document.getElementById('upTxSearch').addEventListener('input', (e) => {
+  upTxSearchTerm = e.target.value;
+  document.getElementById('upTxSearchToggle').classList.toggle('has-active-filter', !!upTxSearchTerm.trim());
+  renderUpTxList();
+});
+document.getElementById('upTxSearchToggle').addEventListener('click', () => {
+  const panel = document.getElementById('upTxSearchPanel');
+  const btn = document.getElementById('upTxSearchToggle');
+  const open = !panel.classList.contains('open');
+  closeFloatingMenus();
+  if(open){ positionFloatingMenu(panel, btn); panel.classList.add('open'); btn.classList.add('open'); document.getElementById('upTxSearch').focus(); }
+});
 document.getElementById('upChooseIncomeBtn').addEventListener('click', () => {
   upIncomeFilterActive = !upIncomeFilterActive;
   const btn = document.getElementById('upChooseIncomeBtn');
@@ -5388,10 +5483,11 @@ function renderTxAssignList(filterTerm){
   let anyShown = false;
   const incomeItems = monthData.income.filter(i => (i.name||'').trim());
   const matchingIncome = incomeItems.filter(i => !term || i.name.toLowerCase().includes(term) || 'income'.includes(term));
+  const isCurrent = (catId, itemId) => !!txAssignCurrent && txAssignCurrent.existingCatId === catId && txAssignCurrent.existingItemId === itemId;
   if(matchingIncome.length > 0){
     anyShown = true;
     html += `<div class="tx-assign-cat-hdr" data-cat-hdr="income">💵 Income</div>`;
-    html += matchingIncome.map(i => `<div class="tx-assign-item" data-assign-cat="income" data-assign-item="${i.id}" data-assign-name="${escapeAttr(i.name)}"><span class="tx-assign-item-name">${escapeAttr(i.name)}</span><span class="tx-assign-item-amt">${money(i.amount||0)}</span></div>`).join('');
+    html += matchingIncome.map(i => `<div class="tx-assign-item${isCurrent('income', i.id)?' current':''}" data-assign-cat="income" data-assign-item="${i.id}" data-assign-name="${escapeAttr(i.name)}"><span class="tx-assign-item-name">${escapeAttr(i.name)}</span><span class="tx-assign-item-amt">${money(i.amount||0)}</span></div>`).join('');
   }
   monthData.categories.forEach(cat => {
     const items = cat.items.filter(i => (i.name||'').trim());
@@ -5399,9 +5495,13 @@ function renderTxAssignList(filterTerm){
     if(matching.length === 0) return;
     anyShown = true;
     html += `<div class="tx-assign-cat-hdr" data-cat-hdr="${cat.id}">${getCategoryEmoji(cat)} ${escapeAttr(cat.name)}</div>`;
-    html += matching.map(i => `<div class="tx-assign-item" data-assign-cat="${cat.id}" data-assign-item="${i.id}" data-assign-name="${escapeAttr(i.name)}"><span class="tx-assign-item-name">${escapeAttr(i.name)}</span><span class="tx-assign-item-amt">${money(i.amount||0)}</span></div>`).join('');
+    html += matching.map(i => `<div class="tx-assign-item${isCurrent(cat.id, i.id)?' current':''}" data-assign-cat="${cat.id}" data-assign-item="${i.id}" data-assign-name="${escapeAttr(i.name)}"><span class="tx-assign-item-name">${escapeAttr(i.name)}</span><span class="tx-assign-item-amt">${money(i.amount||0)}</span></div>`).join('');
   });
   list.innerHTML = anyShown ? html : '<div class="tx-assign-empty">No matching items.</div>';
+  if(!term){
+    const currentEl = list.querySelector('.tx-assign-item.current');
+    if(currentEl) currentEl.scrollIntoView({block:'nearest'});
+  }
 }
 function populateSimpleSelect(wrapId, options){
   document.getElementById(wrapId+'List').innerHTML = options.map(o => `<div class="custom-select-opt" data-value="${escapeAttr(o.value)}">${escapeAttr(o.label)}</div>`).join('');
@@ -5417,10 +5517,24 @@ function getSimpleSelectValue(wrapId){
 }
 function openTxAssignModal(txId, amt, desc, date, transferAccountId){
   if(!monthData){ toast('Open a month in the Budget tab first'); return; }
-  txAssignCurrent = {id: txId, amt: Number(amt)||0, desc, date, transferAccountId: transferAccountId || null};
+  // A transaction opened via its ✓ (already-assigned) status icon is being reassigned,
+  // not assigned fresh - show what it's currently attributed to so that's not lost sight
+  // of while browsing the rest of the list, both as its own label and as a highlighted
+  // row further down.
+  const existing = txAssignments[txId];
+  const existingCatId = existing && !existing.excluded ? existing.catId : null;
+  const existingItemId = existing && !existing.excluded ? existing.itemId : null;
+  txAssignCurrent = {id: txId, amt: Number(amt)||0, desc, date, transferAccountId: transferAccountId || null, existingCatId, existingItemId};
   document.getElementById('txAssignAmt').textContent = money(Math.abs(txAssignCurrent.amt));
   document.getElementById('txAssignDesc').textContent = desc;
   document.getElementById('txAssignMonthLbl').textContent = monthLabel(settings.currentMonth);
+  const currentLbl = document.getElementById('txAssignCurrentLbl');
+  if(existing && existing.itemName){
+    currentLbl.textContent = `Currently attributed to: ${existing.categoryName ? existing.categoryName + ' → ' : ''}${existing.itemName}`;
+    currentLbl.style.display = '';
+  } else {
+    currentLbl.style.display = 'none';
+  }
   document.getElementById('txAssignSearch').value = '';
   renderTxAssignList('');
   const catOptionsById = [{value:'income', label:'💵 Income'}, ...monthData.categories.map(c => ({value: c.id, label: `${getCategoryEmoji(c)} ${c.name}`}))];
@@ -6155,6 +6269,20 @@ document.getElementById('insightGrid').addEventListener('click', (e) => {
   document.querySelectorAll('#insightGrid .donut-hover').forEach(m => m.classList.remove('donut-hover'));
   document.querySelectorAll(`#insightGrid [data-donut-slice="${el.dataset.donutSlice}"]`).forEach(m => m.classList.add('donut-hover'));
 });
+// A tapped (not hovered) slice's tooltip/dimming has nothing to naturally dismiss it on a
+// phone - no mouseleave ever fires from touch - so it would otherwise sit there forever
+// once you've scrolled past the chart entirely. Clear both as soon as the page moves.
+window.addEventListener('scroll', () => {
+  hideFloatTooltip();
+  document.querySelectorAll('#insightGrid .donut-hover').forEach(m => m.classList.remove('donut-hover'));
+}, {passive:true});
+document.getElementById('dashChart').addEventListener('click', (e) => {
+  const el = e.target.closest('.chart-bar-wrap');
+  if(!el) return;
+  const rect = el.getBoundingClientRect();
+  showFloatTooltip(el.getAttribute('data-tip') || '', rect.left + rect.width/2, rect.top - 8, true);
+  setTimeout(hideFloatTooltip, 2500);
+});
 // .tpl-info-btn's tooltip also goes through the floating-tooltip mechanism rather than
 // the app's normal CSS [data-tip]::before - the info buttons all live inside an
 // overflow:hidden ancestor (.rec-card / .template-top-row), and when a collapsible card
@@ -6176,7 +6304,7 @@ document.body.addEventListener('click', (e) => {
   const infoBtn = e.target.closest('.tpl-info-btn');
   if(infoBtn){ e.stopPropagation(); showInfoBtnTooltip(infoBtn); }
 });
-document.addEventListener('click', (e) => { if(!e.target.closest('[data-donut-slice], .tpl-info-btn, .up-tx-row2')) hideFloatTooltip(); });
+document.addEventListener('click', (e) => { if(!e.target.closest('[data-donut-slice], .tpl-info-btn, .up-tx-row2, .chart-bar-wrap')) hideFloatTooltip(); });
 // Press-and-hold on truncated names: mobile long-press normally triggers native text
 // selection/highlight (or, on an <input>, the OS's selection loupe) rather than showing
 // the full text, which is what's actually wanted when a name is cut off. touchstart's
@@ -6851,7 +6979,7 @@ function renderAccountVerifyBadge(){
   badge.className = 'acct-verify-badge ' + (authEmailConfirmed ? 'verified' : 'unverified');
   resendBtn.style.display = authEmailConfirmed ? 'none' : '';
 }
-document.getElementById('accountSettingsBtn').addEventListener('click', () => {
+function populateAccountSettingsFields(){
   document.getElementById('acctNameInput').value = displayName;
   document.getElementById('acctEmailInput').value = authUserEmail;
   document.getElementById('acctNewPassword').value = '';
@@ -6859,14 +6987,36 @@ document.getElementById('accountSettingsBtn').addEventListener('click', () => {
   document.getElementById('acctSuccess').textContent = '';
   renderAccountVerifyBadge();
   renderFeatureToggle('up');
+}
+// #settingsFormContent (name/email/password/Up-tab toggle) has exactly one instance in
+// the DOM, moved between two different parents depending on context rather than
+// duplicated (duplicating it would mean two elements sharing the same ids). On a phone
+// it's a real swipeable tab, living in #view-settings, so it stays there permanently. On
+// desktop it's still a popup, like every other settings/account UI in this app, so
+// opening it here reparents the one real content node into the modal box first.
+function openAccountSettingsPopup(){
+  document.getElementById('accountSettingsModalBox').appendChild(document.getElementById('settingsFormContent'));
+  document.getElementById('acctCloseBtn').style.display = '';
+  populateAccountSettingsFields();
   document.getElementById('accountSettingsOverlay').classList.add('show');
-});
-document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => {
+}
+function closeAccountSettingsPopup(){
+  document.getElementById('accountSettingsOverlay').classList.remove('show');
+  // Put the content back where the mobile tab expects to find it, in case the viewport
+  // is resized into mobile-pager range before this is opened again.
+  document.getElementById('view-settings').appendChild(document.getElementById('settingsFormContent'));
+}
+function showAccountSettingsTab(){
+  document.getElementById('view-settings').appendChild(document.getElementById('settingsFormContent'));
+  document.getElementById('acctCloseBtn').style.display = 'none';
+  populateAccountSettingsFields();
+}
+document.getElementById('settingsFormContent').addEventListener('click', (e) => {
   const switchBtn = e.target.closest('.feature-toggle-switch');
   if(switchBtn) onFeatureToggleClick(switchBtn);
 });
-document.getElementById('acctCloseBtn').addEventListener('click', () => document.getElementById('accountSettingsOverlay').classList.remove('show'));
-document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => { if(e.target.id === 'accountSettingsOverlay') document.getElementById('accountSettingsOverlay').classList.remove('show'); });
+document.getElementById('acctCloseBtn').addEventListener('click', closeAccountSettingsPopup);
+document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => { if(e.target.id === 'accountSettingsOverlay') closeAccountSettingsPopup(); });
 document.getElementById('acctLogoutBtn').addEventListener('click', performLogout);
 document.getElementById('acctResendVerifyBtn').addEventListener('click', async () => {
   const errEl = document.getElementById('acctError');
