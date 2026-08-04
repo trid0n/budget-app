@@ -86,7 +86,7 @@ body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sa
 .dm-switch.on{background:var(--gold);}
 .dm-switch.on::after{transform:translateX(16px); background:#fff;}
 
-header.mast{display:flex; justify-content:flex-end; align-items:center; padding-bottom:16px; margin-bottom:18px; gap:16px; flex-wrap:wrap; border-bottom:1px solid var(--rule);}
+header.mast{display:flex; justify-content:flex-end; align-items:center; padding-bottom:16px; margin-bottom:18px; gap:16px; flex-wrap:wrap;}
 .top-right{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
 .view{display:none;}
 .view.active{display:block;}
@@ -480,6 +480,17 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .rec-card.collapsible .rec-body-inner{padding:14px 16px;}
 .rec-card h2 .rc-sub{font-size:.66rem; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); font-weight:600;}
 .rec-body{padding:14px 16px; overflow-x:hidden; max-width:100%; box-sizing:border-box;}
+.admin-user-card{background:var(--surface); border:1px solid var(--rule); border-radius:12px; margin-bottom:12px; overflow:hidden;}
+.admin-user-hdr{display:flex; align-items:center; gap:10px; padding:12px 16px; cursor:pointer; width:100%; background:none; border:none; text-align:left; font-family:inherit;}
+.admin-user-hdr .chev{display:flex; align-items:center; color:var(--ink-faint); transition:transform .15s; flex-shrink:0;}
+.admin-user-card.collapsed .admin-user-hdr .chev{transform:rotate(-90deg);}
+.admin-user-hdr-info{min-width:0; flex:1;}
+.admin-user-name{font-weight:700; font-size:.9rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.admin-user-email{font-size:.76rem; color:var(--ink-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.admin-user-body{display:grid; grid-template-rows:1fr; transition:grid-template-rows .22s ease;}
+.admin-user-card.collapsed .admin-user-body{grid-template-rows:0fr;}
+.admin-user-body-inner{overflow:hidden; min-height:0;}
+.admin-user-flag-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 16px; border-top:1px solid var(--rule); font-size:.85rem; color:var(--ink-soft);}
 .rec-hero{display:flex; gap:32px; flex-wrap:wrap; margin-bottom:14px;}
 .grocery-settings{display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-top:10px;}
 .grocery-field{display:flex; flex-direction:column; gap:5px; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:600;}
@@ -614,6 +625,29 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-tx-note-dot{color:var(--gold); font-size:.5rem;}
 .up-tx-exclude-btn{flex-shrink:0; width:22px; height:22px; border-radius:50%; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-faint); font-size:.9rem; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:border-color .15s, color .15s; position:relative;}
 .up-tx-exclude-btn:hover{border-color:var(--debit); color:var(--debit);}
+/* Desktop's original flat transaction row (see buildUpTxRowHtmlDesktop) - kept alongside
+   .up-tx-row2 above rather than replacing it, since the compact grouped design that
+   introduced .up-tx-row2 was scoped to phone only; desktop still renders this. */
+.up-tx-row{display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid var(--rule); font-size:.85rem; transition:background-color .1s;}
+.up-tx-row:hover{background:var(--paper-dim);}
+.up-tx-row:last-child{border-bottom:none;}
+.up-tx-desc-chip{flex:0 1 auto; max-width:320px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:color-mix(in srgb, var(--gold) 10%, var(--paper-dim)); border:1px solid color-mix(in srgb, var(--gold) 20%, var(--rule)); border-radius:20px; padding:5px 14px; font-size:.82rem; font-weight:600; color:var(--ink); position:relative;}
+.up-tx-desc-chip[data-tx-income-select]{cursor:pointer;}
+.up-tx-desc-chip[data-tx-income-select]:hover{border-color:var(--credit); background:color-mix(in srgb, var(--credit) 12%, var(--paper-dim));}
+.up-tx-desc-chip.is-income-source{border-color:var(--credit); background:var(--credit-bg); color:var(--credit);}
+.up-tx-assign-btn{flex-shrink:0; font-family:'Inter',sans-serif; font-size:.74rem; font-weight:700; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-soft); border-radius:16px; padding:5px 12px; cursor:pointer; transition:border-color .15s, color .15s; position:relative;}
+.up-tx-assign-btn-text{display:inline-block; max-width:126px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:bottom;}
+.up-tx-assign-btn:hover{border-color:var(--gold); color:var(--gold);}
+.up-tx-assign-btn.assigned{background:var(--credit-bg); border-color:color-mix(in srgb, var(--credit) 35%, var(--rule)); color:var(--credit);}
+.up-tx-assign-btn.guess{background:var(--gold-bg); border-color:color-mix(in srgb, var(--gold) 40%, var(--rule)); color:var(--gold); font-weight:800;}
+.up-tx-assign-btn.guess.rough{opacity:.6; font-weight:700;}
+.up-tx-assign-btn.excluded{background:var(--paper-dim); border-color:var(--rule); color:var(--ink-faint); font-style:italic;}
+.up-tx-assign-btn.guess:hover{background:var(--gold); color:#fff; border-color:var(--gold);}
+.up-tx-note{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-soft); font-size:.78rem; font-style:italic;}
+.up-tx-date{color:var(--ink-faint); font-size:.76rem; flex-shrink:0; margin-left:auto;}
+.up-tx-amt{font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0; width:90px; text-align:right;}
+.up-tx-amt.neg{color:var(--debit);}
+.up-tx-amt.pos{color:var(--credit);}
 .tx-assign-box{max-width:520px; width:92%; display:flex; flex-direction:column; gap:12px;}
 .tx-view-list{max-height:300px; overflow-y:auto; overflow-x:hidden; border:1px solid var(--rule); border-radius:10px; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
 .tx-view-row{display:flex; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid var(--rule); font-size:.85rem; transition:background-color .12s;}
@@ -844,16 +878,6 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .panel-close-btn{display:flex;}
   .tx-assign-hdr{padding-right:28px;}
   .rec-table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
-  /* The Users table has 7 columns (most just an on/off toggle) - wide enough that reaching
-     the later ones meant scrolling the table sideways to find them. Below this width, turn
-     each row into its own card instead, one label/control pair per line, so every toggle
-     is reachable without any horizontal scrolling. */
-  #adminUsersTable, #adminUsersTable tbody, #adminUsersTable tr, #adminUsersTable td{display:block; width:auto;}
-  #adminUsersTable thead{display:none;}
-  #adminUsersTable tr{border:1px solid var(--rule); border-radius:10px; margin-bottom:12px; padding:4px 14px;}
-  #adminUsersTable td{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-top:1px solid var(--rule);}
-  #adminUsersTable td:first-child{border-top:none;}
-  #adminUsersTable td::before{content:attr(data-label); font-weight:700; color:var(--ink-faint); font-size:.72rem; text-transform:uppercase; letter-spacing:.03em;}
   /* A stronger, tap-friendly highlight on the small screen where it needs to double as
      the only feedback a touch gets (no hover state to fall back on) - desktop keeps the
      original subtle version above. */
@@ -1336,13 +1360,14 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 
     <!-- ================= USERS (ADMIN) VIEW ================= -->
     <div class="view" id="view-admin">
-      <h2>Users</h2>
-      <div class="rec-table-wrap">
-        <table class="rtable" id="adminUsersTable">
-          <thead><tr><th>Name</th><th>Email</th><th>Admin</th><th>Tech Replacement</th><th>Groceries</th><th>Monthly Costs</th><th>Flexible Tracker grant</th></tr></thead>
-          <tbody id="adminUsersBody"></tbody>
-        </table>
+      <div class="up-tx-actions-row">
+        <h2 style="margin:0; flex:1;">Users</h2>
+        <button class="mini-btn month-actions-gear" id="adminSearchToggle" title="Search"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></button>
       </div>
+      <div class="month-actions-panel up-search-menu" id="adminSearchPanel">
+        <input type="text" id="adminUserSearch" class="up-tx-search" placeholder="Search users by name or email...">
+      </div>
+      <div id="adminUsersList"></div>
     </div>
 
     <!-- ================= SETTINGS VIEW (phone: a real swipeable tab; desktop: this same
@@ -2679,41 +2704,75 @@ async function onFeatureToggleClick(btn){
 // Admin-only Users tab. Reads/writes go through the security definer RPCs (db.adminListUsers/
 // adminSetFeature/adminSetIsAdmin) rather than a blanket cross-user RLS policy, since
 // user_settings also holds each user's plaintext Up Bank token - see schema.sql.
+let adminUsersCache = [];
+let adminUserSearchTerm = '';
+function adminUserCardHtml(u){
+  return `<div class="admin-user-card collapsed" data-admin-row="${escapeAttr(u.user_id)}">
+    <button type="button" class="admin-user-hdr" data-admin-toggle>
+      <span class="chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+      <div class="admin-user-hdr-info">
+        <div class="admin-user-name">${escapeAttr(u.display_name || '—')}</div>
+        <div class="admin-user-email">${escapeAttr(u.email || '(no email)')}</div>
+      </div>
+    </button>
+    <div class="admin-user-body"><div class="admin-user-body-inner">
+      <div class="admin-user-flag-row"><span>Admin</span><button class="dm-switch admin-flag-switch ${u.is_admin?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="is_admin" ${u.user_id===authUserId?'disabled title="You can’t remove your own admin access"':''}></button></div>
+      <div class="admin-user-flag-row"><span>Tech Replacement</span><button class="dm-switch admin-flag-switch ${u.feature_tech?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_tech"></button></div>
+      <div class="admin-user-flag-row"><span>Groceries</span><button class="dm-switch admin-flag-switch ${u.feature_grocery?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_grocery"></button></div>
+      <div class="admin-user-flag-row"><span>Monthly Costs</span><button class="dm-switch admin-flag-switch ${u.feature_monthlycosts?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_monthlycosts"></button></div>
+      <div class="admin-user-flag-row"><span>Flexible Tracker grant</span><button class="dm-switch admin-flag-switch ${u.feature_ballet?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_ballet" ${u.is_admin?'disabled title="Admins already see the real Ballet feature"':''}></button></div>
+    </div></div>
+  </div>`;
+}
+function renderAdminUsersList(){
+  const list = document.getElementById('adminUsersList');
+  const term = adminUserSearchTerm.trim().toLowerCase();
+  const filtered = term ? adminUsersCache.filter(u => (u.display_name||'').toLowerCase().includes(term) || (u.email||'').toLowerCase().includes(term)) : adminUsersCache;
+  list.innerHTML = filtered.map(adminUserCardHtml).join('') || `<div class="pc-faint" style="padding:12px;">${term ? 'No users match your search.' : 'No users found.'}</div>`;
+}
 async function renderAdminTab(){
-  const body = document.getElementById('adminUsersBody');
-  body.innerHTML = '<tr><td colspan="7">Loading…</td></tr>';
+  const list = document.getElementById('adminUsersList');
+  list.innerHTML = '<div class="pc-faint" style="padding:12px;">Loading…</div>';
   try{
-    const users = await db.adminListUsers();
-    body.innerHTML = users.map(u => `
-      <tr data-admin-row="${escapeAttr(u.user_id)}">
-        <td data-label="Name">${escapeAttr(u.display_name || '—')}</td>
-        <td data-label="Email">${escapeAttr(u.email || '(no email)')}</td>
-        <td data-label="Admin"><button class="dm-switch admin-flag-switch ${u.is_admin?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="is_admin" ${u.user_id===authUserId?'disabled title="You can’t remove your own admin access"':''}></button></td>
-        <td data-label="Tech Replacement"><button class="dm-switch admin-flag-switch ${u.feature_tech?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_tech"></button></td>
-        <td data-label="Groceries"><button class="dm-switch admin-flag-switch ${u.feature_grocery?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_grocery"></button></td>
-        <td data-label="Monthly Costs"><button class="dm-switch admin-flag-switch ${u.feature_monthlycosts?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_monthlycosts"></button></td>
-        <td data-label="Flexible Tracker grant"><button class="dm-switch admin-flag-switch ${u.feature_ballet?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_ballet" ${u.is_admin?'disabled title="Admins already see the real Ballet feature"':''}></button></td>
-      </tr>`).join('') || '<tr><td colspan="7">No users found.</td></tr>';
+    adminUsersCache = await db.adminListUsers();
+    renderAdminUsersList();
   }catch(e){
-    body.innerHTML = `<tr><td colspan="7">Couldn’t load users: ${escapeAttr(e.message||'unknown error')}</td></tr>`;
+    list.innerHTML = `<div class="pc-faint" style="padding:12px;">Couldn’t load users: ${escapeAttr(e.message||'unknown error')}</div>`;
   }
 }
-document.getElementById('adminUsersBody').addEventListener('click', async (e) => {
+document.getElementById('adminUserSearch').addEventListener('input', (e) => {
+  adminUserSearchTerm = e.target.value;
+  document.getElementById('adminSearchToggle').classList.toggle('has-active-filter', !!adminUserSearchTerm.trim());
+  renderAdminUsersList();
+});
+document.getElementById('adminSearchToggle').addEventListener('click', () => {
+  const panel = document.getElementById('adminSearchPanel');
+  const btn = document.getElementById('adminSearchToggle');
+  const open = !panel.classList.contains('open');
+  closeFloatingMenus();
+  if(open){ positionFloatingMenu(panel, btn); panel.classList.add('open'); btn.classList.add('open'); document.getElementById('adminUserSearch').focus(); }
+});
+document.getElementById('adminUsersList').addEventListener('click', async (e) => {
   const sw = e.target.closest('.admin-flag-switch');
-  if(!sw || sw.disabled) return;
-  const targetUserId = sw.dataset.adminUser;
-  const flag = sw.dataset.adminFlag;
-  const newVal = !sw.classList.contains('on');
-  sw.disabled = true;
-  try{
-    if(flag === 'is_admin') await db.adminSetIsAdmin(targetUserId, newVal);
-    else await db.adminSetFeature(targetUserId, flag, newVal);
-    sw.classList.toggle('on', newVal);
-  }catch(err){
-    toast(err.message || 'Failed to update — you may not have permission.');
-  }finally{
-    sw.disabled = false;
+  if(sw){
+    if(sw.disabled) return;
+    const targetUserId = sw.dataset.adminUser;
+    const flag = sw.dataset.adminFlag;
+    const newVal = !sw.classList.contains('on');
+    sw.disabled = true;
+    try{
+      if(flag === 'is_admin') await db.adminSetIsAdmin(targetUserId, newVal);
+      else await db.adminSetFeature(targetUserId, flag, newVal);
+      sw.classList.toggle('on', newVal);
+    }catch(err){
+      toast(err.message || 'Failed to update — you may not have permission.');
+    }finally{
+      sw.disabled = false;
+    }
+    return;
   }
+  const toggle = e.target.closest('[data-admin-toggle]');
+  if(toggle) toggle.closest('.admin-user-card').classList.toggle('collapsed');
 });
 document.getElementById('view-other').addEventListener('click', (e) => {
   const switchBtn = e.target.closest('.feature-toggle-switch');
@@ -3250,14 +3309,14 @@ function positionFloatingMenu(panel, anchorEl){
   panel.style.left = left + 'px';
   panel.style.top = top + 'px';
 }
-// These three live inside #viewPagerTrack in the HTML (right next to the buttons that
-// open them, for readability) - but #viewPagerTrack carries a CSS transform for the
-// swipeable pager on mobile, and a transformed ancestor becomes the containing block for
-// any position:fixed descendant, silently turning "fixed to the viewport" into "fixed to
+// These live inside #viewPagerTrack in the HTML (right next to the buttons that open
+// them, for readability) - but #viewPagerTrack carries a CSS transform for the swipeable
+// pager on mobile, and a transformed ancestor becomes the containing block for any
+// position:fixed descendant, silently turning "fixed to the viewport" into "fixed to
 // the (currently slid-off-screen) track" instead. Relocating them to be direct children
 // of <body> once, up front, sidesteps that entirely - same fix already used elsewhere in
 // this file for #floatTip/#inlinePanelHost/.modal-overlay/.toast.
-['monthActionsPanel', 'upTxMorePanel', 'upTxSearchPanel'].forEach(id => {
+['monthActionsPanel', 'upTxMorePanel', 'upTxSearchPanel', 'adminSearchPanel'].forEach(id => {
   const el = document.getElementById(id);
   if(el) document.body.appendChild(el);
 });
@@ -4601,6 +4660,7 @@ function setupPagerViewPositions(){
 function activateTab(view){
   const btn = document.querySelector(`.side-icon[data-view="${view}"]`);
   if(!btn) return;
+  closeFloatingMenus();
   document.querySelectorAll('.side-icon').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   updateSideHighlight();
@@ -4637,6 +4697,12 @@ document.addEventListener('click', (e) => {
   if(e.target.closest('.month-actions-panel, .month-actions-gear')) return;
   closeFloatingMenus();
 });
+// These are position:fixed and only ever positioned once, at the moment they're opened
+// (see positionFloatingMenu()) - they don't track their anchor button as the page
+// scrolls under them, so left open during a scroll they'd drift visually away from
+// whatever they were anchored to. Simplest correct behaviour, matching how a native
+// select/menu usually behaves once you scroll: just close it.
+window.addEventListener('scroll', closeFloatingMenus, {passive:true});
 // Finger-tracked horizontal paging (phone only) - content follows the drag 1:1 in real
 // time and snaps to whichever tab is closest on release, modelled on the Up app's own
 // tab behaviour. Reuses the same "don't hijack a drag that started inside scrollable
@@ -4670,14 +4736,18 @@ viewPagerViewport.addEventListener('touchmove', (e) => {
   const t = e.touches[0];
   const dx = t.clientX - pagerDrag.startX, dy = t.clientY - pagerDrag.startY;
   if(pagerDrag.axis === null){
-    // Require a clearer horizontal lean (not just "however many more px") before
-    // committing to a horizontal page-drag and calling preventDefault() on it - a
-    // near-vertical scroll started with a slightly wobbly first sample could otherwise
-    // get mis-locked to 'x', which then blocks the vertical scroll for the rest of that
-    // touch (reported as the page's scrollable range "shrinking" when a drag happens to
-    // start from higher up, where a slightly-off first sample is more likely).
-    if(Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-    pagerDrag.axis = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'x' : 'y';
+    // Require a clearly horizontal lean before committing to a horizontal page-drag and
+    // calling preventDefault() on it - once locked to 'x', the browser's own vertical
+    // scroll (and its momentum after finger-lift) is blocked for the rest of that touch,
+    // so a false-positive lock on what was meant to be a vertical scroll makes the page
+    // feel like it can only be scrolled a short distance per touch (reported as the
+    // scrollable range "shrinking" unless the drag starts further down the screen, away
+    // from wherever this was mis-firing). A previous pass already widened this once and
+    // it wasn't enough, so this is deliberately conservative: a longer runway before any
+    // lock decision, and a real 1.5x margin rather than a bare majority, both biased in
+    // vertical scroll's favour since that's the far more common gesture on every tab.
+    if(Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
+    pagerDrag.axis = Math.abs(dx) > Math.abs(dy) * 1.5 ? 'x' : 'y';
     if(pagerDrag.axis === 'y'){ pagerDrag = null; return; } // a normal vertical scroll - hands off entirely
     viewPagerTrack.classList.remove('pager-animate');
   }
@@ -5031,6 +5101,7 @@ async function fetchUpTransactionsFresh(){
       }
     }
     renderUpTxList();
+    await ensureFullRangeLoadedForSearch();
   }catch(e){
     errEl.textContent = e.isRateLimit ? 'Checking in a bit too often — Up asked us to slow down. It\u2019ll catch up automatically shortly.' : (e.message || 'Couldn\u2019t reach Up.');
   }
@@ -5242,7 +5313,7 @@ function renderUpTxList(){
       });
     }
   }
-  document.getElementById('upTxList').innerHTML = filtered.length ? renderUpTxGroups(filtered)
+  document.getElementById('upTxList').innerHTML = filtered.length ? (isMobilePagerActive() ? renderUpTxGroups(filtered) : filtered.map(buildUpTxRowHtmlDesktop).join(''))
     : `<div class="pc-faint" style="padding:12px;">${upIncomeFilterActive ? 'No incoming (+) transactions in this range.' : term ? 'No transactions match your search.' : 'No recent transactions.'}</div>`;
   const loadMoreBtn = document.getElementById('upLoadMoreBtn');
   loadMoreBtn.style.display = (!term && upTxNextUrl) ? '' : 'none';
@@ -5291,6 +5362,46 @@ function buildUpTxRowHtml(t){
     </div>
     <div class="up-tx-row2-amt ${amt<0?'neg':'pos'}">${amt<0?'\u2212':'+'}${money(Math.abs(amt))}</div>
   </div>`;
+}
+// Desktop keeps the original flat per-transaction row (description chip, text assign
+// button, separate note line) rather than the compact grouped mobile redesign above -
+// the request that shipped the mobile redesign was explicitly scoped to phone, and desktop
+// has the screen width for the older, more spelled-out layout with no real downside.
+function buildUpTxRowHtmlDesktop(t){
+  const amt = parseFloat(t.attributes.amount.value);
+  const date = new Date(t.attributes.createdAt).toLocaleDateString('en-AU', {day:'numeric', month:'short'});
+  const held = t.attributes.status === 'HELD' ? ' (pending)' : '';
+  const assignment = txAssignments[t.id];
+  const transferAccountId = isInternalTransfer(t) ? (t.relationships.transferAccount.data.id || '') : '';
+  const transferAttr = transferAccountId ? ` data-tx-transfer-account="${escapeAttr(transferAccountId)}"` : '';
+  let assignBtn, showExclude = false;
+  if(assignment && assignment.excluded){
+    assignBtn = `<button class="up-tx-assign-btn excluded" data-tx-unexclude="${t.id}" data-tip="Excluded from budget categories. Click to undo.">Excluded</button>`;
+  } else if(assignment && assignment.catId){
+    // findCatById looks at the currently-open month, which may not be the month this
+    // transaction was actually assigned in (or the category could've since been
+    // deleted) - fall back to deriving from the saved category name in that case.
+    const assignedCat = findCatById(assignment.catId);
+    const catEmoji = assignedCat ? getCategoryEmoji(assignedCat) : categoryEmoji(assignment.categoryName);
+    assignBtn = `<button class="up-tx-assign-btn assigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="${escapeAttr(assignment.itemName)}">✓ ${catEmoji} <span class="up-tx-assign-btn-text">${escapeAttr(assignment.itemName)}</span></button>`;
+  } else {
+    const guess = findGuessForTx(t.attributes.description, amt, t);
+    if(guess){
+      assignBtn = `<button class="up-tx-assign-btn guess ${guess.reason==='amount_rough'?'rough':''}" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}"${transferAttr} data-tip="${escapeAttr(guess.itemName)}"><span class="up-tx-assign-btn-text">${escapeAttr(guess.itemName)}</span> ?</button>`;
+      showExclude = true;
+    } else {
+      assignBtn = `<button class="up-tx-assign-btn" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Assign to a budget line item">Assign</button>`;
+    }
+  }
+  const excludeBtn = showExclude ? `<button class="up-tx-exclude-btn" data-tx-exclude="${t.id}" data-tip="Exclude — don’t count this toward any budget category">×</button>` : '';
+  const coverSource = findCoverSourceForTx(t);
+  const coverIcon = coverSource ? `<span class="up-tx-cover-icon" data-tip="Covered from &quot;${escapeAttr(coverSource)}&quot;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg></span>` : '';
+  const merchantKeyHere = extractMerchantKey(t.attributes.description, amt);
+  const isIncomeSource = upIncomeSourceKey && merchantKeyHere === upIncomeSourceKey;
+  const descClickable = amt > 0 ? ` data-tx-income-select="${t.id}"` : '';
+  const descTip = amt > 0 ? (isIncomeSource ? 'This is your set income source. Click to unset.' : `${t.attributes.description} — click to set as your income source`) : `${t.attributes.description}${held}`;
+  const noteHtml = t.attributes.message ? `<div class="up-tx-note" data-tip="${escapeAttr(t.attributes.message)}">${escapeAttr(t.attributes.message)}</div>` : '';
+  return `<div class="up-tx-row"><div class="up-tx-desc-chip${isIncomeSource?' is-income-source':''}"${descClickable} data-tip="${escapeAttr(descTip)}">${escapeAttr(t.attributes.description)}${held}</div>${assignBtn}${excludeBtn}${noteHtml}<div class="up-tx-date">${date}</div>${coverIcon}<div class="up-tx-amt ${amt<0?'neg':'pos'}">${amt<0?'-':'+'}${money(Math.abs(amt))}</div></div>`;
 }
 // Groups transactions the way the Up app itself does: a month banner (with that month's
 // total spend) over one date banner per day, over the transactions from that day - not
@@ -5341,10 +5452,44 @@ async function loadMoreUpTransactions(){
   btn.disabled = false; btn.textContent = 'Load more';
 }
 document.getElementById('upLoadMoreBtn').addEventListener('click', loadMoreUpTransactions);
-document.getElementById('upTxSearch').addEventListener('input', (e) => {
+// Searching only ever matched upTransactions - whatever happened to already be loaded
+// into memory, which for a wide timeframe (All time, custom, etc) is just the first
+// page or two until "Load more" is clicked. That meant a search could easily miss real
+// matches sitting a few pages further back in the very date range you'd selected. While
+// a search term is active and more pages remain (upTxNextUrl), pull in the rest of the
+// currently-selected range up front so search results are complete, not just "complete
+// among what happened to be loaded already."
+let upTxLoadingAllForSearch = false;
+async function loadAllUpTransactionsForSearch(){
+  if(upTxLoadingAllForSearch) return;
+  upTxLoadingAllForSearch = true;
+  document.getElementById('upTxLoadingBar').style.display = '';
+  try{
+    let pagesLoaded = 0;
+    const maxPages = 40;
+    while(upTxNextUrl && pagesLoaded < maxPages){
+      const res = await upFetch(upTxNextUrl);
+      upTransactions = upTransactions.concat((res.data||[]).filter(isValidUpTx));
+      upTxNextUrl = (res.links && res.links.next) || null;
+      pagesLoaded++;
+    }
+  }catch(e){
+    document.getElementById('upError').textContent = e.message || 'Couldn’t load the full range to search.';
+  }
+  upTxLoadingAllForSearch = false;
+  document.getElementById('upTxLoadingBar').style.display = 'none';
+}
+async function ensureFullRangeLoadedForSearch(){
+  if(upTxSearchTerm.trim() && upTxNextUrl){
+    await loadAllUpTransactionsForSearch();
+    renderUpTxList();
+  }
+}
+document.getElementById('upTxSearch').addEventListener('input', async (e) => {
   upTxSearchTerm = e.target.value;
   document.getElementById('upTxSearchToggle').classList.toggle('has-active-filter', !!upTxSearchTerm.trim());
   renderUpTxList();
+  await ensureFullRangeLoadedForSearch();
 });
 document.getElementById('upTxSearchToggle').addEventListener('click', () => {
   const panel = document.getElementById('upTxSearchPanel');
@@ -6361,7 +6506,7 @@ function bindLongPressReveal(container, selector, getText, opts={}){
   });
 }
 bindLongPressReveal(document.body, '.name-input, .sh-name-input', el => el.value, {preventEdit:true});
-bindLongPressReveal(document.body, '.up-tx-row2-name, .tx-view-row-desc, .mover-name', el => el.textContent);
+bindLongPressReveal(document.body, '.up-tx-row2-name, .up-tx-desc-chip, .tx-view-row-desc, .mover-name', el => el.textContent);
 document.getElementById('insightGrid').addEventListener('mouseover', (e) => {
   const el = e.target.closest('[data-donut-slice]');
   if(!el) return;
