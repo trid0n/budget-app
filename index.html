@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Household Ledger</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%231B1F27'/%3E%3Ccircle cx='17' cy='4.5' r='1.8' fill='%23D1483F'/%3E%3Crect x='7' y='6.5' width='10' height='3' rx='1.2' fill='%233B6FE0'/%3E%3Cpath d='M6.5 10v9.5a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2V10' fill='none' stroke='%233B6FE0' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M9 16.5l2.3-2.3 1.8 1.8L17 12.5' fill='none' stroke='%232F9E64' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23161A22'/%3E%3Ccircle cx='14.5' cy='3.3' r='2.1' fill='%23E8785A'/%3E%3Crect x='6.3' y='6.1' width='11.4' height='3.3' rx='1.5' fill='%234F7FE8'/%3E%3Cpath d='M5.9 9.9v9.6a2.4 2.4 0 0 0 2.4 2.4h7.4a2.4 2.4 0 0 0 2.4-2.4V9.9' fill='none' stroke='%234F7FE8' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M8.3 16.3l2.2-2.2 1.7 1.7 3.5-3.5' fill='none' stroke='%2344C17C' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cline x1='8.5' y1='18.7' x2='12.2' y2='18.7' stroke='%234F7FE8' stroke-width='1.9' stroke-linecap='round' opacity='.65'/%3E%3Cline x1='8.5' y1='20.9' x2='11' y2='20.9' stroke='%234F7FE8' stroke-width='1.9' stroke-linecap='round' opacity='.45'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -86,11 +86,7 @@ body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sa
 .dm-switch.on{background:var(--gold);}
 .dm-switch.on::after{transform:translateX(16px); background:#fff;}
 
-header.mast{display:flex; justify-content:space-between; align-items:center; padding-bottom:16px; margin-bottom:18px; gap:16px; flex-wrap:wrap; border-bottom:1px solid var(--rule);}
-.mast-title{display:flex; align-items:center; gap:12px;}
-.mast-icon{color:var(--gold); background:var(--gold-bg); border-radius:11px; width:42px; height:42px; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
-header.mast h1{font-family:'Inter',sans-serif; font-weight:800; font-size:1.6rem; margin:0; letter-spacing:-0.01em;}
-header.mast .tag{font-size:.78rem; color:var(--ink-soft); margin-top:2px;}
+header.mast{display:flex; justify-content:flex-end; align-items:center; padding-bottom:16px; margin-bottom:18px; gap:16px; flex-wrap:wrap; border-bottom:1px solid var(--rule);}
 .top-right{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
 .view{display:none;}
 .view.active{display:block;}
@@ -577,13 +573,15 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .donut-wrap{display:flex; align-items:center; gap:20px; flex-wrap:wrap;}
 .insight-donut{width:150px; height:150px; flex-shrink:0;}
 .insight-donut path{transition:stroke-width .15s, opacity .15s;}
-.insight-donut path.donut-hover{stroke-width:34;}
-/* Dim every other slice while one's active so the highlighted one actually pops instead
-   of just being 4px thicker among equally-bright neighbours. */
-.insight-donut:has(path.donut-hover) path:not(.donut-hover){opacity:.35;}
+.insight-donut path.donut-hover{stroke-width:30;}
 .donut-legend{display:flex; flex-direction:column; gap:4px; flex:1; min-width:180px;}
 .donut-legend-row{display:flex; align-items:center; gap:7px; font-size:.82rem; padding:4px 6px; border-radius:6px; border-left:3px solid transparent; transition:background-color .15s, border-left-color .15s;}
-.donut-legend-row:hover, .donut-legend-row.donut-hover{background:color-mix(in srgb, var(--gold) 16%, transparent); border-left-color:var(--gold);}
+.donut-legend-row:hover, .donut-legend-row.donut-hover{background:var(--surface);}
+/* This invisible fat duplicate stroke, not the thin visible 26px ring itself, is what
+   actually receives hover/click/tap - a fingertip can't reliably land on a 26px-wide arc
+   on a 150px chart, which is why tapping a slice "did nothing" on a phone (the touch
+   just missed the paintable/hit area entirely and landed on the card background). */
+.insight-donut path.donut-hit{stroke:transparent; stroke-width:50; fill:none;}
 .donut-legend-dot{width:10px; height:10px; border-radius:50%; flex-shrink:0;}
 .donut-legend-val{margin-left:auto; font-weight:700; font-variant-numeric:tabular-nums;}
 .rec-hero .rh-num{font-family:'Inter',sans-serif; font-size:1.8rem; font-weight:700;}
@@ -743,7 +741,12 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
 .sync-status.err .dot{background:var(--debit);}
 
 .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--paper); padding:10px 18px; font-size:.8rem; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:100;}
-.float-tip{position:fixed; background:#1B1F27; color:#F5F6F8; padding:6px 10px; border-radius:8px; font-size:.76rem; font-weight:600; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .1s; z-index:200; box-shadow:0 8px 24px rgba(0,0,0,.35);}
+/* white-space:normal + max-width, not the nowrap/unconstrained box this started as - short
+   tooltips (a full item name, a donut slice's value) never wrapped anyway, so this is a
+   no-op for them, but a long one (the template info explanation) used to render as one
+   unbroken line far wider than a phone screen, with whatever didn't fit simply invisible
+   off-canvas - "cut off" regardless of which edge the positioning clamp pushed it toward. */
+.float-tip{position:fixed; background:#1B1F27; color:#F5F6F8; padding:6px 10px; border-radius:8px; font-size:.76rem; font-weight:600; white-space:normal; max-width:260px; pointer-events:none; opacity:0; transition:opacity .1s; z-index:200; box-shadow:0 8px 24px rgba(0,0,0,.35);}
 .float-tip.show{opacity:1;}
 .wd-hdr{display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--rule); font-weight:700; font-size:.85rem; color:var(--ink); position:sticky; top:0; background:var(--surface);}
 .wd-hdr button{background:none; border:none; color:var(--ink-faint); font-size:1.2rem; cursor:pointer; line-height:1;}
@@ -787,7 +790,10 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
      every other tab icon uses. ☾ matches the moon already used on desktop's dark-toggle
      label; U+FE0E on the sun forces the plain text glyph instead of its emoji variant. */
   #darkModeSwitch::before{content:'☾'; font-size:1.1rem; line-height:1;}
-  #darkModeSwitch.on::before{content:'☀︎';}
+  /* ☀︎ draws noticeably smaller within its own glyph box than ☾ does at the same
+     font-size (a font-rendering quirk, not a CSS sizing bug) - bumped up to actually
+     match the moon's visual weight instead of just its declared size. */
+  #darkModeSwitch.on::before{content:'☀︎'; font-size:1.5rem;}
   /* Full width - no side gutters on phones */
   .wrap{max-width:100%; padding:12px 8px 60px;}
   .topbar{flex-direction:column; gap:10px;}
@@ -816,7 +822,6 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .month-dropdown-btn{width:96px; font-size:.82rem; padding:5px 4px;}
   .top-right{width:100%; justify-content:center; flex-wrap:nowrap; gap:8px;}
   .mast{flex-wrap:wrap; gap:8px;}
-  .mast-title{width:100%; justify-content:center;}
   #undoBtn, #jumpToCurrentMonthBtn{padding:8px 10px; font-size:.76rem; flex-shrink:0;}
   /* Wide enough that a typical amount ("1234.56") is fully visible without focusing the
      field - the earlier 64px was tuned before input font-size was bumped to 16px (for
@@ -831,6 +836,12 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .panel-close-btn{display:flex;}
   .tx-assign-hdr{padding-right:28px;}
   .rec-table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  /* A stronger, tap-friendly highlight on the small screen where it needs to double as
+     the only feedback a touch gets (no hover state to fall back on) - desktop keeps the
+     original subtle version above. */
+  .insight-donut path.donut-hover{stroke-width:34;}
+  .insight-donut:has(path.donut-hover) path:not(.donut-hover, .donut-hit){opacity:.35;}
+  .donut-legend-row:hover, .donut-legend-row.donut-hover{background:color-mix(in srgb, var(--gold) 16%, transparent); border-left-color:var(--gold);}
   .chart{overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:thin; scrollbar-color:var(--rule) transparent;}
   .chart-bar-wrap{flex:0 0 26px; width:26px;}
   .up-savers-grid .up-account-chip{flex-basis:calc(50% - 5px); width:auto;}
@@ -928,7 +939,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <button class="side-icon active" data-view="ledger" title="Budget"><span class="ic">◆</span>Budget</button>
     <button class="side-icon" data-view="dashboard" title="Dashboard"><span class="ic">◱</span>Dashboard</button>
     <button class="side-icon" data-view="template" title="Template"><span class="ic">▥</span>Template</button>
-    <button class="side-icon" data-view="other" title="Other records"><span class="ic">▤</span>Other records</button>
+    <button class="side-icon" data-view="other" title="Other records"><span class="ic">▤</span>Records</button>
     <button class="side-icon" data-view="admin" id="adminNavBtn" title="Users" style="display:none;"><span class="ic">▧</span>Users</button>
     <div class="side-spacer"></div>
     <button type="button" class="sidebar-link-btn" id="accountSettingsBtn" title="Account settings"><span class="ic">⚙︎</span>Settings</button>
@@ -942,10 +953,6 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
   <div class="wrap">
 
     <header class="mast">
-      <div class="mast-title">
-        <div class="mast-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="17.5" cy="3" r="1.5" fill="currentColor" stroke="none"/><rect x="7" y="5" width="10" height="3" rx="1.2"/><path d="M6.5 8.5v10a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-10"/><path d="M9 16l2.5-2.5 2 2L18 11"/><path d="M15 11h3v3"/></svg></div>
-        <h1>Budget</h1>
-      </div>
       <div class="top-right">
         <button class="mini-btn" id="undoBtn" title="Undo last change (Ctrl+Z)">↶ Undo</button>
         <div id="monthNavWrap" class="month-nav">
@@ -5885,6 +5892,7 @@ function buildDonutChart(data){
 function renderDonutChart(data){
   const slices = buildDonutChart(data);
   const svg = `<svg viewBox="0 0 180 180" class="insight-donut">${slices.map((s,i) =>
+    `<path d="${s.path}" class="donut-hit" data-donut-slice="${i}" data-tip="${escapeAttr(s.name)}: ${money(s.value)}/mo"></path>` +
     `<path d="${s.path}" stroke="${s.color}" stroke-width="26" fill="none" data-donut-slice="${i}" data-tip="${escapeAttr(s.name)}: ${money(s.value)}/mo"></path>`
   ).join('')}</svg>`;
   const legend = slices.map((s,i) => `<div class="donut-legend-row" data-donut-slice="${i}" data-tip="${escapeAttr(s.name)}: ${money(s.value)}/mo (${Math.round(s.pct*100)}%)">
@@ -5921,6 +5929,11 @@ document.getElementById('insightGrid').addEventListener('click', (e) => {
   if(!el) return;
   const rect = el.getBoundingClientRect();
   showFloatTooltip(el.getAttribute('data-tip') || '', rect.left + rect.width/2, rect.top - 36);
+  // mouseover (below) never fires from a touch tap, so a phone would never see the
+  // highlight otherwise - harmless to also run this on a real mouse click, since it just
+  // lands on the same slice mouseover already highlighted.
+  document.querySelectorAll('#insightGrid .donut-hover').forEach(m => m.classList.remove('donut-hover'));
+  document.querySelectorAll(`#insightGrid [data-donut-slice="${el.dataset.donutSlice}"]`).forEach(m => m.classList.add('donut-hover'));
 });
 // .tpl-info-btn's tooltip also goes through the floating-tooltip mechanism rather than
 // the app's normal CSS [data-tip]::before - the info buttons all live inside an
@@ -6692,10 +6705,21 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   await loadEverything();
   applyTheme();
   renderMonthDropdown();
+  // Kicked off here (not awaited) rather than after the several other awaited steps
+  // below, so the network round-trip has the most possible head start before a human
+  // could realistically reach the Dashboard tab - previously it only started once several
+  // sequential awaits had already finished, which was often still mid-flight by the time
+  // someone scrolled/switched there right after opening the app.
+  if(upToken) refreshUpData();
   recomputeEffectivePeriod();
   await detectEffectivePeriodAtBoot();
   await seedStarterDataIfNewAccount(todaysEffectiveMonthKey);
   await switchToMonth(todaysEffectiveMonthKey);
+  // refreshUpData() above may have already rendered the transaction list before monthData
+  // existed (autoApplyTxRules() needs it to actually apply merchant/transfer rules, not
+  // just decide what to exclude) - re-render now that it definitely does, using whatever
+  // refreshUpData() already fetched rather than a new network round-trip.
+  if(upTransactions.length) renderUpTxList();
   renderTechRows();
   document.getElementById('groceryEatOut').value = grocery.eatOut || 0;
   renderGroceryRows(); updateGroceryTotal();
@@ -6715,12 +6739,6 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   updateSideHighlight();
   refreshInsertDropdowns();
   refreshUpSpendingBalance();
-  // Pre-fetch the transaction list during boot (not awaited - shouldn't block the rest
-  // of the page rendering) so switching to the Dashboard tab shows it immediately instead
-  // of a brief "Loading transactions..." placeholder flashing in and replacing itself -
-  // most noticeable jolt on a phone where tab switches happen quickly. The dashboard
-  // tab-click handler above only re-fetches if this hasn't finished yet.
-  if(upToken) refreshUpData();
   setInterval(() => {
     if(!upToken) return;
     // Only the lightweight balance check runs automatically — refreshUpData() rebuilds
