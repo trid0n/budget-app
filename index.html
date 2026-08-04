@@ -576,11 +576,14 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .insight-wide{grid-column:1 / -1;}
 .donut-wrap{display:flex; align-items:center; gap:20px; flex-wrap:wrap;}
 .insight-donut{width:150px; height:150px; flex-shrink:0;}
-.insight-donut path{transition:stroke-width .15s;}
-.insight-donut path.donut-hover{stroke-width:30;}
+.insight-donut path{transition:stroke-width .15s, opacity .15s;}
+.insight-donut path.donut-hover{stroke-width:34;}
+/* Dim every other slice while one's active so the highlighted one actually pops instead
+   of just being 4px thicker among equally-bright neighbours. */
+.insight-donut:has(path.donut-hover) path:not(.donut-hover){opacity:.35;}
 .donut-legend{display:flex; flex-direction:column; gap:4px; flex:1; min-width:180px;}
-.donut-legend-row{display:flex; align-items:center; gap:7px; font-size:.82rem; padding:4px 6px; border-radius:6px; transition:background-color .15s;}
-.donut-legend-row:hover, .donut-legend-row.donut-hover{background:var(--surface);}
+.donut-legend-row{display:flex; align-items:center; gap:7px; font-size:.82rem; padding:4px 6px; border-radius:6px; border-left:3px solid transparent; transition:background-color .15s, border-left-color .15s;}
+.donut-legend-row:hover, .donut-legend-row.donut-hover{background:color-mix(in srgb, var(--gold) 16%, transparent); border-left-color:var(--gold);}
 .donut-legend-dot{width:10px; height:10px; border-radius:50%; flex-shrink:0;}
 .donut-legend-val{margin-left:auto; font-weight:700; font-variant-numeric:tabular-nums;}
 .rec-hero .rh-num{font-family:'Inter',sans-serif; font-size:1.8rem; font-weight:700;}
@@ -760,7 +763,11 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
     padding:6px 8px; gap:2px;
   }
   .sidebar .brand{display:none;}
-  .sidebar .side-icon, .sidebar .sidebar-link-btn{width:auto; flex:1 1 0; min-width:0; flex-direction:column; gap:2px; padding:5px 2px; font-size:.56rem; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  /* white-space:normal (not nowrap+ellipsis) - with 5-6 items sharing one row, a longer
+     label like "Other records" could get shrunk enough to lose its own trailing letters
+     (worse still with a 6th item for admins) before ellipsis even had room to show. Wrapping
+     onto a second line keeps the whole word readable instead of silently clipping it. */
+  .sidebar .side-icon, .sidebar .sidebar-link-btn{width:auto; flex:1 1 0; min-width:0; flex-direction:column; gap:2px; padding:5px 2px; font-size:.56rem; line-height:1.15; text-align:center; white-space:normal; overflow:hidden;}
   .sidebar .side-icon .ic, .sidebar .sidebar-link-btn .ic{font-size:1rem;}
   .sidebar .side-spacer{display:none;}
   .sidebar .logout-row{display:none;}
@@ -775,8 +782,12 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   #darkModeSwitch{width:auto; height:auto; background:none; border-radius:0; padding:5px 8px; color:var(--ink-faint);}
   #darkModeSwitch.on{background:none;}
   #darkModeSwitch::after{display:none;}
-  #darkModeSwitch::before{content:'🌙'; font-size:1.1rem; line-height:1;}
-  #darkModeSwitch.on::before{content:'☀️';}
+  /* Plain-glyph moon/sun, not the emoji codepoints - real emoji here rendered as a
+     colorful glossy icon on mobile, clashing with the flat geometric glyphs (◆ ◱ ▥ ▤)
+     every other tab icon uses. ☾ matches the moon already used on desktop's dark-toggle
+     label; U+FE0E on the sun forces the plain text glyph instead of its emoji variant. */
+  #darkModeSwitch::before{content:'☾'; font-size:1.1rem; line-height:1;}
+  #darkModeSwitch.on::before{content:'☀︎';}
   /* Full width - no side gutters on phones */
   .wrap{max-width:100%; padding:12px 8px 60px;}
   .topbar{flex-direction:column; gap:10px;}
@@ -803,8 +814,9 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .or-summary-bar{grid-template-columns:1fr;}
   .month-nav{flex-wrap:nowrap;}
   .month-dropdown-btn{width:96px; font-size:.82rem; padding:5px 4px;}
-  .top-right{width:100%; justify-content:flex-start; flex-wrap:nowrap; gap:8px;}
+  .top-right{width:100%; justify-content:center; flex-wrap:nowrap; gap:8px;}
   .mast{flex-wrap:wrap; gap:8px;}
+  .mast-title{width:100%; justify-content:center;}
   #undoBtn, #jumpToCurrentMonthBtn{padding:8px 10px; font-size:.76rem; flex-shrink:0;}
   /* Wide enough that a typical amount ("1234.56") is fully visible without focusing the
      field - the earlier 64px was tuned before input font-size was bumped to 16px (for
@@ -919,7 +931,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <button class="side-icon" data-view="other" title="Other records"><span class="ic">▤</span>Other records</button>
     <button class="side-icon" data-view="admin" id="adminNavBtn" title="Users" style="display:none;"><span class="ic">▧</span>Users</button>
     <div class="side-spacer"></div>
-    <button type="button" class="sidebar-link-btn" id="accountSettingsBtn" title="Account settings"><span class="ic">⚙</span>Settings</button>
+    <button type="button" class="sidebar-link-btn" id="accountSettingsBtn" title="Account settings"><span class="ic">⚙︎</span>Settings</button>
     <div class="dark-toggle">
       <span class="dt-label"><span class="ic">☾</span><span class="dt-text">Dark mode</span></span>
       <button class="dm-switch" id="darkModeSwitch"></button>
@@ -2683,7 +2695,7 @@ function jumpToRecordCard(source){
   if(otherBtn) otherBtn.classList.add('active');
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-other').classList.add('active');
-  document.getElementById('monthNavWrap').style.visibility = 'hidden';
+  document.getElementById('monthNavWrap').style.display = 'none';
   document.getElementById('undoBtn').style.display = 'none';
   document.getElementById('jumpToCurrentMonthBtn').style.display = 'none';
   const card = document.getElementById(cardId);
@@ -4437,10 +4449,10 @@ document.querySelectorAll('.side-icon').forEach(btn => {
     updateSideHighlight();
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
-    document.getElementById('monthNavWrap').style.visibility = btn.dataset.view==='ledger' ? 'visible' : 'hidden';
+    document.getElementById('monthNavWrap').style.display = btn.dataset.view==='ledger' ? '' : 'none';
     document.getElementById('undoBtn').style.display = btn.dataset.view==='ledger' ? '' : 'none';
     document.getElementById('jumpToCurrentMonthBtn').style.display = btn.dataset.view==='ledger' ? '' : 'none';
-    if(btn.dataset.view==='dashboard'){ renderDashboard(); renderInsights(); renderUpConnectState(); if(upToken) refreshUpData(); }
+    if(btn.dataset.view==='dashboard'){ renderDashboard(); renderInsights(); renderUpConnectState(); if(upToken && upTransactions.length === 0) refreshUpData(); }
     if(btn.dataset.view==='template') renderTemplateEditor();
     if(btn.dataset.view==='ledger'){ updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths(); }
     if(btn.dataset.view==='other'){ updateAllRtableNameWidths(); }
@@ -6703,6 +6715,12 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   updateSideHighlight();
   refreshInsertDropdowns();
   refreshUpSpendingBalance();
+  // Pre-fetch the transaction list during boot (not awaited - shouldn't block the rest
+  // of the page rendering) so switching to the Dashboard tab shows it immediately instead
+  // of a brief "Loading transactions..." placeholder flashing in and replacing itself -
+  // most noticeable jolt on a phone where tab switches happen quickly. The dashboard
+  // tab-click handler above only re-fetches if this hasn't finished yet.
+  if(upToken) refreshUpData();
   setInterval(() => {
     if(!upToken) return;
     // Only the lightweight balance check runs automatically — refreshUpData() rebuilds
