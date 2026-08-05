@@ -233,6 +233,37 @@ Worth knowing these exist as a class, since static review missed all of them:
   re-excluded it on the very next render. Static reading of the un-exclude handler in
   isolation looked correct; only became obvious by actually clicking Excluded → un-exclude
   in the test harness and checking whether the button state survived a re-render.
+- **The mobile "two scrollbar thumbs" / "scroll range shrinks depending on where you
+  start dragging" bug** — this took roughly seven fix attempts across a very long session
+  before landing on the real cause, and is worth reading in full if it ever resurfaces.
+  The actual bug: per the CSS Overflow spec, if one of `overflow-x`/`overflow-y` is set to
+  a non-`visible` value and the other is left `visible` (explicitly or by default), the
+  `visible` axis's *computed* value silently becomes `auto` instead — confirmed via
+  `getComputedStyle`, not visible from reading the source CSS. Any element that sets only
+  one axis is a latent independent scroll container waiting to happen the moment *any*
+  content — including invisible content — extends past its box. Two real instances found
+  this way:
+  1. `#viewPagerViewport` (wraps the entire swipeable pager, every tab) — only
+     `overflow-x:hidden` was set; `overflow-y` computed to `auto`, making the whole pager
+     wrapper a second, independent, touch-scrollable region layered on top of the page.
+  2. `.chart` (`#dashChart`, the Dashboard bar chart, mobile only) — only
+     `overflow-x:auto` was set (for horizontal panning). `overflow-y` computed to `auto`,
+     and each bar's `[data-tip]::before` tooltip (`position:absolute; top:100%`, invisible
+     via `opacity:0` until real `:hover`) extended past the box, giving it genuine
+     scrollable overflow nobody could see.
+  Six earlier fix attempts (touch axis-lock tuning, `overscroll-behavior-y:none`, a
+  ResizeObserver→rAF→ResizeObserver detour, `position:sticky`→`fixed` on the sidebar,
+  removing nested scroll from `.rec-table-wrap`/`.up-tx-list`) were all real, individually
+  correct fixes for real problems — none of them were this bug, which is why the user kept
+  reporting "still happening" after each one shipped. **What finally worked**: stop
+  reasoning from the CSS and instead sweep the live DOM for ground truth —
+  `document.querySelectorAll('*')`, check `getComputedStyle(el).overflowY/overflowX` for
+  `auto`/`scroll`, and flag anything where `scrollHeight > clientHeight` (or the `-Width`
+  equivalent) is actually true. This finds every real independently-scrollable element on
+  the page in one pass, with zero guessing about which element or which tab. If a scroll
+  bug like this ever comes back, run that sweep first, on every tab, before touching any
+  more CSS.
 
 Moral: for anything visual or stateful, screenshot/exercise it — don't just confirm the
-code "looks right."
+code "looks right." For scroll-container bugs specifically, don't reason from the CSS at
+all — sweep the live DOM for elements with real `scrollHeight > clientHeight` first.
