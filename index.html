@@ -105,13 +105,15 @@ header.mast{display:flex; justify-content:flex-end; align-items:center; padding-
 .month-nav button.arrow{width:28px; height:28px; border:none; border-radius:7px; background:transparent; color:var(--ink); cursor:pointer; font-size:1rem; font-family:'Inter',sans-serif;}
 .month-nav button.arrow:hover{background:var(--paper-dim);}
 .month-dropdown{position:relative;}
-.month-dropdown-btn{font-family:'Inter',sans-serif; font-weight:600; font-size:.92rem; background:transparent; border:none; border-radius:7px; padding:5px 12px; cursor:pointer; color:var(--ink); width:150px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-.current-month-badge{position:absolute; top:2px; right:2px; width:7px; height:7px; border-radius:50%; background:var(--credit); box-shadow:0 0 4px 0px color-mix(in srgb, var(--credit) 55%, transparent); pointer-events:none; animation:currentDotGlow 3.6s ease-in-out infinite;}
-@keyframes currentDotGlow{
-  0%, 100%{ box-shadow:0 0 2px 0px color-mix(in srgb, var(--credit) 35%, transparent); }
-  50%{ box-shadow:0 0 7px 1px color-mix(in srgb, var(--credit) 55%, transparent); }
-}
+.month-dropdown-btn{position:relative; font-family:'Inter',sans-serif; font-weight:600; font-size:.92rem; background:transparent; border:none; border-radius:7px; padding:5px 12px; cursor:pointer; color:var(--ink); width:150px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .month-dropdown-btn:hover{background:var(--paper-dim);}
+/* month-label-cur is the real, always-current label; month-label-clone is a throwaway
+   copy of whatever text it just replaced, appended only for the duration of the slide
+   (see animateMonthLabelSlide) then removed - both sit on top of each other via absolute
+   positioning so they can cross-fade/slide past one another instead of the text just
+   instantly jump-cutting to the new month. */
+.month-label-cur, .month-label-clone{display:block; width:100%;}
+.month-label-clone{position:absolute; top:0; left:0; padding:5px 12px; box-sizing:border-box; pointer-events:none;}
 .month-dropdown-list{position:absolute; top:calc(100% + 6px); left:50%; transform:translateX(-50%); width:236px; max-height:0; overflow:hidden; opacity:0; background:var(--surface); border:1px solid var(--rule); border-radius:12px; box-shadow:var(--shadow); z-index:50; transition:max-height .2s ease, opacity .15s ease;}
 .month-dropdown-list.open{max-height:320px; opacity:1;}
 .month-picker-year{display:flex; align-items:center; justify-content:center; gap:4px; padding:8px 10px; border-bottom:1px solid var(--rule);}
@@ -123,7 +125,6 @@ header.mast{display:flex; justify-content:flex-end; align-items:center; padding-
 .month-picker-cell{position:relative; font-family:'Inter',sans-serif; font-size:.76rem; padding:8px 4px; border:1px solid var(--rule); border-radius:6px; background:transparent; color:var(--ink); cursor:pointer; text-align:center;}
 .month-picker-cell:hover{background:var(--paper-dim); border-color:var(--ink-faint);}
 .month-picker-cell.selected{background:var(--gold); color:#fff; border-color:var(--gold);}
-.month-picker-cell.is-today{border-color:var(--credit); border-width:2px;}
 .month-picker-cell.has-data::after{content:''; position:absolute; bottom:3px; right:4px; width:4px; height:4px; border-radius:50%; background:var(--credit);}
 .month-picker-cell.selected.has-data::after{background:#fff;}
 
@@ -697,7 +698,13 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .account-settings-box{max-width:380px;}
 .settings-form-content{max-width:420px;}
 .account-settings-box .auth-field{margin-top:14px; margin-bottom:0;}
-.acct-feature-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:16px; font-size:.82rem; font-weight:600; color:var(--ink-soft);}
+.acct-admin-subhdr{font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin:22px 0 8px;}
+/* Its own visually distinct spot, not squeezed in among Close/Save - a top border and
+   different (destructive-leaning) color signal this is a different kind of action, not
+   just another form button. */
+.acct-logout-row{margin-top:24px; padding-top:18px; border-top:1px solid var(--rule); display:flex; justify-content:center;}
+.acct-logout-row .mini-btn{color:var(--debit); border-color:var(--debit);}
+.acct-logout-row .mini-btn:hover{background:var(--debit); color:#fff;}
 .acct-verify-row{display:flex; align-items:center; gap:10px; margin-top:6px;}
 .acct-verify-badge{font-size:.72rem; font-weight:700; padding:3px 9px; border-radius:20px;}
 .acct-verify-badge.verified{background:var(--credit-bg); color:var(--credit);}
@@ -905,9 +912,20 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   #viewPagerTrack{position:relative;}
   #viewPagerTrack .view{position:absolute; top:0; width:100vw; max-width:100vw; box-sizing:border-box; padding:0 8px; display:block !important;}
   #viewPagerTrack.pager-animate{transition:transform .28s cubic-bezier(.22,.61,.36,1);}
+  .top-right.pager-animate{transition:transform .28s cubic-bezier(.22,.61,.36,1);}
   .topbar{flex-direction:column; gap:10px;}
   .assign-card, .progress-card, .summary-mini{width:100%; flex-basis:auto; height:auto; min-height:130px;}
   .notes-box{min-width:0; height:auto; min-height:110px;}
+  /* Center the top 4 Budget-tab containers on mobile - the green hero, income/costs,
+     comments and current-balance cards. The Comments textarea itself is left as-is
+     (only its "Comments" label centers) - centering actually-typed multi-line notes
+     would make them harder to read, not nicer to look at. */
+  .assign-card{text-align:center;}
+  .assign-card .lbl, .assign-card .goal-row{justify-content:center;}
+  .mini-stat-row{justify-content:center;}
+  .mini-stat{align-items:center; text-align:center;}
+  .notes-box label{text-align:center;}
+  .balance-bar-left{text-align:center;}
   /* Balance bar: keep the gear inline with the balance row instead of dropping to its
      own near-empty row below. (display:contents on .balance-bar-right was tried here
      first to promote the gear to a direct sibling of .balance-bar-left via `order` -
@@ -921,11 +939,24 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .balance-bar-left{flex:1; min-width:200px;}
   .balance-bar-right{flex:0 0 auto; justify-content:flex-start; max-width:100%;}
   .or-summary-bar{grid-template-columns:1fr;}
-  .month-nav{flex-wrap:nowrap;}
-  .month-dropdown-btn{width:96px; font-size:.82rem; padding:5px 4px;}
+  .month-nav{flex-wrap:nowrap; padding:5px;}
+  /* Bigger touch targets for pressing/swiping between months - the desktop size was
+     tuned for a mouse pointer, not a thumb. */
+  .month-nav button.arrow{width:38px; height:38px; font-size:1.2rem;}
+  /* min-width, not a fixed width - "September 2026" is noticeably wider than "May 2026"
+     or "July 2026", and a fixed width tight enough for the short names clipped the long
+     ones down to "Septem…". Letting the button grow for its own content instead of
+     clipping it is the same fix pattern used elsewhere in this file for "don't give it a
+     box tighter than what it actually needs to show". */
+  .month-dropdown-btn{min-width:132px; font-size:.88rem; padding:9px 6px;}
   .top-right{width:100%; justify-content:center; flex-wrap:nowrap; gap:8px;}
   .mast{flex-wrap:wrap; gap:8px;}
-  #undoBtn, #jumpToCurrentMonthBtn{padding:8px 10px; font-size:.76rem; flex-shrink:0;}
+  #jumpToCurrentMonthBtn{padding:8px 10px; font-size:.76rem; flex-shrink:0;}
+  /* Icon-only on mobile - freeing up the width "Undo" cost as text is what makes room for
+     the bigger month-nav touch targets above without the row overflowing/wrapping on a
+     narrow phone screen. */
+  #undoBtn{padding:8px; flex-shrink:0;}
+  #undoBtn span{display:none;}
   /* Wide enough that a typical amount ("1234.56") is fully visible without focusing the
      field - the earlier 64px was tuned before input font-size was bumped to 16px (for
      the iOS zoom fix below), which needs more room to show the same digits. */
@@ -1089,7 +1120,6 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <button class="side-icon" data-view="up" id="upNavBtn" title="Up Bank"><span class="ic">▲</span>Up</button>
     <button class="side-icon" data-view="template" title="Template"><span class="ic">▥</span>Template</button>
     <button class="side-icon" data-view="other" title="Other records"><span class="ic">▤</span>Records</button>
-    <button class="side-icon" data-view="admin" id="adminNavBtn" title="Users" style="display:none;"><span class="ic">▧</span>Users</button>
     <div class="side-spacer"></div>
     <button type="button" class="sidebar-link-btn side-icon" data-view="settings" id="accountSettingsBtn" title="Account settings"><span class="ic">⚙︎</span>Settings</button>
     <div class="dark-toggle">
@@ -1107,8 +1137,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         <div id="monthNavWrap" class="month-nav">
           <button class="arrow" id="prevMonthBtn" title="Previous month">‹</button>
           <div class="month-dropdown" id="monthDropdown">
-            <button class="month-dropdown-btn" id="monthDropdownBtn"></button>
-            <span class="current-month-badge" id="currentMonthBadge" title="This is the current month" style="display:none;"></span>
+            <button class="month-dropdown-btn" id="monthDropdownBtn"><span class="month-label-cur" id="monthLabelCur"></span></button>
             <div class="month-dropdown-list" id="monthDropdownList">
               <div class="month-picker-year">
                 <button class="arrow" id="pickerPrevYear" title="Previous year">‹</button>
@@ -1235,12 +1264,6 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 
     <!-- ================= DASHBOARD VIEW ================= -->
     <div class="view" id="view-dashboard">
-    <div class="rec-card" id="biggestMoversCard" style="display:none;">
-      <h2>Biggest price changes <span class="rc-sub">last month, vs the 3 months before it</span></h2>
-      <div class="rec-body">
-        <div class="biggest-movers-list" id="biggestMoversList"></div>
-      </div>
-    </div>
     <div class="rec-card collapsible open" id="savingsDashboardCard">
       <div class="rec-summary" data-rec-toggle><h2>Savings Dashboard <span class="rc-sub">history across all tracked months</span></h2></div>
       <div class="rec-body" style="max-height:none;"><div class="rec-body-inner">
@@ -1264,6 +1287,13 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         </div>
         <div class="rec-actions"><button class="mini-btn" id="exportCsvBtn">Export CSV</button></div>
       </div></div>
+    </div>
+
+    <div class="rec-card" id="biggestMoversCard" style="display:none;">
+      <h2>Biggest price changes <span class="rc-sub">last month, vs the 3 months before it</span></h2>
+      <div class="rec-body">
+        <div class="biggest-movers-list" id="biggestMoversList"></div>
+      </div>
     </div>
 
     <div class="rec-card collapsible open" id="insightsCard">
@@ -1474,21 +1504,11 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 
   </div>
 
-    <!-- ================= USERS (ADMIN) VIEW ================= -->
-    <div class="view" id="view-admin">
-      <div class="up-tx-actions-row">
-        <h2 style="margin:0; flex:1;">Users</h2>
-        <button class="mini-btn month-actions-gear" id="adminSearchToggle" title="Search"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></button>
-      </div>
-      <div class="month-actions-panel up-search-menu" id="adminSearchPanel">
-        <input type="text" id="adminUserSearch" class="up-tx-search" placeholder="Search users by name or email...">
-      </div>
-      <div id="adminUsersList"></div>
-    </div>
-
     <!-- ================= SETTINGS VIEW (phone: a real swipeable tab; desktop: this same
          content is moved into #accountSettingsModalBox and shown as a popup instead -
-         see openAccountSettingsPopup()/showAccountSettingsTab() in the script) ================= -->
+         see openAccountSettingsPopup()/showAccountSettingsTab() in the script). Also the
+         new home for admin-only user management (previously its own "Users" sidebar tab -
+         see acctOwnAdminCard/manageUsersCard below) ================= -->
     <div class="view" id="view-settings">
       <div class="settings-form-content" id="settingsFormContent">
         <h2>Account settings</h2>
@@ -1499,14 +1519,35 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <button type="button" class="mini-btn" id="acctResendVerifyBtn" style="display:none;">Resend verification email</button>
         </div>
         <label class="auth-field">New password<input type="password" id="acctNewPassword" autocomplete="new-password" minlength="6" placeholder="Leave blank to keep current password"></label>
-        <div class="acct-feature-row"><span>Show Up Bank tab</span><button class="dm-switch feature-toggle-switch" data-feature="up" title="Show or hide the Up tab in the sidebar"></button></div>
         <div class="auth-error" id="acctError"></div>
         <div class="acct-success" id="acctSuccess"></div>
         <div class="modal-actions">
-          <button type="button" class="acct-logout-link" id="acctLogoutBtn">Log out</button>
           <button class="mini-btn" id="acctCloseBtn">Close</button>
           <button class="mini-btn gold" id="acctSaveBtn">Save changes</button>
         </div>
+        <!-- Admin-only: your own feature toggles, inline and always expanded (there's only
+             ever one row here) - replaces the old standalone "Show Up Bank tab" switch,
+             now consistent with how every other user's toggles are managed below. -->
+        <div id="acctOwnAdminCard" style="display:none;">
+          <h3 class="acct-admin-subhdr">My feature access</h3>
+          <div id="acctOwnAdminToggles"></div>
+        </div>
+        <!-- Admin-only: manage everyone else - what used to be the standalone Users tab,
+             now a collapsible section here instead. -->
+        <div class="rec-card collapsible" id="manageUsersCard" style="display:none;">
+          <div class="rec-summary" data-rec-toggle><h2>Manage users</h2></div>
+          <div class="rec-body"><div class="rec-body-inner">
+            <div class="up-tx-actions-row">
+              <span style="flex:1;"></span>
+              <button class="mini-btn month-actions-gear" id="adminSearchToggle" title="Search"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></button>
+            </div>
+            <div class="month-actions-panel up-search-menu" id="adminSearchPanel">
+              <input type="text" id="adminUserSearch" class="up-tx-search" placeholder="Search users by name or email...">
+            </div>
+            <div id="adminUsersList"></div>
+          </div></div>
+        </div>
+        <div class="acct-logout-row"><button type="button" id="acctLogoutBtn" class="mini-btn">Log out</button></div>
       </div>
     </div>
     </div>
@@ -2836,6 +2877,21 @@ async function onFeatureToggleClick(btn){
 // user_settings also holds each user's plaintext Up Bank token - see schema.sql.
 let adminUsersCache = [];
 let adminUserSearchTerm = '';
+// Shared between the collapsible "everyone else" cards below and the always-expanded
+// self block in Account settings (acctOwnAdminToggles) - same toggle rows either way, just
+// a different wrapper around them.
+function adminFlagRowsHtml(u){
+  return `
+      <div class="admin-user-flag-row"><span>Admin</span><button class="dm-switch admin-flag-switch ${u.is_admin?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="is_admin" ${u.user_id===authUserId?'disabled title="You can’t remove your own admin access"':''}></button></div>
+      <div class="admin-user-flag-row"><span>Tech Replacement</span><button class="dm-switch admin-flag-switch ${u.feature_tech?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_tech"></button></div>
+      <div class="admin-user-flag-row"><span>Groceries</span><button class="dm-switch admin-flag-switch ${u.feature_grocery?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_grocery"></button></div>
+      <div class="admin-user-flag-row"><span>Monthly Costs</span><button class="dm-switch admin-flag-switch ${u.feature_monthlycosts?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_monthlycosts"></button></div>
+      <div class="admin-user-flag-row"><span>Flexible Tracker grant</span><button class="dm-switch admin-flag-switch ${u.feature_ballet?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_ballet" ${u.is_admin?'disabled title="Admins already see the real Ballet feature"':''}></button></div>
+      <div class="admin-user-flag-row"><span>Dashboard tab</span><button class="dm-switch admin-flag-switch ${u.feature_dashboard?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_dashboard"></button></div>
+      <div class="admin-user-flag-row"><span>Records tab</span><button class="dm-switch admin-flag-switch ${u.feature_records?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_records"></button></div>
+      <div class="admin-user-flag-row"><span>Template tab</span><button class="dm-switch admin-flag-switch ${u.feature_template?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_template"></button></div>
+      <div class="admin-user-flag-row"><span>Up tab</span><button class="dm-switch admin-flag-switch ${u.feature_up?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_up"></button></div>`;
+}
 function adminUserCardHtml(u){
   return `<div class="admin-user-card collapsed" data-admin-row="${escapeAttr(u.user_id)}">
     <button type="button" class="admin-user-hdr" data-admin-toggle>
@@ -2845,30 +2901,29 @@ function adminUserCardHtml(u){
         <div class="admin-user-email">${escapeAttr(u.email || '(no email)')}</div>
       </div>
     </button>
-    <div class="admin-user-body"><div class="admin-user-body-inner">
-      <div class="admin-user-flag-row"><span>Admin</span><button class="dm-switch admin-flag-switch ${u.is_admin?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="is_admin" ${u.user_id===authUserId?'disabled title="You can’t remove your own admin access"':''}></button></div>
-      <div class="admin-user-flag-row"><span>Tech Replacement</span><button class="dm-switch admin-flag-switch ${u.feature_tech?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_tech"></button></div>
-      <div class="admin-user-flag-row"><span>Groceries</span><button class="dm-switch admin-flag-switch ${u.feature_grocery?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_grocery"></button></div>
-      <div class="admin-user-flag-row"><span>Monthly Costs</span><button class="dm-switch admin-flag-switch ${u.feature_monthlycosts?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_monthlycosts"></button></div>
-      <div class="admin-user-flag-row"><span>Flexible Tracker grant</span><button class="dm-switch admin-flag-switch ${u.feature_ballet?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_ballet" ${u.is_admin?'disabled title="Admins already see the real Ballet feature"':''}></button></div>
-      <div class="admin-user-flag-row"><span>Dashboard tab</span><button class="dm-switch admin-flag-switch ${u.feature_dashboard?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_dashboard"></button></div>
-      <div class="admin-user-flag-row"><span>Records tab</span><button class="dm-switch admin-flag-switch ${u.feature_records?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_records"></button></div>
-      <div class="admin-user-flag-row"><span>Template tab</span><button class="dm-switch admin-flag-switch ${u.feature_template?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_template"></button></div>
-      <div class="admin-user-flag-row"><span>Up tab</span><button class="dm-switch admin-flag-switch ${u.feature_up?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_up"></button></div>
+    <div class="admin-user-body"><div class="admin-user-body-inner">${adminFlagRowsHtml(u)}
     </div></div>
   </div>`;
 }
+// Excludes your own row - see acctOwnAdminToggles for that, rendered separately and always
+// expanded in Account settings above this collapsible section.
 function renderAdminUsersList(){
   const list = document.getElementById('adminUsersList');
   const term = adminUserSearchTerm.trim().toLowerCase();
-  const filtered = term ? adminUsersCache.filter(u => (u.display_name||'').toLowerCase().includes(term) || (u.email||'').toLowerCase().includes(term)) : adminUsersCache;
-  list.innerHTML = filtered.map(adminUserCardHtml).join('') || `<div class="pc-faint" style="padding:12px;">${term ? 'No users match your search.' : 'No users found.'}</div>`;
+  const others = adminUsersCache.filter(u => u.user_id !== authUserId);
+  const filtered = term ? others.filter(u => (u.display_name||'').toLowerCase().includes(term) || (u.email||'').toLowerCase().includes(term)) : others;
+  list.innerHTML = filtered.map(adminUserCardHtml).join('') || `<div class="pc-faint" style="padding:12px;">${term ? 'No users match your search.' : 'No other users found.'}</div>`;
 }
-async function renderAdminTab(){
+async function renderAdminSection(){
+  document.getElementById('acctOwnAdminCard').style.display = isAdmin ? '' : 'none';
+  document.getElementById('manageUsersCard').style.display = isAdmin ? '' : 'none';
+  if(!isAdmin) return;
   const list = document.getElementById('adminUsersList');
   list.innerHTML = '<div class="pc-faint" style="padding:12px;">Loading…</div>';
   try{
     adminUsersCache = await db.adminListUsers();
+    const self = adminUsersCache.find(u => u.user_id === authUserId);
+    document.getElementById('acctOwnAdminToggles').innerHTML = self ? adminFlagRowsHtml(self) : '';
     renderAdminUsersList();
   }catch(e){
     list.innerHTML = `<div class="pc-faint" style="padding:12px;">Couldn’t load users: ${escapeAttr(e.message||'unknown error')}</div>`;
@@ -2886,7 +2941,10 @@ document.getElementById('adminSearchToggle').addEventListener('click', () => {
   closeFloatingMenus();
   if(open){ positionFloatingMenu(panel, btn); panel.classList.add('open'); btn.classList.add('open'); document.getElementById('adminUserSearch').focus(); }
 });
-document.getElementById('adminUsersList').addEventListener('click', async (e) => {
+// Covers both #adminUsersList (everyone else, collapsible cards) and
+// #acctOwnAdminToggles (your own row, always expanded) - both live inside this shared
+// ancestor and use the same .admin-flag-switch markup/data attributes either way.
+document.getElementById('settingsFormContent').addEventListener('click', async (e) => {
   const sw = e.target.closest('.admin-flag-switch');
   if(sw){
     if(sw.disabled) return;
@@ -2921,6 +2979,16 @@ document.getElementById('view-other').addEventListener('click', (e) => {
   const switchBtn = e.target.closest('.feature-toggle-switch');
   if(switchBtn){ onFeatureToggleClick(switchBtn); return; }
   if(e.target.closest('.tpl-info-btn')) return;
+  const toggle = e.target.closest('[data-rec-toggle]');
+  if(!toggle) return;
+  toggleRecCard(toggle.closest('.rec-card'));
+});
+// Manage users (Settings) resets to collapsed each load, same as Other Records' cards -
+// unlike Dashboard's, which remember their state (see DASHBOARD_COLLAPSIBLE_CARD_IDS).
+// Bound to #settingsFormContent itself, not #view-settings - the content node gets
+// reparented into the desktop popup (see openAccountSettingsPopup), and a listener on the
+// view it left behind would stop seeing its clicks once that happens.
+document.getElementById('settingsFormContent').addEventListener('click', (e) => {
   const toggle = e.target.closest('[data-rec-toggle]');
   if(!toggle) return;
   toggleRecCard(toggle.closest('.rec-card'));
@@ -3609,16 +3677,43 @@ let pickerYear = new Date().getFullYear();
 let pickerMode = 'months'; // 'months' | 'years'
 let yearWindowStart = pickerYear - 5;
 function renderMonthDropdown(){
-  const btn = document.getElementById('monthDropdownBtn');
-  btn.textContent = monthLabel(settings.currentMonth);
+  document.getElementById('monthLabelCur').textContent = monthLabel(settings.currentMonth);
   const now = new Date();
   const [y,m] = settings.currentMonth.split('-').map(Number);
   const isRealCurrentMonth = (y === now.getFullYear() && m === now.getMonth()+1);
-  document.getElementById('currentMonthBadge').style.display = isRealCurrentMonth ? '' : 'none';
   const dropdown = document.getElementById('monthDropdown');
   if(isRealCurrentMonth) dropdown.setAttribute('data-tip', 'Displaying current month');
   else dropdown.removeAttribute('data-tip');
   renderMonthPicker();
+}
+// direction: 1 = moving to a later month (old label exits left, new one enters from the
+// right) - -1 for the reverse. startOffsetPx lets a swipe-released drag hand off smoothly
+// from wherever the live drag already had the label sitting, instead of restarting the
+// slide from zero (see the touch handlers on #monthNavWrap below). oldText is whatever
+// the label showed right before the caller already updated settings.currentMonth /
+// called switchToMonth (which updates monthLabelCur's text synchronously - see
+// switchToMonth's own comment - so by the time this runs, monthLabelCur already holds
+// the new text and only needs to be moved into place, not have its text changed here).
+function animateMonthLabelSlide(direction, oldText, startOffsetPx){
+  const btn = document.getElementById('monthDropdownBtn');
+  const curSpan = document.getElementById('monthLabelCur');
+  const newText = curSpan.textContent;
+  if(oldText === newText) return;
+  const w = btn.clientWidth;
+  const off = startOffsetPx || 0;
+  const clone = document.createElement('span');
+  clone.className = 'month-label-clone';
+  clone.textContent = oldText;
+  clone.style.transition = 'none';
+  clone.style.transform = `translateX(${off}px)`;
+  btn.appendChild(clone);
+  curSpan.style.transition = 'none';
+  curSpan.style.transform = `translateX(${direction*w + off}px)`;
+  void btn.offsetWidth; // force the above to actually commit before animating
+  clone.style.transition = curSpan.style.transition = 'transform .25s cubic-bezier(.22,.61,.36,1)';
+  clone.style.transform = `translateX(${-direction*w}px)`;
+  curSpan.style.transform = 'translateX(0)';
+  setTimeout(() => clone.remove(), 260);
 }
 function renderMonthPicker(){
   const label = document.getElementById('pickerYearLabel');
@@ -3626,13 +3721,11 @@ function renderMonthPicker(){
   if(pickerMode==='months'){
     label.textContent = pickerYear;
     const existingSet = new Set(existingMonths);
-    const now = new Date();
     grid.innerHTML = MONTH_ABBR.map((m, idx) => {
       const key = `${pickerYear}-${pad2(idx+1)}`;
       const selected = key === settings.currentMonth;
       const hasData = existingSet.has(key);
-      const isToday = pickerYear === now.getFullYear() && (idx+1) === now.getMonth()+1;
-      return `<button class="month-picker-cell ${selected?'selected':''} ${hasData?'has-data':''} ${isToday?'is-today':''}" data-key="${key}">${m}</button>`;
+      return `<button class="month-picker-cell ${selected?'selected':''} ${hasData?'has-data':''}" data-key="${key}">${m}</button>`;
     }).join('');
     grid.querySelectorAll('.month-picker-cell').forEach(el => {
       el.addEventListener('click', () => { switchToMonth(el.dataset.key); document.getElementById('monthDropdownList').classList.remove('open'); });
@@ -4674,8 +4767,64 @@ document.getElementById('useAsTemplateBtn').addEventListener('click', async () =
 });
 
 /* month nav */
-document.getElementById('prevMonthBtn').addEventListener('click', () => switchToMonth(addMonths(settings.currentMonth,-1)));
-document.getElementById('nextMonthBtn').addEventListener('click', () => switchToMonth(addMonths(settings.currentMonth,1)));
+document.getElementById('prevMonthBtn').addEventListener('click', () => {
+  const oldText = document.getElementById('monthLabelCur').textContent;
+  switchToMonth(addMonths(settings.currentMonth,-1));
+  animateMonthLabelSlide(-1, oldText, 0);
+});
+document.getElementById('nextMonthBtn').addEventListener('click', () => {
+  const oldText = document.getElementById('monthLabelCur').textContent;
+  switchToMonth(addMonths(settings.currentMonth,1));
+  animateMonthLabelSlide(1, oldText, 0);
+});
+// Drag left/right directly on the month label to move between months (phone only - see
+// isMobilePagerActive gate below), same idea as the tab pager but for one label instead
+// of a whole page. Scoped to #monthDropdownBtn itself, not the whole .month-dropdown
+// wrapper, so it never fights with touches landing on the picker popup it also contains.
+// A tap (no real movement) is left alone entirely - the existing click listener above
+// still opens the month picker normally, since browsers don't synthesize a click after a
+// touch that actually moved (same assumption the sidebar's own drag-vs-tap handling
+// already relies on elsewhere in this file).
+let monthLabelDrag = null;
+document.getElementById('monthDropdownBtn').addEventListener('touchstart', (e) => {
+  if(!isMobilePagerActive() || e.touches.length !== 1) return;
+  monthLabelDrag = { startX: e.touches[0].clientX, dragging: false };
+}, {passive:true});
+document.getElementById('monthDropdownBtn').addEventListener('touchmove', (e) => {
+  if(!monthLabelDrag) return;
+  const dx = e.touches[0].clientX - monthLabelDrag.startX;
+  if(!monthLabelDrag.dragging){
+    if(Math.abs(dx) < 10) return;
+    monthLabelDrag.dragging = true;
+  }
+  const curSpan = document.getElementById('monthLabelCur');
+  curSpan.style.transition = 'none';
+  curSpan.style.transform = `translateX(${dx}px)`;
+}, {passive:true});
+function endMonthLabelDrag(e){
+  if(!monthLabelDrag) return;
+  const wasDragging = monthLabelDrag.dragging;
+  const curSpan = document.getElementById('monthLabelCur');
+  if(!wasDragging){ monthLabelDrag = null; return; }
+  const dx = e.changedTouches ? (e.changedTouches[0].clientX - monthLabelDrag.startX) : 0;
+  monthLabelDrag = null;
+  const w = document.getElementById('monthDropdownBtn').clientWidth;
+  const threshold = w * 0.28;
+  if(dx <= -threshold){
+    const oldText = curSpan.textContent;
+    switchToMonth(addMonths(settings.currentMonth, 1));
+    animateMonthLabelSlide(1, oldText, dx);
+  } else if(dx >= threshold){
+    const oldText = curSpan.textContent;
+    switchToMonth(addMonths(settings.currentMonth, -1));
+    animateMonthLabelSlide(-1, oldText, dx);
+  } else {
+    curSpan.style.transition = 'transform .22s cubic-bezier(.22,.61,.36,1)';
+    curSpan.style.transform = 'translateX(0)';
+  }
+}
+document.getElementById('monthDropdownBtn').addEventListener('touchend', endMonthLabelDrag);
+document.getElementById('monthDropdownBtn').addEventListener('touchcancel', endMonthLabelDrag);
 document.getElementById('jumpToCurrentMonthBtn').addEventListener('click', () => {
   switchToMonth(todaysEffectiveMonthKey);
 });
@@ -4689,10 +4838,10 @@ document.getElementById('monthDropdownBtn').addEventListener('click', () => {
 document.addEventListener('click', (e) => { if(!e.target.closest('#monthDropdown')) document.getElementById('monthDropdownList').classList.remove('open'); });
 
 /* sidebar view switching */
-// Computed at swipe time (not a fixed list) so it automatically includes Users for
-// admins and excludes it otherwise - #adminNavBtn stays in the DOM but display:none
-// when not admin, so a static list would either miss it entirely or swipe into a
-// hidden tab depending on which way round the mistake was made.
+// Computed at swipe time (not a fixed list) so it automatically includes/excludes
+// whichever nav tabs are currently display:none (feature-flagged tabs like Up, Dashboard,
+// etc.) - a static list would either miss a tab entirely or swipe into a hidden one
+// depending on which way round the mistake was made.
 function visibleTabOrder(){
   return [...document.querySelectorAll('.side-icon')].filter(b => b.offsetParent !== null).map(b => b.dataset.view);
 }
@@ -4820,11 +4969,6 @@ function activateTab(view){
   if(view==='template') renderTemplateEditor();
   if(view==='ledger'){ updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths(); }
   if(view==='other'){ updateAllRtableNameWidths(); }
-  // Same "keep loaded" idea as the Up tab's own upTransactions.length check just above -
-  // once the user list has been fetched once (at boot, if already admin - see init()),
-  // revisiting this tab shouldn't re-fetch and re-render from scratch every time, which
-  // would also silently re-collapse any card the admin had left expanded.
-  if(view==='admin' && adminUsersCache.length === 0) renderAdminTab();
   if(view==='settings') showAccountSettingsTab();
   updatePagerPosition(true);
 }
@@ -4884,9 +5028,16 @@ document.addEventListener('keydown', (e) => {
 // session (see .up-tx-list's mobile override elsewhere), so there's nothing left for a
 // touch starting there to scroll independently. Blocking pager-drag on it just made
 // swiping tabs from the transaction list a dead zone for no reason.
-const PAGER_DRAG_BLOCKED_SELECTOR = '.grip-handle, .chart, .rec-table-wrap, .custom-select-list, .date-select-row, .inline-source-panel, .month-dropdown-list, textarea, input, .sidebar, .modal-overlay, .month-actions-panel, #inlinePanelHost';
+const PAGER_DRAG_BLOCKED_SELECTOR = '.grip-handle, .chart, .rec-table-wrap, .custom-select-list, .date-select-row, .inline-source-panel, .month-dropdown, .month-dropdown-list, textarea, input, .sidebar, .modal-overlay, .month-actions-panel, #inlinePanelHost';
 let pagerDrag = null;
 const viewPagerTrack = document.getElementById('viewPagerTrack');
+// Undo/month-nav/Today only make sense on the Ledger tab and are already hidden on every
+// other one (see activateTab), but that swap used to happen abruptly the instant the drag
+// settled - while the drag itself was in progress, the whole pager track slid away
+// underneath these controls without them moving at all, which looked disconnected from
+// the rest of the page. Sliding .top-right by the same offset as the track keeps it
+// visually attached to whichever content it's currently sitting on top of.
+const topRightEl = document.querySelector('.top-right');
 // Bound to document, not #viewPagerViewport - a tab shorter than the screen (Records,
 // Users, Settings) means #viewPagerViewport's own box ends where that tab's content
 // does, so a listener scoped to it could never see a touch that starts in the blank
@@ -4934,6 +5085,7 @@ document.addEventListener('touchmove', (e) => {
     pagerDrag.axis = Math.abs(dx) > Math.abs(dy) * 1.5 ? 'x' : 'y';
     if(pagerDrag.axis === 'y'){ pagerDrag = null; return; } // a normal vertical scroll - hands off entirely
     viewPagerTrack.classList.remove('pager-animate');
+    topRightEl.classList.remove('pager-animate');
   }
   if(pagerDrag.axis !== 'x') return;
   e.preventDefault(); // stop vertical bounce/scroll while horizontally dragging a page
@@ -4944,6 +5096,10 @@ document.addEventListener('touchmove', (e) => {
   if(offset > 0) offset *= 0.35;
   else if(offset < minOffset) offset = minOffset + (offset - minOffset) * 0.35;
   viewPagerTrack.style.transform = `translateX(${offset}px)`;
+  // offset minus the constant per-gesture baseOffsetPx, not raw dx - so this stays in
+  // perfect sync with the track above even inside the rubber-band resistance region past
+  // the first/last tab, where offset no longer moves 1:1 with the finger either.
+  topRightEl.style.transform = `translateX(${offset - pagerDrag.baseOffsetPx}px)`;
   const fIdx = Math.min(Math.max(0, pagerDrag.idx - dx / width), pagerDrag.tabOrder.length - 1);
   const lowIdx = Math.floor(fIdx), highIdx = Math.ceil(fIdx), frac = fIdx - lowIdx;
   pagerDrag.sidebar.scrollLeft = pagerDrag.tabCenters[lowIdx] + (pagerDrag.tabCenters[highIdx] - pagerDrag.tabCenters[lowIdx]) * frac;
@@ -4962,18 +5118,24 @@ function endPagerDrag(e){
   const tabOrder = pagerDrag.tabOrder;
   pagerDrag = null;
   clearSidebarHighlightDrag();
+  resetTopRightSlide();
   if(newIdx !== tabOrder.indexOf(document.querySelector('.side-icon.active')?.dataset.view)){
     activateTab(tabOrder[newIdx]);
   } else {
     updatePagerPosition(true); // snap back to where we started
   }
 }
+function resetTopRightSlide(){
+  topRightEl.classList.add('pager-animate');
+  topRightEl.style.transform = '';
+}
 document.addEventListener('touchend', endPagerDrag);
-document.addEventListener('touchcancel', () => { pagerDrag = null; clearSidebarHighlightDrag(); updatePagerPosition(true); });
-// Custom "pull down when already scrolled to the very top" bounce (phone only), modelled
-// on the Up app's own overscroll feel. overscroll-behavior-y:none up top suppresses the
+document.addEventListener('touchcancel', () => { pagerDrag = null; clearSidebarHighlightDrag(); resetTopRightSlide(); updatePagerPosition(true); });
+// Custom "pull the page when already scrolled to either end" bounce (phone only),
+// modelled on the Up app's own overscroll feel - applies at both the top (dragging down)
+// and the bottom (dragging up) of a tab. overscroll-behavior-y:none up top suppresses the
 // native browser bounce entirely (it used to detach the fixed sidebar from the page
-// during the bounce), which meant there was no give at all past the top - just a hard
+// during the bounce), which meant there was no give at all past either end - just a hard
 // stop. A completely separate, independent listener from pagerDrag above rather than
 // folded into it: this one never calls preventDefault(), so it can't interfere with (or
 // be broken by) the pager's own axis-locked horizontal drag or the browser's native
@@ -4983,6 +5145,14 @@ document.addEventListener('touchcancel', () => { pagerDrag = null; clearSidebarH
 // stays exactly where it is and nothing can scroll up above/behind it.
 let pullDrag = null;
 const wrapEl = document.querySelector('.wrap');
+// The classic UIScrollView rubber-band curve (x = distance dragged, d = the asymptotic
+// max, c = stiffness) - approaches d smoothly as x grows instead of hitting a hard wall
+// at some cutoff, so a long drag keeps giving a little more the whole time rather than
+// abruptly stopping. Same shape Up (and iOS scroll views generally) actually use.
+function rubberBand(x, d){
+  const c = 0.55;
+  return (x * d * c) / (d + c * x);
+}
 document.addEventListener('touchstart', (e) => {
   if(!isMobilePagerActive() || e.touches.length !== 1) return;
   if(e.target.closest(PAGER_DRAG_BLOCKED_SELECTOR)) return;
@@ -4997,15 +5167,21 @@ document.addEventListener('touchmove', (e) => {
     if(Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
     pullDrag.axis = Math.abs(dx) > Math.abs(dy) * 1.5 ? 'x' : 'y';
   }
-  if(pullDrag.axis !== 'y' || dy <= 0 || window.scrollY > 0){
+  if(pullDrag.axis !== 'y'){
+    if(pullDrag.active){ wrapEl.style.transform = ''; pullDrag.active = false; }
+    return;
+  }
+  const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+  const atTop = window.scrollY <= 0;
+  const atBottom = window.scrollY >= maxScroll - 1;
+  let pull = 0;
+  if(dy > 0 && atTop) pull = rubberBand(dy, 70);
+  else if(dy < 0 && atBottom) pull = -rubberBand(-dy, 70);
+  if(!pull){
     if(pullDrag.active){ wrapEl.style.transform = ''; pullDrag.active = false; }
     return;
   }
   pullDrag.active = true;
-  // Same diminishing-resistance style already used for the pager's own horizontal
-  // rubber-band above (offset *= 0.35), capped so a long drag doesn't pull the page down
-  // an unreasonable amount.
-  const pull = Math.min(dy * 0.35, 70);
   wrapEl.style.transform = `translateY(${pull}px)`;
 }, {passive:true});
 function endPullDrag(){
@@ -7396,7 +7572,11 @@ function populateAccountSettingsFields(){
   document.getElementById('acctError').textContent = '';
   document.getElementById('acctSuccess').textContent = '';
   renderAccountVerifyBadge();
-  renderFeatureToggle('up');
+  // Same "keep loaded, don't silently re-collapse an expanded card" idea as the Up tab's
+  // own upTransactions.length check elsewhere - only fetch once per session, not on every
+  // visit to Settings.
+  if(isAdmin && adminUsersCache.length === 0) renderAdminSection();
+  else if(isAdmin) { document.getElementById('acctOwnAdminCard').style.display = ''; document.getElementById('manageUsersCard').style.display = ''; }
 }
 // #settingsFormContent (name/email/password/Up-tab toggle) has exactly one instance in
 // the DOM, moved between two different parents depending on context rather than
@@ -7421,10 +7601,6 @@ function showAccountSettingsTab(){
   document.getElementById('acctCloseBtn').style.display = 'none';
   populateAccountSettingsFields();
 }
-document.getElementById('settingsFormContent').addEventListener('click', (e) => {
-  const switchBtn = e.target.closest('.feature-toggle-switch');
-  if(switchBtn) onFeatureToggleClick(switchBtn);
-});
 document.getElementById('acctCloseBtn').addEventListener('click', closeAccountSettingsPopup);
 document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => { if(e.target.id === 'accountSettingsOverlay') closeAccountSettingsPopup(); });
 document.getElementById('acctLogoutBtn').addEventListener('click', performLogout);
@@ -7510,10 +7686,11 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   // ahead of time, the first swipe into it shows blank/stale content that then pops in
   // once renderDashboard()/renderInsights() finish - the jitter this was fixing.
   renderDashboard(); renderInsights();
-  // Same idea again, for whoever's actually an admin: the Users tab's own view already
-  // sits in the pager off-screen like every other tab, so pre-fetching the list here means
-  // the first swipe into it shows the real thing immediately instead of a "Loading…" flash.
-  if(isAdmin) renderAdminTab();
+  // Same idea again, for whoever's actually an admin: Settings (which now also holds user
+  // management - see renderAdminSection) sits in the pager off-screen like every other
+  // tab, so pre-fetching the list here means the first swipe into it shows the real thing
+  // immediately instead of a "Loading…" flash.
+  if(isAdmin) renderAdminSection();
   renderTechRows();
   document.getElementById('groceryEatOut').value = grocery.eatOut || 0;
   renderGroceryRows(); updateGroceryTotal();
@@ -7533,7 +7710,6 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   renderFeatureToggle('records');
   renderFeatureToggle('template');
   renderBalletCardChrome();
-  document.getElementById('adminNavBtn').style.display = isAdmin ? '' : 'none';
   updateSideHighlight();
   setupPagerViewPositions();
   updatePagerPosition(false);
