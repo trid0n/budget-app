@@ -912,9 +912,30 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .inline-source-panel{left:8px !important; right:8px; width:auto !important; max-width:none !important;}
   .panel-close-btn{display:flex;}
   .tx-assign-hdr{padding-right:28px;}
-  /* Needs both directions (it scrolls a wide table vertically too) - touch-action:auto
-     overrides .wrap's pan-y above back to the real default for this element specifically. */
-  .rec-table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; touch-action:auto;}
+  /* Needs horizontal scroll (a wide table can't reflow to fit a phone screen) -
+     touch-action:auto overrides .wrap's pan-y above back to the real default for this
+     element specifically. The vertical cap (max-height + overflow-y:auto) is dropped
+     instead of overridden directly - a mismatched overflow-x:auto/overflow-y:visible
+     pair gets corrected by the browser back to overflow-y:auto per spec, so the real fix
+     is just not giving it a height to overflow in the first place. Without this override,
+     a wide/tall table was its own separately-scrollable region nested inside a page this
+     whole redesign otherwise made scroll as one continuous surface on phone - landing a
+     touch on it meant scrolling THAT region (capped at 340px) instead of the page, with
+     its own independent scrollbar indicator showing at the same time as the page's own
+     (reported as "2 sets of sliders") and nothing left to scroll once its own limited
+     range ran out (reported as the page's own scroll range "shrinking"). Desktop keeps
+     the capped/scrollable version above - a compact list with its own internal scroll
+     makes sense there, next to a persistent sidebar. */
+  .rec-table-wrap{max-height:none; overflow-x:auto; -webkit-overflow-scrolling:touch; touch-action:auto;}
+  /* Same reasoning as .rec-table-wrap above, for the Up tab's own transaction list - see
+     that comment for the full explanation. overflow:visible too, not just max-height:none
+     - overflow-y:auto (inherited from the base rule) still establishes its own block
+     formatting context regardless of whether there's a height to actually overflow, which
+     prevents the last row's own margin from collapsing into the page the normal way and
+     leaves a small but real residual scroll range (a few dozen px) rather than none at
+     all. visible is the one overflow value that doesn't create a BFC, so this is what
+     actually gets to zero rather than just "much smaller." */
+  .up-tx-list{max-height:none; overflow:visible;}
   /* A stronger, tap-friendly highlight on the small screen where it needs to double as
      the only feedback a touch gets (no hover state to fall back on) - desktop keeps the
      original subtle version above. */
