@@ -143,7 +143,8 @@ header.mast{display:flex; justify-content:flex-end; align-items:center; padding-
 .goal-input:focus{outline:none; background:rgba(255,255,255,.15); border-radius:3px;}
 .goal-input::placeholder{color:rgba(255,255,255,.6);}
 .assign-card .goal-status{font-size:.72rem; margin-top:4px; font-weight:600; opacity:.95; white-space:normal; overflow-wrap:break-word; line-height:1.35; min-height:1.3em;}
-.tpl-goal-card{display:flex; align-items:stretch; background:var(--surface); border:1px solid var(--rule); border-radius:12px; box-shadow:var(--shadow); overflow:hidden;}
+.tpl-goal-card{position:relative; display:flex; align-items:stretch; background:var(--surface); border:1px solid var(--rule); border-radius:12px; box-shadow:var(--shadow); overflow:hidden;}
+.tpl-goal-info-btn{position:absolute; top:6px; left:6px; z-index:1;}
 .tpl-goal-label{color:var(--ink-soft); font-size:.78rem; font-weight:700; flex:1; padding:16px 20px; display:flex; align-items:center;}
 .tpl-goal-value{background:color-mix(in srgb, var(--gold) 22%, var(--surface)); padding:16px 20px; display:flex; align-items:baseline; gap:2px; cursor:pointer;}
 .tpl-goal-value span{color:color-mix(in srgb, var(--gold) 55%, var(--ink)); font-size:.95rem; font-weight:700;}
@@ -449,6 +450,9 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .mini-btn:hover{background:var(--paper-dim);}
 .mini-btn.gold{border-color:var(--gold); color:var(--gold);}
 .mini-btn.gold:hover{background:var(--gold); color:#fff;}
+.undo-btn{display:inline-flex; align-items:center; gap:6px; color:var(--ink-soft);}
+.undo-btn svg{flex-shrink:0;}
+.undo-btn:hover{color:var(--gold); border-color:var(--gold);}
 
 @media (max-width:700px){
   .topbar{gap:10px;}
@@ -610,7 +614,10 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-acc-name{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .up-goal-flag{display:inline-block; background:rgba(255,255,255,.22); color:#fff; border-radius:20px; padding:2px 8px; font-size:.6rem; text-transform:none; letter-spacing:0; font-weight:700; margin-left:6px; vertical-align:middle;}
 .up-acc-bal{font-size:1rem; font-weight:800; color:var(--ink); font-variant-numeric:tabular-nums;}
-.up-tx-search{width:100%; box-sizing:border-box; border:1px solid var(--rule); border-radius:8px; background:var(--paper-dim); padding:8px 12px; font-family:'Inter',sans-serif; font-size:.85rem; color:var(--ink); margin-bottom:10px;}
+.up-tx-search-wrap{position:relative;}
+.up-tx-search{width:100%; box-sizing:border-box; border:1px solid var(--rule); border-radius:8px; background:var(--paper-dim); padding:8px 30px 8px 12px; font-family:'Inter',sans-serif; font-size:.85rem; color:var(--ink); margin-bottom:10px;}
+.up-tx-search-clear{position:absolute; top:0; bottom:10px; right:2px; display:flex; align-items:center; justify-content:center; width:26px; border:none; background:none; color:var(--ink-faint); cursor:pointer; padding:0;}
+.up-tx-search-clear:hover{color:var(--ink);}
 .up-tx-search:focus{outline:none; border-color:var(--gold); background:var(--surface);}
 .up-tx-list{border:1px solid var(--rule); border-radius:10px; overflow:hidden; max-height:420px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
 .up-tx-list::-webkit-scrollbar{width:8px;}
@@ -990,6 +997,22 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .name-input, .sh-name-input, .up-tx-row2-name, .tx-view-row-desc, .mover-name{
     -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
   }
+  /* "My template" / "Template saved" were redundant with the tab's own label - the info
+     button (moved into the goal card's corner above) already covers what the heading's
+     tooltip was for. */
+  .template-top-title{display:none;}
+  .template-top-row{justify-content:center;}
+  .add-cat-card{width:100%;}
+  .rc-sub{display:none;}
+  .dash-running-col{display:none;}
+  .up-tx-actions-row{justify-content:center; flex-wrap:wrap;}
+  /* The live/manual balance is only meaningful for whichever period is actually "now" -
+     browsing a past/future month already excludes it from the math (see updateSummary's
+     applyBalanceToTotal), so showing the box there too just invited "why is this number
+     here" confusion. Desktop has room to keep it visible with its explanatory sub-text
+     instead. */
+  .balance-bar-left{display:none;}
+  .balance-bar-left.current-period{display:block;}
 }
 @media (max-width:420px){
   .up-savers-grid .up-account-chip{flex-basis:100%;}
@@ -1080,7 +1103,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 
     <header class="mast">
       <div class="top-right">
-        <button class="mini-btn" id="undoBtn" title="Undo last change (Ctrl+Z)">↶ Undo</button>
+        <button class="mini-btn undo-btn" id="undoBtn" title="Undo last change (Ctrl+Z)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg><span>Undo</span></button>
         <div id="monthNavWrap" class="month-nav">
           <button class="arrow" id="prevMonthBtn" title="Previous month">‹</button>
           <div class="month-dropdown" id="monthDropdown">
@@ -1144,7 +1167,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         </div>
 
         <div class="balance-bar">
-          <div class="balance-bar-left">
+          <div class="balance-bar-left" id="balanceBarLeft">
             <div class="balance-bar-lbl">Current spending balance</div>
             <div class="balance-bar-amt" id="balanceBarAmt" title="Click to edit">—</div>
             <input type="number" step="0.01" class="balance-edit-input" id="balanceManualInput" style="display:none;">
@@ -1189,8 +1212,9 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <!-- ================= TEMPLATE VIEW ================= -->
     <div class="view" id="view-template">
       <div class="template-top-row">
-        <div><h2>My template <button class="tpl-info-btn" id="templateInfoBtn" data-tip="Your template is the default set of income lines and categories new months are built from. Edit it here any time — then use “Restore this month to template” on any month to reset it back to this layout."><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.5" r="0.9" fill="currentColor" stroke="none"/></svg></button></h2><span class="review-sub" id="templateStatus"></span></div>
+        <div class="template-top-title"><h2>My template</h2><span class="review-sub" id="templateStatus"></span></div>
         <div class="tpl-goal-card">
+          <button class="tpl-info-btn tpl-goal-info-btn" id="templateInfoBtn" data-tip="Your template is the default set of income lines and categories new months are built from. Edit it here any time — then use “Restore this month to template” on any month to reset it back to this layout."><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.5" r="0.9" fill="currentColor" stroke="none"/></svg></button>
           <div class="tpl-goal-label">Default monthly goal</div>
           <div class="tpl-goal-value"><span>$</span><input type="number" step="0.01" id="tplGoalInput" placeholder="0"></div>
         </div>
@@ -1234,7 +1258,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         <div class="chart" id="dashChart"></div>
         <div class="rec-table-wrap">
           <table class="rtable">
-            <thead><tr><th>Month</th><th style="text-align:right;">Income</th><th style="text-align:right;">Costs</th><th style="text-align:right;">Difference</th><th style="text-align:right;">Running total</th></tr></thead>
+            <thead><tr><th>Month</th><th style="text-align:right;">Income</th><th style="text-align:right;">Costs</th><th style="text-align:right;">Difference</th><th class="dash-running-col" style="text-align:right;">Running total</th></tr></thead>
             <tbody id="dashTableBody"></tbody>
           </table>
         </div>
@@ -1318,7 +1342,10 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <button class="mini-btn gold" id="upTxApplyRangeBtn">Apply</button>
         </div>
         <div class="month-actions-panel up-search-menu" id="upTxSearchPanel">
-          <input type="text" id="upTxSearch" class="up-tx-search" placeholder="Search transactions by description...">
+          <div class="up-tx-search-wrap">
+            <input type="text" id="upTxSearch" class="up-tx-search" placeholder="Search transactions by description...">
+            <button type="button" class="up-tx-search-clear" id="upTxSearchClear" title="Clear" style="display:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
+          </div>
         </div>
         <div class="tx-loading-bar" id="upTxLoadingBar" style="display:none;"><div class="tx-loading-bar-inner"></div></div>
         <div class="up-tx-list" id="upTxList"></div>
@@ -2343,6 +2370,7 @@ function updateSummary(){
   const anyChargedNow = t.charged > 0 || t.receivedIncome > 0;
   document.getElementById('miniUncrossWrap').innerHTML = anyChargedNow ? `<button class="uncross-all-btn" id="uncrossAllBtn">Uncross all</button>` : '';
 
+  document.getElementById('balanceBarLeft').classList.toggle('current-period', isCurrentPeriod(settings.currentMonth));
   const balAmtEl = document.getElementById('balanceBarAmt');
   const balSubEl = document.getElementById('balanceBarSub');
   if(effectiveBalance != null){
@@ -4851,7 +4879,12 @@ document.addEventListener('keydown', (e) => {
 // see. Now that the listener is on document (see below), it can - so the sidebar's own
 // native horizontal scroll, and not accidentally switching tabs underneath an open modal
 // or popup, both need to be listed explicitly to keep working the same as before.
-const PAGER_DRAG_BLOCKED_SELECTOR = '.grip-handle, .chart, .rec-table-wrap, .up-tx-list, .custom-select-list, .date-select-row, .inline-source-panel, .month-dropdown-list, textarea, input, .sidebar, .modal-overlay, .month-actions-panel, #inlinePanelHost';
+// .up-tx-list deliberately NOT in this list (it used to be, back when it had its own
+// max-height + overflow-y:auto) - it was made part of the page's normal scroll flow this
+// session (see .up-tx-list's mobile override elsewhere), so there's nothing left for a
+// touch starting there to scroll independently. Blocking pager-drag on it just made
+// swiping tabs from the transaction list a dead zone for no reason.
+const PAGER_DRAG_BLOCKED_SELECTOR = '.grip-handle, .chart, .rec-table-wrap, .custom-select-list, .date-select-row, .inline-source-panel, .month-dropdown-list, textarea, input, .sidebar, .modal-overlay, .month-actions-panel, #inlinePanelHost';
 let pagerDrag = null;
 const viewPagerTrack = document.getElementById('viewPagerTrack');
 // Bound to document, not #viewPagerViewport - a tab shorter than the screen (Records,
@@ -4937,6 +4970,54 @@ function endPagerDrag(e){
 }
 document.addEventListener('touchend', endPagerDrag);
 document.addEventListener('touchcancel', () => { pagerDrag = null; clearSidebarHighlightDrag(); updatePagerPosition(true); });
+// Custom "pull down when already scrolled to the very top" bounce (phone only), modelled
+// on the Up app's own overscroll feel. overscroll-behavior-y:none up top suppresses the
+// native browser bounce entirely (it used to detach the fixed sidebar from the page
+// during the bounce), which meant there was no give at all past the top - just a hard
+// stop. A completely separate, independent listener from pagerDrag above rather than
+// folded into it: this one never calls preventDefault(), so it can't interfere with (or
+// be broken by) the pager's own axis-locked horizontal drag or the browser's native
+// vertical scroll - it just watches the same touch events passively and layers a CSS
+// transform on .wrap on top. Only ever translates .wrap, never .sidebar (a sibling, fixed
+// to the viewport, not a descendant of .wrap) - so the "lighter blue" top bar always
+// stays exactly where it is and nothing can scroll up above/behind it.
+let pullDrag = null;
+const wrapEl = document.querySelector('.wrap');
+document.addEventListener('touchstart', (e) => {
+  if(!isMobilePagerActive() || e.touches.length !== 1) return;
+  if(e.target.closest(PAGER_DRAG_BLOCKED_SELECTOR)) return;
+  wrapEl.style.transition = '';
+  pullDrag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, axis: null, active: false };
+}, {passive:true});
+document.addEventListener('touchmove', (e) => {
+  if(!pullDrag) return;
+  const t = e.touches[0];
+  const dx = t.clientX - pullDrag.startX, dy = t.clientY - pullDrag.startY;
+  if(pullDrag.axis === null){
+    if(Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
+    pullDrag.axis = Math.abs(dx) > Math.abs(dy) * 1.5 ? 'x' : 'y';
+  }
+  if(pullDrag.axis !== 'y' || dy <= 0 || window.scrollY > 0){
+    if(pullDrag.active){ wrapEl.style.transform = ''; pullDrag.active = false; }
+    return;
+  }
+  pullDrag.active = true;
+  // Same diminishing-resistance style already used for the pager's own horizontal
+  // rubber-band above (offset *= 0.35), capped so a long drag doesn't pull the page down
+  // an unreasonable amount.
+  const pull = Math.min(dy * 0.35, 70);
+  wrapEl.style.transform = `translateY(${pull}px)`;
+}, {passive:true});
+function endPullDrag(){
+  if(!pullDrag) return;
+  if(pullDrag.active){
+    wrapEl.style.transition = 'transform .25s cubic-bezier(.22,.61,.36,1)';
+    wrapEl.style.transform = '';
+  }
+  pullDrag = null;
+}
+document.addEventListener('touchend', endPullDrag);
+document.addEventListener('touchcancel', endPullDrag);
 document.getElementById('insightTimeframeRow').addEventListener('click', (e) => {
   const btn = e.target.closest('.timeframe-btn');
   if(!btn) return;
@@ -5464,7 +5545,9 @@ function renderUpTxList(){
       });
     }
   }
-  document.getElementById('upTxList').innerHTML = filtered.length ? (isMobilePagerActive() ? renderUpTxGroups(filtered) : filtered.map(buildUpTxRowHtmlDesktop).join(''))
+  document.getElementById('upTxList').innerHTML = (term && upTxSearchPending)
+    ? `<div class="pc-faint" style="padding:12px;">Loading transactions…</div>`
+    : filtered.length ? (isMobilePagerActive() ? renderUpTxGroups(filtered) : filtered.map(buildUpTxRowHtmlDesktop).join(''))
     : `<div class="pc-faint" style="padding:12px;">${upIncomeFilterActive ? 'No incoming (+) transactions in this range.' : term ? 'No transactions match your search.' : 'No recent transactions.'}</div>`;
   const loadMoreBtn = document.getElementById('upLoadMoreBtn');
   loadMoreBtn.style.display = (!term && upTxNextUrl) ? '' : 'none';
@@ -5479,7 +5562,12 @@ function buildUpTxStatusHtml(t, amt, transferAttr){
     return `<button class="up-tx-status excluded" data-tx-unexclude="${t.id}" data-tip="Excluded from budget categories \u2014 tap to undo">\u2013</button>`;
   }
   if(assignment && assignment.catId){
-    return `<button class="up-tx-status assigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Categorised as \u201c${escapeAttr(assignment.itemName)}\u201d \u2014 tap to change">\u2713</button>`;
+    // findCatById looks at the currently-open month - see the same fallback comment on
+    // buildUpTxRowHtmlDesktop's identical lookup below for why assignment.categoryName is
+    // needed as a backup.
+    const assignedCat = findCatById(assignment.catId);
+    const catEmoji = assignedCat ? getCategoryEmoji(assignedCat) : categoryEmoji(assignment.categoryName);
+    return `<button class="up-tx-status assigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Categorised as \u201c${escapeAttr(assignment.itemName)}\u201d \u2014 tap to change">${catEmoji}</button>`;
   }
   const guess = findGuessForTx(t.attributes.description, amt, t);
   if(guess){
@@ -5611,6 +5699,12 @@ document.getElementById('upLoadMoreBtn').addEventListener('click', loadMoreUpTra
 // currently-selected range up front so search results are complete, not just "complete
 // among what happened to be loaded already."
 let upTxLoadingAllForSearch = false;
+// Separate from upTxLoadingAllForSearch above, which is also a concurrency guard
+// (loadAllUpTransactionsForSearch bails out early if it's already true) - this one is
+// purely for renderUpTxList()'s empty-state display, and needs to already be true for
+// the very first render right after a keystroke, before loadAllUpTransactionsForSearch
+// has even been called yet (let alone set its own flag).
+let upTxSearchPending = false;
 async function loadAllUpTransactionsForSearch(){
   if(upTxLoadingAllForSearch) return;
   upTxLoadingAllForSearch = true;
@@ -5633,14 +5727,28 @@ async function loadAllUpTransactionsForSearch(){
 async function ensureFullRangeLoadedForSearch(){
   if(upTxSearchTerm.trim() && upTxNextUrl){
     await loadAllUpTransactionsForSearch();
-    renderUpTxList();
   }
+  upTxSearchPending = false;
+  renderUpTxList();
 }
 document.getElementById('upTxSearch').addEventListener('input', async (e) => {
   upTxSearchTerm = e.target.value;
-  document.getElementById('upTxSearchToggle').classList.toggle('has-active-filter', !!upTxSearchTerm.trim());
+  const hasTerm = !!upTxSearchTerm.trim();
+  document.getElementById('upTxSearchToggle').classList.toggle('has-active-filter', hasTerm);
+  document.getElementById('upTxSearchClear').style.display = hasTerm ? '' : 'none';
+  // Set before the first render below (not just inside ensureFullRangeLoadedForSearch,
+  // which only runs after this) - otherwise that first render already shows "No
+  // transactions match" against whatever's loaded so far, before the rest of the
+  // selected range has even been checked.
+  if(hasTerm && upTxNextUrl) upTxSearchPending = true;
   renderUpTxList();
   await ensureFullRangeLoadedForSearch();
+});
+document.getElementById('upTxSearchClear').addEventListener('click', () => {
+  const input = document.getElementById('upTxSearch');
+  input.value = '';
+  input.dispatchEvent(new Event('input'));
+  input.focus();
 });
 document.getElementById('upTxSearchToggle').addEventListener('click', () => {
   const panel = document.getElementById('upTxSearchPanel');
@@ -6400,9 +6508,11 @@ document.getElementById('upDisconnectBtn').addEventListener('click', async () =>
   document.getElementById('upTxList').innerHTML = '';
   document.getElementById('upError').textContent = '';
   document.getElementById('upTxSearch').value = '';
+  document.getElementById('upTxSearchClear').style.display = 'none';
   upTransactions = [];
   upTxNextUrl = null;
   upTxSearchTerm = '';
+  upTxSearchPending = false;
   renderUpConnectState();
 });
 document.getElementById('upRefreshBtn').addEventListener('click', refreshUpData);
@@ -6487,7 +6597,7 @@ async function renderDashboard(){
   const mostRecentFirst = withRunning.slice().reverse();
   document.getElementById('dashTableBody').innerHTML = mostRecentFirst.map(r => `
     <tr><td>${monthLabel(r.key)}</td><td class="num">${money(r.income)}</td><td class="num">${money(r.cost)}</td>
-    <td class="num ${r.diff>=0?'pos':'neg'}">${money(r.diff)}</td><td class="num">${money(r.running)}</td></tr>`).join('')
+    <td class="num ${r.diff>=0?'pos':'neg'}">${money(r.diff)}</td><td class="num dash-running-col">${money(r.running)}</td></tr>`).join('')
     || '<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:20px;">No months saved yet</td></tr>';
   window._dashRows = withRunning;
 }
