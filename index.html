@@ -961,7 +961,19 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .insight-donut path.donut-hover{stroke-width:34;}
   .insight-donut:has(path.donut-hover) path:not(.donut-hover, .donut-hit){opacity:.35;}
   .donut-legend-row:hover, .donut-legend-row.donut-hover{background:color-mix(in srgb, var(--gold) 16%, transparent); border-left-color:var(--gold);}
-  .chart{overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:thin; scrollbar-color:var(--rule) transparent; touch-action:pan-x;}
+  /* overflow-y:hidden is load-bearing, not a no-op - same axis-mismatch correction as
+     #viewPagerViewport above (see that comment for the full spec explanation): setting
+     only overflow-x here left overflow-y computing to auto, which normally did nothing
+     since .chart-bar-wrap's content fits its box... except each bar-wrap is
+     position:relative and hosts a [data-tip]::before tooltip (position:absolute,
+     top:100%) that's invisible (opacity:0) but still occupies real layout space below
+     the box even when never hovered. That invisible box was enough to make this element
+     a second real, independently-scrollable region on the Dashboard tab - found by
+     sweeping every element's computed overflow + actual scrollHeight/clientHeight in the
+     test harness after CSS review alone kept missing it. hidden matches overflow-x,
+     avoiding the correction; the tooltip only shows on real hover, essentially never on
+     touch, so clipping it here costs nothing in practice. */
+  .chart{overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:thin; scrollbar-color:var(--rule) transparent; touch-action:pan-x;}
   .chart-bar-wrap{flex:0 0 26px; width:26px;}
   .up-savers-grid .up-account-chip{flex-basis:calc(50% - 5px); width:auto;}
   .insight-grid{grid-template-columns:1fr 1fr;}
