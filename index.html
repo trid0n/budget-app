@@ -105,15 +105,18 @@ header.mast{display:flex; justify-content:flex-end; align-items:center; padding-
 .month-nav button.arrow{width:28px; height:28px; border:none; border-radius:7px; background:transparent; color:var(--ink); cursor:pointer; font-size:1rem; font-family:'Inter',sans-serif;}
 .month-nav button.arrow:hover{background:var(--paper-dim);}
 .month-dropdown{position:relative;}
-.month-dropdown-btn{position:relative; font-family:'Inter',sans-serif; font-weight:600; font-size:.92rem; background:transparent; border:none; border-radius:7px; padding:5px 12px; cursor:pointer; color:var(--ink); width:150px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.month-dropdown-btn{position:relative; font-family:'Inter',sans-serif; font-weight:600; font-size:.92rem; background:transparent; border:none; border-radius:7px; cursor:pointer; color:var(--ink); width:150px; overflow:hidden;}
 .month-dropdown-btn:hover{background:var(--paper-dim);}
-/* month-label-cur is the real, always-current label; month-label-clone is a throwaway
-   copy of whatever text it just replaced, appended only for the duration of the slide
-   (see animateMonthLabelSlide) then removed - both sit on top of each other via absolute
-   positioning so they can cross-fade/slide past one another instead of the text just
-   instantly jump-cutting to the new month. */
-.month-label-cur, .month-label-clone{display:block; width:100%;}
-.month-label-clone{position:absolute; top:0; left:0; padding:5px 12px; box-sizing:border-box; pointer-events:none;}
+/* Three slots (prev/current/next month) sitting side by side, three button-widths wide
+   as a whole - the button itself clips to one slot via overflow:hidden above. Baseline
+   position (see setMonthLabelPosition) shows the middle (current) slot; dragging or
+   sliding just moves this track left/right, which is what lets the adjacent month's real
+   text be visible WHILE dragging towards it instead of only appearing once the drag ends
+   (a bare single-label swap can't do that - there's nothing to reveal until the text
+   itself changes). */
+.month-label-track{position:absolute; top:0; left:0; height:100%; display:flex;}
+.month-label-slot{flex:0 0 var(--mlw, 150px); width:var(--mlw, 150px); box-sizing:border-box; display:flex; align-items:center; justify-content:center; padding:0 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.month-label-track.month-label-animate{transition:transform .32s cubic-bezier(.25,.7,.4,1);}
 .month-dropdown-list{position:absolute; top:calc(100% + 6px); left:50%; transform:translateX(-50%); width:236px; max-height:0; overflow:hidden; opacity:0; background:var(--surface); border:1px solid var(--rule); border-radius:12px; box-shadow:var(--shadow); z-index:50; transition:max-height .2s ease, opacity .15s ease;}
 .month-dropdown-list.open{max-height:320px; opacity:1;}
 .month-picker-year{display:flex; align-items:center; justify-content:center; gap:4px; padding:8px 10px; border-bottom:1px solid var(--rule);}
@@ -925,6 +928,7 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .mini-stat-row{justify-content:center;}
   .mini-stat{align-items:center; text-align:center;}
   .notes-box label{text-align:center;}
+  .notes-box textarea{text-align:center;}
   .balance-bar-left{text-align:center;}
   /* Balance bar: keep the gear inline with the balance row instead of dropping to its
      own near-empty row below. (display:contents on .balance-bar-right was tried here
@@ -942,20 +946,24 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .month-nav{flex-wrap:nowrap; padding:5px;}
   /* Bigger touch targets for pressing/swiping between months - the desktop size was
      tuned for a mouse pointer, not a thumb. */
-  .month-nav button.arrow{width:38px; height:38px; font-size:1.2rem;}
+  .month-nav button.arrow{width:34px; height:34px; font-size:1.1rem;}
   /* min-width, not a fixed width - "September 2026" is noticeably wider than "May 2026"
      or "July 2026", and a fixed width tight enough for the short names clipped the long
      ones down to "Septem…". Letting the button grow for its own content instead of
      clipping it is the same fix pattern used elsewhere in this file for "don't give it a
      box tighter than what it actually needs to show". */
-  .month-dropdown-btn{min-width:132px; font-size:.88rem; padding:9px 6px;}
+  .month-dropdown-btn{min-width:120px; height:34px; font-size:.86rem; padding:0;}
   .top-right{width:100%; justify-content:center; flex-wrap:nowrap; gap:8px;}
   .mast{flex-wrap:wrap; gap:8px;}
-  #jumpToCurrentMonthBtn{padding:8px 10px; font-size:.76rem; flex-shrink:0;}
+  /* Explicit matching heights, not just equal padding - #undoBtn's SVG icon and
+     #jumpToCurrentMonthBtn's text line-height don't render the same height on their own,
+     so equal padding alone left them a couple px off from each other. */
+  #undoBtn, #jumpToCurrentMonthBtn{height:34px; display:flex; align-items:center; justify-content:center; box-sizing:border-box; flex-shrink:0;}
+  #jumpToCurrentMonthBtn{padding:0 10px; font-size:.76rem;}
   /* Icon-only on mobile - freeing up the width "Undo" cost as text is what makes room for
      the bigger month-nav touch targets above without the row overflowing/wrapping on a
      narrow phone screen. */
-  #undoBtn{padding:8px; flex-shrink:0;}
+  #undoBtn{padding:0 8px;}
   #undoBtn span{display:none;}
   /* Wide enough that a typical amount ("1234.56") is fully visible without focusing the
      field - the earlier 64px was tuned before input font-size was bumped to 16px (for
@@ -1137,7 +1145,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         <div id="monthNavWrap" class="month-nav">
           <button class="arrow" id="prevMonthBtn" title="Previous month">‹</button>
           <div class="month-dropdown" id="monthDropdown">
-            <button class="month-dropdown-btn" id="monthDropdownBtn"><span class="month-label-cur" id="monthLabelCur"></span></button>
+            <button class="month-dropdown-btn" id="monthDropdownBtn"><div class="month-label-track" id="monthLabelTrack"><span class="month-label-slot" id="monthLabelPrev"></span><span class="month-label-slot" id="monthLabelCur"></span><span class="month-label-slot" id="monthLabelNext"></span></div></button>
             <div class="month-dropdown-list" id="monthDropdownList">
               <div class="month-picker-year">
                 <button class="arrow" id="pickerPrevYear" title="Previous year">‹</button>
@@ -3676,8 +3684,14 @@ const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct',
 let pickerYear = new Date().getFullYear();
 let pickerMode = 'months'; // 'months' | 'years'
 let yearWindowStart = pickerYear - 5;
+// Set while an arrow-click or drag-release slide is animating the track itself - see
+// slideMonthLabelTrack. renderMonthDropdown() is called synchronously by switchToMonth()
+// during that animation too (it updates plenty of other things besides the label), and
+// must NOT also re-center the track out from under the animation already in progress -
+// that's what was causing the label to visibly jolt/snap for a frame before settling.
+let monthLabelAnimating = false;
 function renderMonthDropdown(){
-  document.getElementById('monthLabelCur').textContent = monthLabel(settings.currentMonth);
+  if(!monthLabelAnimating) renderMonthLabelSlots();
   const now = new Date();
   const [y,m] = settings.currentMonth.split('-').map(Number);
   const isRealCurrentMonth = (y === now.getFullYear() && m === now.getMonth()+1);
@@ -3686,34 +3700,36 @@ function renderMonthDropdown(){
   else dropdown.removeAttribute('data-tip');
   renderMonthPicker();
 }
-// direction: 1 = moving to a later month (old label exits left, new one enters from the
-// right) - -1 for the reverse. startOffsetPx lets a swipe-released drag hand off smoothly
-// from wherever the live drag already had the label sitting, instead of restarting the
-// slide from zero (see the touch handlers on #monthNavWrap below). oldText is whatever
-// the label showed right before the caller already updated settings.currentMonth /
-// called switchToMonth (which updates monthLabelCur's text synchronously - see
-// switchToMonth's own comment - so by the time this runs, monthLabelCur already holds
-// the new text and only needs to be moved into place, not have its text changed here).
-function animateMonthLabelSlide(direction, oldText, startOffsetPx){
-  const btn = document.getElementById('monthDropdownBtn');
-  const curSpan = document.getElementById('monthLabelCur');
-  const newText = curSpan.textContent;
-  if(oldText === newText) return;
-  const w = btn.clientWidth;
-  const off = startOffsetPx || 0;
-  const clone = document.createElement('span');
-  clone.className = 'month-label-clone';
-  clone.textContent = oldText;
-  clone.style.transition = 'none';
-  clone.style.transform = `translateX(${off}px)`;
-  btn.appendChild(clone);
-  curSpan.style.transition = 'none';
-  curSpan.style.transform = `translateX(${direction*w + off}px)`;
-  void btn.offsetWidth; // force the above to actually commit before animating
-  clone.style.transition = curSpan.style.transition = 'transform .25s cubic-bezier(.22,.61,.36,1)';
-  clone.style.transform = `translateX(${-direction*w}px)`;
-  curSpan.style.transform = 'translateX(0)';
-  setTimeout(() => clone.remove(), 260);
+function monthLabelSlotWidth(){ return document.getElementById('monthDropdownBtn').clientWidth || 150; }
+// Fills all three slots from the current month's own neighbours and resets the track to
+// its resting (centered-on-current) position, instantly, with no animation - the default
+// path for any month change that isn't a drag/arrow slide (picker selection, Today, boot).
+function renderMonthLabelSlots(){
+  document.getElementById('monthLabelPrev').textContent = monthLabel(addMonths(settings.currentMonth,-1));
+  document.getElementById('monthLabelCur').textContent = monthLabel(settings.currentMonth);
+  document.getElementById('monthLabelNext').textContent = monthLabel(addMonths(settings.currentMonth,1));
+  const track = document.getElementById('monthLabelTrack');
+  track.style.setProperty('--mlw', monthLabelSlotWidth()+'px');
+  track.classList.remove('month-label-animate');
+  track.style.transform = `translateX(${-monthLabelSlotWidth()}px)`;
+}
+// direction: 1 = moving to a later month (track slides left to reveal the "next" slot,
+// which - since the three slots are always kept in sync with whichever month was current
+// a moment ago - already shows the right text; that's what lets it be visible WHILE
+// dragging towards it, not just once the drag/click completes). -1 for the reverse.
+// Caller is responsible for also calling switchToMonth() with the new month key - this
+// function only owns the visual slide, deliberately decoupled from switchToMonth's own
+// (now-suppressed, see monthLabelAnimating) instant re-center so the two can't fight.
+function slideMonthLabelTrack(direction){
+  const track = document.getElementById('monthLabelTrack');
+  const w = monthLabelSlotWidth();
+  monthLabelAnimating = true;
+  track.classList.add('month-label-animate');
+  track.style.transform = `translateX(${-w - direction*w}px)`;
+  setTimeout(() => {
+    monthLabelAnimating = false;
+    renderMonthLabelSlots();
+  }, 320);
 }
 function renderMonthPicker(){
   const label = document.getElementById('pickerYearLabel');
@@ -4768,14 +4784,12 @@ document.getElementById('useAsTemplateBtn').addEventListener('click', async () =
 
 /* month nav */
 document.getElementById('prevMonthBtn').addEventListener('click', () => {
-  const oldText = document.getElementById('monthLabelCur').textContent;
+  slideMonthLabelTrack(-1);
   switchToMonth(addMonths(settings.currentMonth,-1));
-  animateMonthLabelSlide(-1, oldText, 0);
 });
 document.getElementById('nextMonthBtn').addEventListener('click', () => {
-  const oldText = document.getElementById('monthLabelCur').textContent;
+  slideMonthLabelTrack(1);
   switchToMonth(addMonths(settings.currentMonth,1));
-  animateMonthLabelSlide(1, oldText, 0);
 });
 // Drag left/right directly on the month label to move between months (phone only - see
 // isMobilePagerActive gate below), same idea as the tab pager but for one label instead
@@ -4784,7 +4798,9 @@ document.getElementById('nextMonthBtn').addEventListener('click', () => {
 // A tap (no real movement) is left alone entirely - the existing click listener above
 // still opens the month picker normally, since browsers don't synthesize a click after a
 // touch that actually moved (same assumption the sidebar's own drag-vs-tap handling
-// already relies on elsewhere in this file).
+// already relies on elsewhere in this file). The track always has the adjacent month's
+// real text already sitting in the next/prev slot (see renderMonthLabelSlots), so simply
+// dragging the track reveals it live, rather than only swapping text in after release.
 let monthLabelDrag = null;
 document.getElementById('monthDropdownBtn').addEventListener('touchstart', (e) => {
   if(!isMobilePagerActive() || e.touches.length !== 1) return;
@@ -4797,30 +4813,31 @@ document.getElementById('monthDropdownBtn').addEventListener('touchmove', (e) =>
     if(Math.abs(dx) < 10) return;
     monthLabelDrag.dragging = true;
   }
-  const curSpan = document.getElementById('monthLabelCur');
-  curSpan.style.transition = 'none';
-  curSpan.style.transform = `translateX(${dx}px)`;
+  const track = document.getElementById('monthLabelTrack');
+  const w = monthLabelSlotWidth();
+  track.classList.remove('month-label-animate');
+  // 0.6x, not 1:1 - a little resistance so it reads as smoother/more deliberate instead
+  // of darting around with the finger.
+  track.style.transform = `translateX(${-w + dx*0.6}px)`;
 }, {passive:true});
 function endMonthLabelDrag(e){
   if(!monthLabelDrag) return;
   const wasDragging = monthLabelDrag.dragging;
-  const curSpan = document.getElementById('monthLabelCur');
   if(!wasDragging){ monthLabelDrag = null; return; }
   const dx = e.changedTouches ? (e.changedTouches[0].clientX - monthLabelDrag.startX) : 0;
   monthLabelDrag = null;
-  const w = document.getElementById('monthDropdownBtn').clientWidth;
-  const threshold = w * 0.28;
+  const w = monthLabelSlotWidth();
+  const threshold = w * 0.32;
   if(dx <= -threshold){
-    const oldText = curSpan.textContent;
+    slideMonthLabelTrack(1);
     switchToMonth(addMonths(settings.currentMonth, 1));
-    animateMonthLabelSlide(1, oldText, dx);
   } else if(dx >= threshold){
-    const oldText = curSpan.textContent;
+    slideMonthLabelTrack(-1);
     switchToMonth(addMonths(settings.currentMonth, -1));
-    animateMonthLabelSlide(-1, oldText, dx);
   } else {
-    curSpan.style.transition = 'transform .22s cubic-bezier(.22,.61,.36,1)';
-    curSpan.style.transform = 'translateX(0)';
+    const track = document.getElementById('monthLabelTrack');
+    track.classList.add('month-label-animate');
+    track.style.transform = `translateX(${-w}px)`;
   }
 }
 document.getElementById('monthDropdownBtn').addEventListener('touchend', endMonthLabelDrag);
