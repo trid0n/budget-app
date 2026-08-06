@@ -943,22 +943,27 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .balance-bar-left{flex:1; min-width:200px;}
   .balance-bar-right{flex:0 0 auto; justify-content:flex-start; max-width:100%;}
   .or-summary-bar{grid-template-columns:1fr;}
-  .month-nav{flex-wrap:nowrap; padding:5px;}
+  /* Explicit height, not just padding+content auto-sizing - relying on the inner 30px
+     buttons plus padding/border to add up to a predictable total was fragile (a button's
+     own line-height/content can push its rendered box taller than its declared height
+     when there's nothing clipping it, which is exactly what happened here - measured
+     42px in the browser, not the 38px the padding+border math alone predicted). Pinning
+     this explicitly is what actually guarantees it matches #undoBtn/#jumpToCurrentMonthBtn
+     below instead of drifting again the next time anything inside changes. */
+  .month-nav{flex-wrap:nowrap; padding:3px; height:38px; box-sizing:border-box;}
   /* Bigger touch targets for pressing/swiping between months - the desktop size was
      tuned for a mouse pointer, not a thumb. */
-  .month-nav button.arrow{width:34px; height:34px; font-size:1.1rem;}
+  .month-nav button.arrow{width:30px; height:30px; font-size:1.05rem;}
   /* min-width, not a fixed width - "September 2026" is noticeably wider than "May 2026"
      or "July 2026", and a fixed width tight enough for the short names clipped the long
      ones down to "Septem…". Letting the button grow for its own content instead of
      clipping it is the same fix pattern used elsewhere in this file for "don't give it a
      box tighter than what it actually needs to show". */
-  .month-dropdown-btn{min-width:120px; height:34px; font-size:.86rem; padding:0;}
+  .month-dropdown-btn{min-width:120px; height:30px; font-size:.86rem; padding:0;}
   .top-right{width:100%; justify-content:center; flex-wrap:nowrap; gap:8px;}
   .mast{flex-wrap:wrap; gap:8px;}
-  /* Explicit matching heights, not just equal padding - #undoBtn's SVG icon and
-     #jumpToCurrentMonthBtn's text line-height don't render the same height on their own,
-     so equal padding alone left them a couple px off from each other. */
-  #undoBtn, #jumpToCurrentMonthBtn{height:34px; display:flex; align-items:center; justify-content:center; box-sizing:border-box; flex-shrink:0;}
+  /* Matches .month-nav's own explicit height above exactly. */
+  #undoBtn, #jumpToCurrentMonthBtn{height:38px; display:flex; align-items:center; justify-content:center; box-sizing:border-box; flex-shrink:0;}
   #jumpToCurrentMonthBtn{padding:0 10px; font-size:.76rem;}
   /* Icon-only on mobile - freeing up the width "Undo" cost as text is what makes room for
      the bigger month-nav touch targets above without the row overflowing/wrapping on a
