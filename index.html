@@ -105,7 +105,13 @@ header.mast{display:flex; justify-content:flex-end; align-items:center; padding-
 .month-nav button.arrow{width:28px; height:28px; border:none; border-radius:7px; background:transparent; color:var(--ink); cursor:pointer; font-size:1rem; font-family:'Inter',sans-serif;}
 .month-nav button.arrow:hover{background:var(--paper-dim);}
 .month-dropdown{position:relative;}
-.month-dropdown-btn{position:relative; font-family:'Inter',sans-serif; font-weight:600; font-size:.92rem; background:transparent; border:none; border-radius:7px; cursor:pointer; color:var(--ink); width:150px; overflow:hidden;}
+/* height explicit, not left to auto - the button's only in-flow-relevant content is
+   .month-label-track, which is itself position:absolute (needed so the three month slots
+   can sit stacked/overlapping and slide independently of the button's own box) and so
+   contributes nothing to a normal auto-height calculation. Without this the button
+   collapsed to a couple of px (just its own near-empty box model), same underlying cause
+   on both desktop and the mobile override below - both need their own explicit value. */
+.month-dropdown-btn{position:relative; font-family:'Inter',sans-serif; font-weight:600; font-size:.92rem; background:transparent; border:none; border-radius:7px; cursor:pointer; color:var(--ink); width:150px; height:34px; overflow:hidden;}
 .month-dropdown-btn:hover{background:var(--paper-dim);}
 /* Three slots (prev/current/next month) sitting side by side, three button-widths wide
    as a whole - the button itself clips to one slot via overflow:hidden above. Baseline
@@ -363,11 +369,18 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .lrow.leaf input.amt-input{padding:5px 7px;}
 .add-cat-card{display:flex; align-items:center; justify-content:center; min-height:52px; background:none; border:1.5px dashed var(--rule); border-radius:12px; color:var(--ink-soft); font-family:'Inter',sans-serif; font-size:.85rem; cursor:pointer; padding:12px 20px; flex:1; margin-top:0;}
 .ledger-bottom-actions{display:flex; gap:12px; align-items:stretch; margin-top:16px; flex-wrap:wrap;}
-.balance-bar{display:flex; align-items:center; justify-content:space-between; gap:16px; background:var(--surface); border:1px solid var(--rule); border-radius:12px; padding:14px 20px; margin-bottom:18px; flex-wrap:wrap;}
+/* The month-actions gear used to live in here too (as .balance-bar-right, a flex sibling
+   of .balance-bar-left) - it's moved into the Comments box's own header now (see
+   notes-box-hdr), which is what lets this whole bar hide as one piece on a non-current
+   month instead of always leaving a near-empty row with just the gear behind. Plain block
+   flow now, not flex - back to how .balance-bar-left's own content (label/amount/sub/link,
+   stacked) always looked; flex here was only ever for laying it out next to that gear. */
+.balance-bar{background:var(--surface); border:1px solid var(--rule); border-radius:12px; padding:14px 20px; margin-bottom:18px;}
 .balance-bar-lbl{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin-bottom:2px;}
 .balance-bar-amt{font-size:1.5rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums;}
 .balance-bar-sub{font-size:.74rem; color:var(--ink-faint); margin-top:2px;}
-.balance-bar-right{display:flex; align-items:center; gap:12px; flex-wrap:wrap; position:relative;}
+.notes-box-hdr{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; position:relative;}
+.notes-box-hdr label{margin-bottom:0;}
 /* A real floating popup (position:fixed, JS-positioned via positionFloatingMenu() and
    clamped inside the viewport) rather than growing in normal document flow - the old
    inline-expand approach could grow wider/taller than the space actually available
@@ -927,21 +940,12 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   .assign-card .lbl, .assign-card .goal-row{justify-content:center;}
   .mini-stat-row{justify-content:center;}
   .mini-stat{align-items:center; text-align:center;}
-  .notes-box label{text-align:center;}
+  /* The gear now sits at the header's right edge (see notes-box-hdr's base rule) instead
+     of being centered along with the label - keeping the label centered too would mean
+     either fighting the gear for space or a 3-column layout for one line of text, not
+     worth it for a header that's mostly just there to anchor the gear's popup now. */
   .notes-box textarea{text-align:center;}
-  .balance-bar-left{text-align:center;}
-  /* Balance bar: keep the gear inline with the balance row instead of dropping to its
-     own near-empty row below. (display:contents on .balance-bar-right was tried here
-     first to promote the gear to a direct sibling of .balance-bar-left via `order` -
-     reverted because display:contents has real cross-browser bugs where CSS
-     transitions on its descendants silently stop running, which broke the actions
-     panel's open/close animation entirely.) Instead: .balance-bar-right stays a real,
-     shrink-to-fit box sharing the row with the balance amount when the panel is
-     collapsed (~0 width), and naturally wraps onto its own line - like it already did
-     before this - once the panel actually opens and needs more room. */
-  .balance-bar{flex-direction:row; flex-wrap:wrap; align-items:center; gap:10px;}
-  .balance-bar-left{flex:1; min-width:200px;}
-  .balance-bar-right{flex:0 0 auto; justify-content:flex-start; max-width:100%;}
+  .balance-bar{text-align:center;}
   .or-summary-bar{grid-template-columns:1fr;}
   /* Explicit height, not just padding+content auto-sizing - relying on the inner 30px
      buttons plus padding/border to add up to a predictable total was fragile (a button's
@@ -1055,8 +1059,8 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
      applyBalanceToTotal), so showing the box there too just invited "why is this number
      here" confusion. Desktop has room to keep it visible with its explanatory sub-text
      instead. */
-  .balance-bar-left{display:none;}
-  .balance-bar-left.current-period{display:block;}
+  .balance-bar{display:none;}
+  .balance-bar.current-period{display:block;}
 }
 @media (max-width:420px){
   .up-savers-grid .up-account-chip{flex-basis:100%;}
@@ -1129,8 +1133,8 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
     <div class="brand"><span class="mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="17.5" cy="3" r="1.7" fill="currentColor" stroke="none"/><rect x="7" y="5" width="10" height="3" rx="1.2"/><path d="M6.5 8.5v10a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-10"/><path d="M9 16l2.5-2.5 2 2L18 11"/><path d="M15 11h3v3"/></svg></span>Budget</div>
     <div class="side-highlight" id="sideHighlight"></div>
     <button class="side-icon active" data-view="ledger" title="Budget"><span class="ic">◆</span>Budget</button>
-    <button class="side-icon" data-view="dashboard" title="Dashboard"><span class="ic">◱</span>Dashboard</button>
     <button class="side-icon" data-view="up" id="upNavBtn" title="Up Bank"><span class="ic">▲</span>Up</button>
+    <button class="side-icon" data-view="dashboard" title="Dashboard"><span class="ic">◱</span>Dashboard</button>
     <button class="side-icon" data-view="template" title="Template"><span class="ic">▥</span>Template</button>
     <button class="side-icon" data-view="other" title="Other records"><span class="ic">▤</span>Records</button>
     <div class="side-spacer"></div>
@@ -1178,12 +1182,6 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
       <div id="monthEmptyState" style="display:none;"></div>
 
       <div id="monthContent" style="display:none;">
-        <div class="ledger-top-toggle-row">
-          <div class="period-mode-group" id="periodModeGroup" data-tip="Calendar month resets on the 1st. Pay cycle rolls the current month over as soon as your linked Up Bank income lands, even mid-month.">
-            <button class="timeframe-btn period-mode-btn" data-period-mode="calendar">Calendar month</button>
-            <button class="timeframe-btn period-mode-btn" data-period-mode="paycycle">Pay cycle</button>
-          </div>
-        </div>
         <div class="topbar">
           <div class="assign-card" id="assignCard">
             <div><div class="amt" id="rtaAmt">$0.00</div><div class="lbl" id="rtaLabel">Left over</div>
@@ -1203,21 +1201,11 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
             <div id="miniUncrossWrap"></div>
           </div>
           <div class="notes-box">
-            <label>Comments</label>
+            <div class="notes-box-hdr">
+              <label>Comments</label>
+              <button class="mini-btn month-actions-gear" id="monthActionsToggle" title="Month actions"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
+            </div>
             <textarea id="notesArea" placeholder="Anything to remember about this month..."></textarea>
-          </div>
-        </div>
-
-        <div class="balance-bar">
-          <div class="balance-bar-left" id="balanceBarLeft">
-            <div class="balance-bar-lbl">Current spending balance</div>
-            <div class="balance-bar-amt" id="balanceBarAmt" title="Click to edit">—</div>
-            <input type="number" step="0.01" class="balance-edit-input" id="balanceManualInput" style="display:none;">
-            <div class="balance-bar-sub" id="balanceBarSub"></div>
-            <button class="balance-live-link" id="balanceUseLiveLink" style="display:none;">Use live balance instead</button>
-          </div>
-          <div class="balance-bar-right">
-            <button class="mini-btn month-actions-gear" id="monthActionsToggle" title="Month actions"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
             <div class="month-actions-panel" id="monthActionsPanel">
               <button class="chip-btn chip-blue" id="useAsTemplateBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>Use this month as my template</button>
               <button class="chip-btn chip-teal" id="restoreTemplateOrderBtn"><span class="chip-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20V4M8 4 4 8M8 4l4 4"/><path d="M16 4v16m0 0 4-4m-4 4-4-4"/></svg></span>Restore template order</button>
@@ -1225,6 +1213,14 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
               <button class="chip-btn chip-red" id="clearMonthBtn"><span class="chip-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>Clear this month's data</button>
             </div>
           </div>
+        </div>
+
+        <div class="balance-bar" id="balanceBar">
+          <div class="balance-bar-lbl">Current spending balance</div>
+          <div class="balance-bar-amt" id="balanceBarAmt" title="Click to edit">—</div>
+          <input type="number" step="0.01" class="balance-edit-input" id="balanceManualInput" style="display:none;">
+          <div class="balance-bar-sub" id="balanceBarSub"></div>
+          <button class="balance-live-link" id="balanceUseLiveLink" style="display:none;">Use live balance instead</button>
         </div>
 
         <div class="income-card" id="incomeCard">
@@ -1532,6 +1528,13 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <button type="button" class="mini-btn" id="acctResendVerifyBtn" style="display:none;">Resend verification email</button>
         </div>
         <label class="auth-field">New password<input type="password" id="acctNewPassword" autocomplete="new-password" minlength="6" placeholder="Leave blank to keep current password"></label>
+        <h3 class="acct-admin-subhdr">Budgeting period</h3>
+        <div class="ledger-top-toggle-row">
+          <div class="period-mode-group" id="periodModeGroup" data-tip="Calendar month resets on the 1st. Pay cycle rolls the current month over as soon as your linked Up Bank income lands, even mid-month.">
+            <button class="timeframe-btn period-mode-btn" data-period-mode="calendar">Calendar month</button>
+            <button class="timeframe-btn period-mode-btn" data-period-mode="paycycle">Pay cycle</button>
+          </div>
+        </div>
         <div class="auth-error" id="acctError"></div>
         <div class="acct-success" id="acctSuccess"></div>
         <div class="modal-actions">
@@ -2424,7 +2427,7 @@ function updateSummary(){
   const anyChargedNow = t.charged > 0 || t.receivedIncome > 0;
   document.getElementById('miniUncrossWrap').innerHTML = anyChargedNow ? `<button class="uncross-all-btn" id="uncrossAllBtn">Uncross all</button>` : '';
 
-  document.getElementById('balanceBarLeft').classList.toggle('current-period', isCurrentPeriod(settings.currentMonth));
+  document.getElementById('balanceBar').classList.toggle('current-period', isCurrentPeriod(settings.currentMonth));
   const balAmtEl = document.getElementById('balanceBarAmt');
   const balSubEl = document.getElementById('balanceBarSub');
   if(effectiveBalance != null){
@@ -5760,11 +5763,7 @@ function buildUpTxStatusHtml(t, amt, transferAttr){
     return `<button class="up-tx-status excluded" data-tx-unexclude="${t.id}" data-tip="Excluded from budget categories \u2014 tap to undo">\u2013</button>`;
   }
   if(assignment && assignment.catId){
-    // findCatById looks at the currently-open month - see the same fallback comment on
-    // buildUpTxRowHtmlDesktop's identical lookup below for why assignment.categoryName is
-    // needed as a backup.
-    const assignedCat = findCatById(assignment.catId);
-    const catEmoji = assignedCat ? getCategoryEmoji(assignedCat) : categoryEmoji(assignment.categoryName);
+    const catEmoji = resolveAssignmentCatEmoji(assignment);
     return `<button class="up-tx-status assigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Categorised as \u201c${escapeAttr(assignment.itemName)}\u201d \u2014 tap to change">${catEmoji}</button>`;
   }
   const guess = findGuessForTx(t.attributes.description, amt, t);
@@ -5815,11 +5814,7 @@ function buildUpTxRowHtmlDesktop(t){
   if(assignment && assignment.excluded){
     assignBtn = `<button class="up-tx-assign-btn excluded" data-tx-unexclude="${t.id}" data-tip="Excluded from budget categories. Click to undo.">Excluded</button>`;
   } else if(assignment && assignment.catId){
-    // findCatById looks at the currently-open month, which may not be the month this
-    // transaction was actually assigned in (or the category could've since been
-    // deleted) - fall back to deriving from the saved category name in that case.
-    const assignedCat = findCatById(assignment.catId);
-    const catEmoji = assignedCat ? getCategoryEmoji(assignedCat) : categoryEmoji(assignment.categoryName);
+    const catEmoji = resolveAssignmentCatEmoji(assignment);
     assignBtn = `<button class="up-tx-assign-btn assigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="${escapeAttr(assignment.itemName)}">✓ ${catEmoji} <span class="up-tx-assign-btn-text">${escapeAttr(assignment.itemName)}</span></button>`;
   } else {
     const guess = findGuessForTx(t.attributes.description, amt, t);
@@ -6163,6 +6158,22 @@ function findCatById(catId){
   if(!monthData) return null;
   if(catId === 'income') return {id:'income', name:'Income', items: monthData.income};
   return monthData.categories.find(c=>c.id===catId) || null;
+}
+// Every month is its own independent copy built from the template with fresh ids (see
+// buildFromTemplate) - a transaction assigned in some other month than whichever one
+// happens to be open right now will never match by catId via findCatById above, which
+// used to fall straight through to categoryEmoji's keyword guess and land on the generic
+// folder emoji for basically anything but this month's own transactions. The template's
+// own categories are far more stable (edited in place, not regenerated), so a name match
+// there - which also picks up a manually-chosen custom emoji, not just a keyword guess -
+// is tried first as a middle tier before giving up to the keyword guess entirely.
+function resolveAssignmentCatEmoji(assignment){
+  const byId = findCatById(assignment.catId);
+  if(byId) return getCategoryEmoji(byId);
+  const name = (assignment.categoryName||'').trim().toLowerCase();
+  const inTemplate = name && monthTemplate ? monthTemplate.categories.find(c => (c.name||'').trim().toLowerCase() === name) : null;
+  if(inTemplate) return getCategoryEmoji(inTemplate);
+  return categoryEmoji(assignment.categoryName);
 }
 // Adds a transaction's amount onto an item's running total - except for an income item
 // that doesn't yet have any other real transaction linked, where the current value is
