@@ -51,17 +51,19 @@ body{transition:background .15s ease, color .15s ease;}
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
 input[type=number]{-moz-appearance:textfield;}
-html{scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper); overflow-y:scroll; overflow-x:hidden; scrollbar-gutter:stable; overscroll-behavior-y:none;}
+html{scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper); overflow-y:scroll; overflow-x:hidden; scrollbar-gutter:stable; overscroll-behavior:none;}
 /* Without this, scrolling past the top/bottom of the page hands off to the browser's own
    native rubber-band bounce - which on a page with a position:sticky sidebar can detach
    the sidebar and reveal blank background above/below it (the "darker blue" gap). Also a
    likely contributor to the pager's touch handling looking glitchy specifically near a
    scroll boundary: the native bounce is a whole separate gesture system layered on top of
    normal scrolling, momentarily shifting the entire viewport in a way nothing here
-   accounts for. None here is a hard stop with no give at all - a softer custom "pull the
-   next card down slightly" bounce (closer to what Up itself does) is a separate follow-up,
-   not implemented yet. */
-body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; overscroll-behavior-y:none;}
+   accounts for. The custom "pull the container down slightly" bounce that replaces the
+   feel this used to remove entirely lives further down this file (see rubberBand/pullDrag)
+   - full overscroll-behavior shorthand here, not just -y, since -y alone left native
+   bounce leaking through on at least some Android/Chrome combinations despite (in theory)
+   only needing the vertical axis suppressed. */
+body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; overscroll-behavior:none;}
 ::-webkit-scrollbar{width:9px;height:9px;}
 ::-webkit-scrollbar-track{background:var(--paper);}
 ::-webkit-scrollbar-thumb{background:var(--rule); border-radius:5px;}
@@ -69,7 +71,7 @@ body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sa
 .wrap{max-width:min(1900px, 96vw); width:100%; flex:1 1 auto; margin:0 auto; padding:34px 24px 80px; min-width:0; box-sizing:border-box;}
 
 .app-shell{display:flex; min-height:100vh;}
-.sidebar{width:210px; background:#1C2230; flex-shrink:0; display:flex; flex-direction:column; padding:20px 14px; gap:4px; position:sticky; top:0; height:100vh;}
+.sidebar{width:210px; background:#1C2230; flex-shrink:0; display:flex; flex-direction:column; padding:20px 14px; gap:4px; position:sticky; top:0; height:100vh; overscroll-behavior:none;}
 .sidebar .brand{display:flex; align-items:center; gap:10px; padding:0 8px 20px; color:#fff; font-weight:800; font-size:1.05rem;}
 .sidebar .brand .mark{width:28px; height:28px; border-radius:8px; background:var(--gold); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.9rem; flex-shrink:0;}
 .sidebar .side-icon{display:flex; align-items:center; gap:12px; width:100%; padding:10px 12px; border-radius:9px; color:#8B93A5; font-size:.88rem; font-weight:600; cursor:pointer; background:none; border:none; text-align:left;}
@@ -5240,16 +5242,17 @@ const PULL_DRAG_BLOCKED_SELECTOR = PAGER_DRAG_BLOCKED_SELECTOR + ', #upContent';
 // The classic UIScrollView rubber-band curve (x = distance dragged, d = the asymptotic
 // max, c = stiffness) - approaches d smoothly as x grows instead of hitting a hard wall
 // at some cutoff, so a long drag keeps giving a little more the whole time rather than
-// abruptly stopping. Same shape Up (and iOS scroll views generally) actually use. For
-// small-to-medium x, f(x) ~= x*c - a HIGHER c is what gives MORE pull for the same finger
-// distance (less stiff), not lower - c only controls how fast the curve approaches d, the
-// asymptote itself is always d regardless of c. d is the asymptotic cap in px, which the
+// abruptly stopping. Same shape Up (and iOS scroll views generally) actually use. c=1.5
+// overshot - a light/typical drag was already more than half the total distance to the
+// cap, which read as "no resistance" rather than "more give" (there was nothing left to
+// feel over the REST of the drag). c is back down near the original so an early drag
+// still feels like it's working against something; d (the asymptotic cap, in px) is
+// raised instead, so it's specifically a longer/more deliberate drag that reaches
+// further than the original ever could, not every drag from the first few px. The
 // sidebar being position:fixed (never itself translated - see the comment above) keeps
-// safe to raise without ever exposing anything above/behind it. 0.75 wasn't a big enough
-// jump from the original 0.55 to actually read as looser - 1.5 roughly doubles the pull
-// for a light-to-medium drag (e.g. ~20px of pull for a 50px drag instead of ~10px).
+// raising d safe regardless of how high it goes.
 function rubberBand(x, d){
-  const c = 1.5;
+  const c = 0.6;
   return (x * d * c) / (d + c * x);
 }
 document.addEventListener('touchstart', (e) => {
@@ -5274,8 +5277,8 @@ document.addEventListener('touchmove', (e) => {
   const atTop = window.scrollY <= 0;
   const atBottom = window.scrollY >= maxScroll - 1;
   let pull = 0;
-  if(dy > 0 && atTop) pull = rubberBand(dy, 70);
-  else if(dy < 0 && atBottom) pull = -rubberBand(-dy, 70);
+  if(dy > 0 && atTop) pull = rubberBand(dy, 110);
+  else if(dy < 0 && atBottom) pull = -rubberBand(-dy, 110);
   if(!pull){
     if(pullDrag.active){ wrapEl.style.transform = ''; pullDrag.active = false; }
     return;
