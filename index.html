@@ -1106,6 +1106,17 @@ body.dark .auth-box{box-shadow:0 24px 60px -20px rgba(0,0,0,.6), var(--shadow);}
 </style>
 </head>
 <body>
+<!-- TEMPORARY diagnostic overlay - remove once the real-device pull/scroll bug is
+     actually root-caused. Shows live touch/scroll state so a screenshot mid-gesture
+     reveals whether this app's own JS is doing anything at that moment, instead of
+     guessing blind from a static after-the-fact screenshot. -->
+<div id="dbgOverlay" style="position:fixed; top:2px; right:2px; z-index:999999; background:rgba(0,0,0,.8); color:#4f8; font:10px/1.4 monospace; padding:4px 6px; border-radius:4px; pointer-events:none; white-space:pre; max-width:55vw;"></div>
+<script>
+function dbgOverlay(text){
+  const el = document.getElementById('dbgOverlay');
+  if(el) el.textContent = text;
+}
+</script>
 <script>
 // Applying the theme happens after the async Supabase settings load, which is too late
 // to avoid a light-mode flash for anyone using dark mode - localStorage is readable
@@ -5304,6 +5315,24 @@ document.addEventListener('touchmove', (e) => {
   pullDrag.active = true;
   wrapEl.style.transform = `translateY(${pull}px)`;
 }, {passive:false});
+// TEMPORARY - reads state after the listeners above/below have run each frame, purely
+// for the on-screen debug readout. Passive and last-registered so it never affects
+// gesture handling itself, just reports on it.
+document.addEventListener('touchmove', (e) => {
+  const t = e.touches[0];
+  const view = document.querySelector('.side-icon.active')?.dataset.view;
+  dbgOverlay(
+    `view:${view}\n` +
+    `pullDrag:${pullDrag ? (pullDrag.axis||'?')+(pullDrag.active?' ACTIVE':'') : 'null'}\n` +
+    `pagerDrag:${pagerDrag ? (pagerDrag.axis||'?') : 'null'}\n` +
+    `wrap.transform:${wrapEl.style.transform || 'none'}\n` +
+    `scrollY:${Math.round(window.scrollY)} touchY:${Math.round(t.clientY)}`
+  );
+}, {passive:true});
+document.addEventListener('touchend', () => {
+  const el = document.getElementById('dbgOverlay');
+  if(el) el.textContent += '\n(released)';
+});
 function endPullDrag(){
   if(!pullDrag) return;
   if(pullDrag.active){
