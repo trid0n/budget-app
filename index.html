@@ -5231,14 +5231,12 @@ document.addEventListener('touchcancel', () => {
 // stays exactly where it is and nothing can scroll up above/behind it.
 let pullDrag = null;
 const wrapEl = document.querySelector('.wrap');
-// .up-tx-list is deliberately blocked HERE even though it's allowed to start a pager
-// swipe (see PAGER_DRAG_BLOCKED_SELECTOR's own comment) - the two gestures aren't the
-// same thing. Being part of the page's normal scroll flow now, the top of that list IS
-// legitimately "the top of the page" whenever it's scrolled there, so without this, just
-// dragging down over a transaction row (to scroll, or mid-swipe before axis-lock settles
-// on 'x') pulled the whole page down until release - visually distracting for something
-// that isn't the user actually reaching the real top of the tab.
-const PULL_DRAG_BLOCKED_SELECTOR = PAGER_DRAG_BLOCKED_SELECTOR + ', .up-tx-list';
+// Excluding just .up-tx-list wasn't enough in practice - broadened to the Up tab's whole
+// content zone (#upContent: the refresh/timeframe/search row, the list, the balance hero,
+// all of it) so nothing in that actively-interactive area can trigger the dip, not just
+// the list rows specifically. Still allowed everywhere else, including the rest of the Up
+// tab above #upContent (the connect form) and every other tab.
+const PULL_DRAG_BLOCKED_SELECTOR = PAGER_DRAG_BLOCKED_SELECTOR + ', #upContent';
 // The classic UIScrollView rubber-band curve (x = distance dragged, d = the asymptotic
 // max, c = stiffness) - approaches d smoothly as x grows instead of hitting a hard wall
 // at some cutoff, so a long drag keeps giving a little more the whole time rather than
@@ -5247,9 +5245,11 @@ const PULL_DRAG_BLOCKED_SELECTOR = PAGER_DRAG_BLOCKED_SELECTOR + ', .up-tx-list'
 // distance (less stiff), not lower - c only controls how fast the curve approaches d, the
 // asymptote itself is always d regardless of c. d is the asymptotic cap in px, which the
 // sidebar being position:fixed (never itself translated - see the comment above) keeps
-// safe to raise without ever exposing anything above/behind it.
+// safe to raise without ever exposing anything above/behind it. 0.75 wasn't a big enough
+// jump from the original 0.55 to actually read as looser - 1.5 roughly doubles the pull
+// for a light-to-medium drag (e.g. ~20px of pull for a 50px drag instead of ~10px).
 function rubberBand(x, d){
-  const c = 0.75;
+  const c = 1.5;
   return (x * d * c) / (d + c * x);
 }
 document.addEventListener('touchstart', (e) => {
