@@ -139,7 +139,7 @@ header.mast{display:flex; justify-content:flex-end; align-items:center; padding-
 
 /* topbar: ready-to-assign + mini summary */
 .topbar{display:flex; gap:16px; align-items:stretch; flex-wrap:wrap; margin-bottom:18px;}
-.assign-card{background:linear-gradient(135deg, #2c9c62, #227d4e); border-radius:12px; padding:14px 20px; display:flex; align-items:center; justify-content:center; gap:22px; color:#fff; flex:0 0 230px; width:230px; height:130px; min-width:0; overflow:hidden; text-align:center;}
+.assign-card{background:linear-gradient(135deg, #2c9c62, #227d4e); border-radius:12px; padding:10px 20px; display:flex; align-items:center; justify-content:center; gap:22px; color:#fff; flex:0 0 230px; width:230px; height:115px; min-width:0; overflow:hidden; text-align:center;}
 .assign-card.over{background:linear-gradient(135deg, var(--debit), #e0685f);}
 .assign-card.zero{background:linear-gradient(135deg, #4B5A63, #6B7885);}
 .assign-card .amt{font-size:1.6rem; font-weight:800; letter-spacing:-0.01em; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
@@ -478,7 +478,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 @media (min-width:1700px){
   .wrap{max-width:1900px; padding:34px 56px 56px;}
   .topbar{gap:22px; margin-bottom:26px;}
-  .assign-card{padding:16px 22px; gap:24px; flex-basis:270px; width:270px; height:150px;}
+  .assign-card{padding:14px 22px; gap:24px; flex-basis:270px; width:270px; height:135px;}
   .assign-card .amt{font-size:1.8rem;}
   .progress-card, .summary-mini, .notes-box{height:170px;}
   .thead{grid-template-columns:1fr 140px 34px;}
@@ -930,7 +930,7 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   #viewPagerTrack.pager-animate{transition:transform .28s cubic-bezier(.22,.61,.36,1);}
   .top-right.pager-animate{transition:transform .28s cubic-bezier(.22,.61,.36,1);}
   .topbar{flex-direction:column; gap:10px;}
-  .assign-card, .progress-card, .summary-mini{width:100%; flex-basis:auto; height:auto; min-height:130px;}
+  .assign-card, .progress-card, .summary-mini{width:100%; flex-basis:auto; height:auto; min-height:115px;}
   .notes-box{min-width:0; height:auto; min-height:110px;}
   /* Center the top 4 Budget-tab containers on mobile - income/costs, comments and
      current-balance cards (the green hero is centered everywhere now, see its base
@@ -4976,6 +4976,17 @@ function setupPagerViewPositions(){
 // the pager's drag-release snap, and jumpToRecordCard()'s "take me to this card"
 // shortcut, so the pager's position and the various per-view render-on-activate side
 // effects can never drift out of sync with each other.
+// Split out of activateTab so the pager drag handlers can also call it mid-gesture (see
+// PAGER_DRAG_LEDGER_ADJACENT below) - without that, these controls stayed display:none
+// for the whole live drag (only ever flipped to visible by activateTab itself, which only
+// runs once the drag already committed at release), so the "slide with the drag" transform
+// had nothing on screen to actually show moving - it just popped in already off-position
+// and animated from there, which read as a jolt rather than sliding in with the gesture.
+function syncLedgerHeaderVisibility(view){
+  document.getElementById('monthNavWrap').style.display = view==='ledger' ? '' : 'none';
+  document.getElementById('undoBtn').style.display = view==='ledger' ? '' : 'none';
+  document.getElementById('jumpToCurrentMonthBtn').style.display = view==='ledger' ? '' : 'none';
+}
 function activateTab(view){
   const btn = document.querySelector(`.side-icon[data-view="${view}"]`);
   if(!btn) return;
@@ -4985,9 +4996,7 @@ function activateTab(view){
   updateSideHighlight();
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+view).classList.add('active');
-  document.getElementById('monthNavWrap').style.display = view==='ledger' ? '' : 'none';
-  document.getElementById('undoBtn').style.display = view==='ledger' ? '' : 'none';
-  document.getElementById('jumpToCurrentMonthBtn').style.display = view==='ledger' ? '' : 'none';
+  syncLedgerHeaderVisibility(view);
   if(view==='dashboard'){ renderDashboard(); renderInsights(); }
   if(view==='up'){ renderUpConnectState(); if(upToken && upTransactions.length === 0) refreshUpData(); }
   if(view==='template') renderTemplateEditor();
@@ -5110,6 +5119,17 @@ document.addEventListener('touchmove', (e) => {
     if(pagerDrag.axis === 'y'){ pagerDrag = null; return; } // a normal vertical scroll - hands off entirely
     viewPagerTrack.classList.remove('pager-animate');
     topRightEl.classList.remove('pager-animate');
+    // Undo/month-nav/Today are display:none whenever Ledger isn't the ACTIVE tab (see
+    // syncLedgerHeaderVisibility), normally only flipped back on by activateTab() once a
+    // drag has already committed. If Ledger is reachable from here (the current tab, or
+    // one step away in either direction - all this single drag could possibly reach),
+    // show them now instead of waiting for commit, so the transform below actually has
+    // something on screen to slide into place rather than popping in already off-position
+    // once the tab change lands (reported as the header "jolting in").
+    const { idx, tabOrder: order } = pagerDrag;
+    if(order[idx] === 'ledger' || order[idx-1] === 'ledger' || order[idx+1] === 'ledger'){
+      syncLedgerHeaderVisibility('ledger');
+    }
   }
   if(pagerDrag.axis !== 'x') return;
   e.preventDefault(); // stop vertical bounce/scroll while horizontally dragging a page
@@ -5140,12 +5160,18 @@ function endPagerDrag(e){
   if(dx <= -threshold && pagerDrag.idx < pagerDrag.tabOrder.length - 1) newIdx++;
   else if(dx >= threshold && pagerDrag.idx > 0) newIdx--;
   const tabOrder = pagerDrag.tabOrder;
+  const originalView = tabOrder[pagerDrag.idx];
   pagerDrag = null;
   clearSidebarHighlightDrag();
   resetTopRightSlide();
   if(newIdx !== tabOrder.indexOf(document.querySelector('.side-icon.active')?.dataset.view)){
     activateTab(tabOrder[newIdx]);
   } else {
+    // Didn't cross the threshold - staying on the original tab, which activateTab() won't
+    // be called for (nothing's actually changing). If the touchmove handler above force-
+    // showed the header controls because Ledger was reachable from here, that has to be
+    // undone by hand here, or they'd stay visible on whatever non-Ledger tab this was.
+    syncLedgerHeaderVisibility(originalView);
     updatePagerPosition(true); // snap back to where we started
   }
 }
@@ -5154,7 +5180,10 @@ function resetTopRightSlide(){
   topRightEl.style.transform = '';
 }
 document.addEventListener('touchend', endPagerDrag);
-document.addEventListener('touchcancel', () => { pagerDrag = null; clearSidebarHighlightDrag(); resetTopRightSlide(); updatePagerPosition(true); });
+document.addEventListener('touchcancel', () => {
+  if(pagerDrag) syncLedgerHeaderVisibility(pagerDrag.tabOrder[pagerDrag.idx]);
+  pagerDrag = null; clearSidebarHighlightDrag(); resetTopRightSlide(); updatePagerPosition(true);
+});
 // Custom "pull the page when already scrolled to either end" bounce (phone only),
 // modelled on the Up app's own overscroll feel - applies at both the top (dragging down)
 // and the bottom (dragging up) of a tab. overscroll-behavior-y:none up top suppresses the
