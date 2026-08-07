@@ -4967,9 +4967,14 @@ function setupPagerViewPositions(){
   // that, and toggling it off here doesn't clear it, so it would keep sitting in its old
   // slot and silently overlap whichever view the shrunk order later reassigns that same
   // slot to. Re-park anything not in the current order, regardless of prior position.
+  // +300vw of extra distance past the last real page, not the same slot immediately
+  // adjacent to it - the pager's own rubber-band resistance past the last tab still lets
+  // a firm real drag pull the track some real distance past its resting position (capped
+  // at 0.35x the raw drag, but a determined finger-drag can still be a couple hundred px),
+  // which was enough to peek a sliver of whatever was parked right next door into view.
   document.querySelectorAll('#viewPagerTrack .view').forEach(v => {
     const view = v.id.replace(/^view-/, '');
-    if(!visibleSet.has(view)) v.style.left = (order.length*100) + 'vw';
+    if(!visibleSet.has(view)) v.style.left = (order.length*100 + 300) + 'vw';
   });
 }
 // The single source of truth for "switch to this tab" - used by a tap on the sidebar,
@@ -5061,7 +5066,12 @@ document.addEventListener('keydown', (e) => {
 // session (see .up-tx-list's mobile override elsewhere), so there's nothing left for a
 // touch starting there to scroll independently. Blocking pager-drag on it just made
 // swiping tabs from the transaction list a dead zone for no reason.
-const PAGER_DRAG_BLOCKED_SELECTOR = '.grip-handle, .chart, .rec-table-wrap, .custom-select-list, .date-select-row, .inline-source-panel, .month-dropdown, .month-dropdown-list, textarea, input, .sidebar, .modal-overlay, .month-actions-panel, #inlinePanelHost';
+// .rec-table-wrap deliberately NOT in this static list - see the dedicated check in
+// touchstart below. Whether it should block pager-drag depends on whether that specific
+// table actually has anything to scroll horizontally (Monthly costs/MTG do; the Savings
+// Dashboard's own table doesn't anymore now that the Running total column is gone), which
+// a fixed selector can't express.
+const PAGER_DRAG_BLOCKED_SELECTOR = '.grip-handle, .chart, .custom-select-list, .date-select-row, .inline-source-panel, .month-dropdown, .month-dropdown-list, textarea, input, .sidebar, .modal-overlay, .month-actions-panel, #inlinePanelHost';
 let pagerDrag = null;
 const viewPagerTrack = document.getElementById('viewPagerTrack');
 // Undo/month-nav/Today only make sense on the Ledger tab and are already hidden on every
@@ -5083,6 +5093,12 @@ const topRightEl = document.querySelector('.top-right');
 document.addEventListener('touchstart', (e) => {
   if(!isMobilePagerActive() || e.touches.length !== 1) return;
   if(e.target.closest(PAGER_DRAG_BLOCKED_SELECTOR)) return;
+  // Only block on a .rec-table-wrap that actually has real horizontal overflow right now
+  // (Monthly costs, MTG) - one that doesn't (Savings Dashboard's own table, since Running
+  // total was removed) has nothing for a touch starting there to scroll independently, so
+  // there's no reason to eat the swipe-to-change-tabs gesture there either.
+  const tableWrap = e.target.closest('.rec-table-wrap');
+  if(tableWrap && tableWrap.scrollWidth > tableWrap.clientWidth + 1) return;
   const tabOrder = visibleTabOrder();
   const activeView = document.querySelector('.side-icon.active')?.dataset.view;
   const idx = tabOrder.indexOf(activeView);
@@ -5130,6 +5146,7 @@ document.addEventListener('touchmove', (e) => {
     if(order[idx] === 'ledger' || order[idx-1] === 'ledger' || order[idx+1] === 'ledger'){
       syncLedgerHeaderVisibility('ledger');
     }
+    pagerDrag.ledgerIdx = order.indexOf('ledger');
   }
   if(pagerDrag.axis !== 'x') return;
   e.preventDefault(); // stop vertical bounce/scroll while horizontally dragging a page
@@ -5140,10 +5157,17 @@ document.addEventListener('touchmove', (e) => {
   if(offset > 0) offset *= 0.35;
   else if(offset < minOffset) offset = minOffset + (offset - minOffset) * 0.35;
   viewPagerTrack.style.transform = `translateX(${offset}px)`;
-  // offset minus the constant per-gesture baseOffsetPx, not raw dx - so this stays in
-  // perfect sync with the track above even inside the rubber-band resistance region past
-  // the first/last tab, where offset no longer moves 1:1 with the finger either.
-  topRightEl.style.transform = `translateX(${offset - pagerDrag.baseOffsetPx}px)`;
+  // offset + ledger's OWN index * width, not offset - baseOffsetPx (dx) - that earlier
+  // version only worked when Ledger happened to be the tab the drag started FROM, since
+  // dx and (offset - baseOffsetPx) are identical there. Dragging Ledger INTO view from an
+  // adjacent tab is a different reference frame: baseOffsetPx is anchored to the tab the
+  // gesture started on, not to Ledger, so using it gave the header controls the wrong
+  // sign/magnitude entirely - they'd drift the wrong way during the drag and then jump to
+  // correct themselves once the tab change landed (the reported "jolt in from the right").
+  // This instead computes exactly where Ledger's own page would sit if it were rendered
+  // as a normal page in the pager strip at its own index - 0 exactly when Ledger becomes
+  // the settled/active tab, regardless of which tab the drag started on.
+  if(pagerDrag.ledgerIdx !== -1) topRightEl.style.transform = `translateX(${offset + pagerDrag.ledgerIdx*width}px)`;
   const fIdx = Math.min(Math.max(0, pagerDrag.idx - dx / width), pagerDrag.tabOrder.length - 1);
   const lowIdx = Math.floor(fIdx), highIdx = Math.ceil(fIdx), frac = fIdx - lowIdx;
   pagerDrag.sidebar.scrollLeft = pagerDrag.tabCenters[lowIdx] + (pagerDrag.tabCenters[highIdx] - pagerDrag.tabCenters[lowIdx]) * frac;
