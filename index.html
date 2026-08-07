@@ -96,6 +96,11 @@ body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sa
 .dm-switch.on::after{transform:translateX(16px); background:#fff;}
 
 header.mast{display:flex; justify-content:flex-end; align-items:center; padding-bottom:16px; margin-bottom:18px; gap:16px; flex-wrap:wrap;}
+/* header.mast only ever holds Undo/month-nav/Today (see syncLedgerHeaderVisibility), all
+   display:none on every tab but Ledger - but this padding/margin isn't attached to THEM,
+   it's the header's own box, so it stayed reserved as dead space above every other tab's
+   content regardless of whether there was anything left inside to justify it. */
+header.mast.mast-empty{padding-bottom:0; margin-bottom:0;}
 .top-right{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
 .view{display:none;}
 .view.active{display:block;}
@@ -4991,6 +4996,10 @@ function syncLedgerHeaderVisibility(view){
   document.getElementById('monthNavWrap').style.display = view==='ledger' ? '' : 'none';
   document.getElementById('undoBtn').style.display = view==='ledger' ? '' : 'none';
   document.getElementById('jumpToCurrentMonthBtn').style.display = view==='ledger' ? '' : 'none';
+  // header.mast's own padding-bottom/margin-bottom (see its CSS comment) is dead space
+  // once everything inside it is hidden - collapse it on every tab but Ledger instead of
+  // leaving ~34px reserved above content that has nothing to do with it.
+  document.querySelector('header.mast').classList.toggle('mast-empty', view!=='ledger');
 }
 function activateTab(view){
   const btn = document.querySelector(`.side-icon[data-view="${view}"]`);
@@ -5222,17 +5231,30 @@ document.addEventListener('touchcancel', () => {
 // stays exactly where it is and nothing can scroll up above/behind it.
 let pullDrag = null;
 const wrapEl = document.querySelector('.wrap');
+// .up-tx-list is deliberately blocked HERE even though it's allowed to start a pager
+// swipe (see PAGER_DRAG_BLOCKED_SELECTOR's own comment) - the two gestures aren't the
+// same thing. Being part of the page's normal scroll flow now, the top of that list IS
+// legitimately "the top of the page" whenever it's scrolled there, so without this, just
+// dragging down over a transaction row (to scroll, or mid-swipe before axis-lock settles
+// on 'x') pulled the whole page down until release - visually distracting for something
+// that isn't the user actually reaching the real top of the tab.
+const PULL_DRAG_BLOCKED_SELECTOR = PAGER_DRAG_BLOCKED_SELECTOR + ', .up-tx-list';
 // The classic UIScrollView rubber-band curve (x = distance dragged, d = the asymptotic
 // max, c = stiffness) - approaches d smoothly as x grows instead of hitting a hard wall
 // at some cutoff, so a long drag keeps giving a little more the whole time rather than
-// abruptly stopping. Same shape Up (and iOS scroll views generally) actually use.
+// abruptly stopping. Same shape Up (and iOS scroll views generally) actually use. For
+// small-to-medium x, f(x) ~= x*c - a HIGHER c is what gives MORE pull for the same finger
+// distance (less stiff), not lower - c only controls how fast the curve approaches d, the
+// asymptote itself is always d regardless of c. d is the asymptotic cap in px, which the
+// sidebar being position:fixed (never itself translated - see the comment above) keeps
+// safe to raise without ever exposing anything above/behind it.
 function rubberBand(x, d){
-  const c = 0.55;
+  const c = 0.75;
   return (x * d * c) / (d + c * x);
 }
 document.addEventListener('touchstart', (e) => {
   if(!isMobilePagerActive() || e.touches.length !== 1) return;
-  if(e.target.closest(PAGER_DRAG_BLOCKED_SELECTOR)) return;
+  if(e.target.closest(PULL_DRAG_BLOCKED_SELECTOR)) return;
   wrapEl.style.transition = '';
   pullDrag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, axis: null, active: false };
 }, {passive:true});
