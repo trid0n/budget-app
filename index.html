@@ -5258,6 +5258,13 @@ function rubberBand(x, d){
 document.addEventListener('touchstart', (e) => {
   if(!isMobilePagerActive() || e.touches.length !== 1) return;
   if(e.target.closest(PULL_DRAG_BLOCKED_SELECTOR)) return;
+  // Belt-and-suspenders on top of the selector check above: excluding specific elements
+  // by DOM boundary kept proving insufficient in practice (still reproduced on a real
+  // phone across several rounds even after broadening the selector each time - the exact
+  // gap was never pinned down). The Up tab has its own explicit Refresh button anyway, so
+  // pull-to-refresh-style behavior isn't needed there at all - simplest fix is to not
+  // start tracking a pull gesture anywhere on that tab, full stop, regardless of target.
+  if(document.querySelector('.side-icon.active')?.dataset.view === 'up') return;
   wrapEl.style.transition = '';
   pullDrag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, axis: null, active: false };
 }, {passive:true});
