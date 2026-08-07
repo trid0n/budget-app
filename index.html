@@ -5252,7 +5252,7 @@ const PULL_DRAG_BLOCKED_SELECTOR = PAGER_DRAG_BLOCKED_SELECTOR + ', #upContent';
 // sidebar being position:fixed (never itself translated - see the comment above) keeps
 // raising d safe regardless of how high it goes.
 function rubberBand(x, d){
-  const c = 0.6;
+  const c = 0.8;
   return (x * d * c) / (d + c * x);
 }
 document.addEventListener('touchstart', (e) => {
@@ -5261,6 +5261,16 @@ document.addEventListener('touchstart', (e) => {
   wrapEl.style.transition = '';
   pullDrag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, axis: null, active: false };
 }, {passive:true});
+// {passive:false} + preventDefault() below, not passive - overscroll-behavior:none on
+// html/body (see its own comment) is the standards-track way to kill the native bounce
+// and is normally sufficient, but Android Chrome's native pull-to-refresh/bounce has a
+// known history of still leaking through in some cases regardless. Explicitly
+// preventDefault()-ing the exact same touchmove that's already driving this custom pull
+// is the stronger, more direct way to guarantee the browser can't also be processing its
+// own version of the same gesture underneath this one - only called while the custom
+// pull is actually active (axis is 'y' AND there's real pull to show), never for a
+// normal vertical scroll that isn't at a boundary, so it can't interfere with ordinary
+// scrolling the rest of the time.
 document.addEventListener('touchmove', (e) => {
   if(!pullDrag) return;
   const t = e.touches[0];
@@ -5277,15 +5287,16 @@ document.addEventListener('touchmove', (e) => {
   const atTop = window.scrollY <= 0;
   const atBottom = window.scrollY >= maxScroll - 1;
   let pull = 0;
-  if(dy > 0 && atTop) pull = rubberBand(dy, 110);
-  else if(dy < 0 && atBottom) pull = -rubberBand(-dy, 110);
+  if(dy > 0 && atTop) pull = rubberBand(dy, 160);
+  else if(dy < 0 && atBottom) pull = -rubberBand(-dy, 160);
   if(!pull){
     if(pullDrag.active){ wrapEl.style.transform = ''; pullDrag.active = false; }
     return;
   }
+  e.preventDefault();
   pullDrag.active = true;
   wrapEl.style.transform = `translateY(${pull}px)`;
-}, {passive:true});
+}, {passive:false});
 function endPullDrag(){
   if(!pullDrag) return;
   if(pullDrag.active){
