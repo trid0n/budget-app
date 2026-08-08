@@ -5005,13 +5005,23 @@ function setupPagerViewPositions(){
 // runs once the drag already committed at release), so the "slide with the drag" transform
 // had nothing on screen to actually show moving - it just popped in already off-position
 // and animated from there, which read as a jolt rather than sliding in with the gesture.
+function showLedgerHeaderButtons(show){
+  document.getElementById('monthNavWrap').style.display = show ? '' : 'none';
+  document.getElementById('undoBtn').style.display = show ? '' : 'none';
+  document.getElementById('jumpToCurrentMonthBtn').style.display = show ? '' : 'none';
+}
 function syncLedgerHeaderVisibility(view){
-  document.getElementById('monthNavWrap').style.display = view==='ledger' ? '' : 'none';
-  document.getElementById('undoBtn').style.display = view==='ledger' ? '' : 'none';
-  document.getElementById('jumpToCurrentMonthBtn').style.display = view==='ledger' ? '' : 'none';
+  showLedgerHeaderButtons(view==='ledger');
   // header.mast's own padding-bottom/margin-bottom (see its CSS comment) is dead space
   // once everything inside it is hidden - collapse it on every tab but Ledger instead of
-  // leaving ~34px reserved above content that has nothing to do with it.
+  // leaving ~34px reserved above content that has nothing to do with it. Only ever driven
+  // by the tab that's ACTUALLY active (called from here and from activateTab on commit) -
+  // never predictively during a drag (see PAGER_DRAG_LEDGER_ADJACENT below), because Ledger
+  // is adjacent to Up in the tab order, so every drag that merely starts on Up used to run
+  // this too, restoring the ~34px padding while Up's own content was still the one on
+  // screen and pushing it down by that amount for the whole gesture (reported as the
+  // transaction list/header area "dropping down" while dragging - a real, separate bug
+  // from the vertical pull/bounce effect, despite looking similar).
   document.querySelector('header.mast').classList.toggle('mast-empty', view!=='ledger');
 }
 function activateTab(view){
@@ -5163,10 +5173,15 @@ document.addEventListener('touchmove', (e) => {
     // one step away in either direction - all this single drag could possibly reach),
     // show them now instead of waiting for commit, so the transform below actually has
     // something on screen to slide into place rather than popping in already off-position
-    // once the tab change lands (reported as the header "jolting in").
+    // once the tab change lands (reported as the header "jolting in"). Deliberately calls
+    // showLedgerHeaderButtons(), not the full syncLedgerHeaderVisibility() - Ledger is
+    // adjacent to Up in the tab order, so this branch runs on every drag that merely
+    // starts on Up; running the full sync here used to also strip header.mast's
+    // mast-empty class predictively, restoring its ~34px padding while Up's own content
+    // was still what's on screen and pushing it down for the whole gesture.
     const { idx, tabOrder: order } = pagerDrag;
     if(order[idx] === 'ledger' || order[idx-1] === 'ledger' || order[idx+1] === 'ledger'){
-      syncLedgerHeaderVisibility('ledger');
+      showLedgerHeaderButtons(true);
     }
     pagerDrag.ledgerIdx = order.indexOf('ledger');
   }
