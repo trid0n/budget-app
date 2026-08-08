@@ -97,12 +97,24 @@ body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sa
 .dm-switch.on{background:var(--gold);}
 .dm-switch.on::after{transform:translateX(16px); background:#fff;}
 
-header.mast{display:flex; justify-content:flex-end; align-items:center; padding-bottom:16px; margin-bottom:18px; gap:16px; flex-wrap:wrap;}
+header.mast{display:flex; justify-content:flex-end; align-items:center; padding-bottom:16px; margin-bottom:18px; gap:16px; flex-wrap:wrap; position:relative;}
 /* header.mast only ever holds Undo/month-nav/Today (see syncLedgerHeaderVisibility), all
    display:none on every tab but Ledger - but this padding/margin isn't attached to THEM,
    it's the header's own box, so it stayed reserved as dead space above every other tab's
    content regardless of whether there was anything left inside to justify it. */
 header.mast.mast-empty{padding-bottom:0; margin-bottom:0;}
+/* Second half of the same problem: showLedgerHeaderButtons(true) (see the pager drag
+   handler) makes .top-right's buttons display:'' again mid-drag, purely so the slide
+   transform has something on screen to animate - but .top-right is a normal flex child of
+   header.mast, so simply becoming non-empty again grew header.mast's own height right back,
+   independent of the mast-empty padding/margin fix above, and pushed the still-on-screen
+   tab's own content down by that same amount (the padding fix alone wasn't the whole
+   story). Taking .top-right out of flow entirely while header.mast is still "empty" (i.e.
+   Ledger isn't actually the active tab yet - covers both the fully-hidden resting state and
+   the predictively-shown mid-drag state) means showing/animating it can never affect
+   header.mast's own box size; it only rejoins normal flow once the tab genuinely becomes
+   Ledger and mast-empty comes off for real. */
+header.mast.mast-empty .top-right{position:absolute; top:0; right:0;}
 .top-right{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
 .view{display:none;}
 .view.active{display:block;}
