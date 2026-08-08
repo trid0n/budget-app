@@ -5394,10 +5394,15 @@ document.addEventListener('touchmove', (e) => {
 // currently happening.
 let lastTouchY = null;
 document.addEventListener('touchmove', (e) => { lastTouchY = Math.round(e.touches[0].clientY); }, {passive:true});
+// Bumped by hand on every change to this overlay or the code it's diagnosing - lets a
+// glance at the phone confirm it's actually running the latest deploy, not a stale cached
+// copy, before spending another round chasing a bug that might already be fixed.
+const DBG_BUILD = 'v14-maxheight-clip';
 function dbgTick(){
   const view = document.querySelector('.side-icon.active')?.dataset.view;
   const topRight = document.querySelector('.top-right');
   dbgOverlay(
+    `build:${DBG_BUILD}\n` +
     `view:${view}\n` +
     `pullDrag:${pullDrag ? (pullDrag.axis||'?')+(pullDrag.active?' ACTIVE':'') : 'null'}\n` +
     `pagerDrag:${pagerDrag ? (pagerDrag.axis||'?') : 'null'}\n` +
