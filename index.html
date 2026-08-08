@@ -5067,7 +5067,20 @@ function activateTab(view){
   if(view==='dashboard'){ renderDashboard(); renderInsights(); }
   if(view==='up'){ renderUpConnectState(); if(upToken && upTransactions.length === 0) refreshUpData(); }
   if(view==='template') renderTemplateEditor();
-  if(view==='ledger'){ updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths(); }
+  if(view==='ledger'){
+    updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths();
+    // #monthDropdownBtn is display:none (mast-empty, .top-right taken out of flow - see its
+    // CSS comment) on every tab but this one, and nothing else ever re-measures the month
+    // label carousel on a tab switch - renderMonthDropdown() is otherwise only called from
+    // switchToMonth() (an actual month change) or once at boot. If its width/position were
+    // ever captured while the button was hidden or mid predictive-slide-transition, nothing
+    // would refresh it back to correct until a month change happened to run - reported as
+    // "August" going missing/wrong after swiping to another tab and back, only fixing
+    // itself once something else forced a fresh render. Landing on Ledger for real is
+    // exactly the moment the button is guaranteed properly visible and sized, so re-run it
+    // here every time, not just on an actual month change.
+    renderMonthDropdown();
+  }
   if(view==='other'){ updateAllRtableNameWidths(); }
   if(view==='settings') showAccountSettingsTab();
   updatePagerPosition(true);
