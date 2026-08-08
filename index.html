@@ -821,7 +821,21 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
 .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
 /* ===================== MOBILE LAYOUT (phone-width only - desktop above these breakpoints is untouched) ===================== */
 @media (max-width:680px){
-  .app-shell{flex-direction:column; min-height:auto;}
+  /* The real fix for the pull/bounce saga documented around rubberBand/pullDrag further
+     down: no amount of preventDefault()-timing tuning fully suppresses WebKit's bounce on
+     the ROOT document specifically (a known WKWebView limitation - the outer page-level
+     scroll is handled by a native UIScrollView somewhat independently of the DOM's own
+     touch-event dispatch, so JS regaining control via preventDefault can still trail a
+     frame or two of native bounce). A plain overflow:auto DIV, by contrast, is a normal
+     WebKit scroll view and DOES fully respect overscroll-behavior/preventDefault. So make
+     the document itself unable to scroll at all (nothing for the outer bounce to grab) and
+     move the real scrolling onto .wrap below instead - same technique used by effectively
+     every framework/site that's had to solve this exact WKWebView issue. Desktop is
+     untouched; this only matters for the touch/pager system, which is mobile-only.
+     Sizing math: 56px matches .sidebar's fixed mobile height, so this doesn't leave a
+     grey gap the length of the tab strip below the actual viewport. */
+  html, body{height:100%; overflow:hidden;}
+  .app-shell{flex-direction:column; min-height:auto; height:100%;}
   /* Up-style condensed tab strip: content-sized tabs (not flex:1-stretched to fill the
      row) in a single non-wrapping line that scrolls horizontally - deliberately NOT
      trying to fit every tab on screen at once, same as Up's own "Up / Activity /
@@ -877,8 +891,12 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   #darkModeSwitch.on::before{content:'☀︎'; font-size:1.5rem;}
   /* Full width - no side gutters on phones */
   /* margin-top reserves the space .sidebar no longer occupies in flow now that it's
-     position:fixed (see .sidebar above) - must match its height exactly. */
-  .wrap{max-width:100%; padding:12px 8px 60px; margin-top:56px;}
+     position:fixed (see .sidebar above) - must match its height exactly. height is the
+     rest of the viewport after that same 56px, and overflow-y is what makes .wrap the
+     actual scrolling element now that html/body can't scroll at all (see the comment on
+     that above) - overscroll-behavior:none here is what finally, actually works, unlike
+     the same declaration on html/body ever fully did on WebKit. */
+  .wrap{max-width:100%; padding:12px 8px 60px; margin-top:56px; height:calc(100vh - 56px); overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:none;}
   /* Tells the browser vertical scrolling anywhere in here is always its own, native,
      immediate business - it never has to wait on (or ask) JS first to find out. Without
      this, EVERY touchmove on the page runs through the pager's non-passive listener
@@ -5293,27 +5311,26 @@ document.addEventListener('touchstart', (e) => {
   const suppressVisual = document.querySelector('.side-icon.active')?.dataset.view === 'up';
   pullDrag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, axis: null, active: false, suppressVisual };
 }, {passive:true});
-// {passive:false} + preventDefault() below, not passive - overscroll-behavior:none on
-// html/body (see its own comment) is the standards-track way to kill the native bounce
-// and is normally sufficient on Android Chrome, but WebKit (iPhone Safari/Chrome - Chrome
-// on iOS is still WebKit under the hood, Apple requires it) has a long-standing gap where
-// overscroll-behavior suppresses scroll *chaining* to a parent but not the root scroll
-// view's own rubber-band animation - CSS alone can't stop it there. preventDefault() on
-// touchmove is the actual fix for that engine. Called as early as possible - the instant a
-// drag at a boundary is unambiguously vertical, not gated behind the wider axis-lock
-// threshold below (which exists to decide whether to show the *visual* effect, a separate
-// concern) - because WebKit can start its own bounce from the first few px of movement, so
-// waiting for that threshold let a flash of native bounce through before this took over.
-// Doesn't interfere with the pager's own horizontal-swipe detection - that's a fully
-// separate listener/threshold, and preventDefault() here doesn't stop other listeners on
-// the same event from still running.
+// {passive:false} + preventDefault() below, not passive - .wrap (not html/body - see its
+// own comment) is now the actual scrolling element on mobile, specifically because a plain
+// overflow:auto div is a normal WebKit scroll view that DOES fully respect
+// overscroll-behavior, unlike the root document's own bounce which WebKit (iPhone
+// Safari/Chrome - Chrome on iOS is still WebKit under the hood) has a long-standing gap
+// with. This preventDefault() is now defense-in-depth on top of that CSS rather than the
+// only thing standing between the drag and a native bounce - still worth keeping since it's
+// also what makes the custom visual pull effect below possible at all. Called as early as
+// possible - the instant a drag at a boundary is unambiguously vertical, not gated behind
+// the wider axis-lock threshold below (which exists to decide whether to show the *visual*
+// effect, a separate concern). Doesn't interfere with the pager's own horizontal-swipe
+// detection - that's a fully separate listener/threshold, and preventDefault() here doesn't
+// stop other listeners on the same event from still running.
 document.addEventListener('touchmove', (e) => {
   if(!pullDrag) return;
   const t = e.touches[0];
   const dx = t.clientX - pullDrag.startX, dy = t.clientY - pullDrag.startY;
-  const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-  const atTop = window.scrollY <= 0;
-  const atBottom = window.scrollY >= maxScroll - 1;
+  const maxScroll = wrapEl.scrollHeight - wrapEl.clientHeight;
+  const atTop = wrapEl.scrollTop <= 0;
+  const atBottom = wrapEl.scrollTop >= maxScroll - 1;
   if((dy > 0 && atTop) || (dy < 0 && atBottom)) e.preventDefault();
   if(pullDrag.axis === null){
     if(Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
@@ -5344,7 +5361,7 @@ document.addEventListener('touchmove', (e) => {
     `pullDrag:${pullDrag ? (pullDrag.axis||'?')+(pullDrag.active?' ACTIVE':'') : 'null'}\n` +
     `pagerDrag:${pagerDrag ? (pagerDrag.axis||'?') : 'null'}\n` +
     `wrap.transform:${wrapEl.style.transform || 'none'}\n` +
-    `scrollY:${Math.round(window.scrollY)} touchY:${Math.round(t.clientY)}`
+    `wrap.scrollTop:${Math.round(wrapEl.scrollTop)} touchY:${Math.round(t.clientY)}`
   );
 }, {passive:true});
 document.addEventListener('touchend', () => {
