@@ -5244,12 +5244,7 @@ document.addEventListener('touchcancel', () => {
 // stays exactly where it is and nothing can scroll up above/behind it.
 let pullDrag = null;
 const wrapEl = document.querySelector('.wrap');
-// Excluding just .up-tx-list wasn't enough in practice - broadened to the Up tab's whole
-// content zone (#upContent: the refresh/timeframe/search row, the list, the balance hero,
-// all of it) so nothing in that actively-interactive area can trigger the dip, not just
-// the list rows specifically. Still allowed everywhere else, including the rest of the Up
-// tab above #upContent (the connect form) and every other tab.
-const PULL_DRAG_BLOCKED_SELECTOR = PAGER_DRAG_BLOCKED_SELECTOR + ', #upContent';
+const PULL_DRAG_BLOCKED_SELECTOR = PAGER_DRAG_BLOCKED_SELECTOR;
 // The classic UIScrollView rubber-band curve (x = distance dragged, d = the asymptotic
 // max, c = stiffness) - approaches d smoothly as x grows instead of hitting a hard wall
 // at some cutoff, so a long drag keeps giving a little more the whole time rather than
@@ -5269,30 +5264,42 @@ function rubberBand(x, d){
 document.addEventListener('touchstart', (e) => {
   if(!isMobilePagerActive() || e.touches.length !== 1) return;
   if(e.target.closest(PULL_DRAG_BLOCKED_SELECTOR)) return;
-  // Belt-and-suspenders on top of the selector check above: excluding specific elements
-  // by DOM boundary kept proving insufficient in practice (still reproduced on a real
-  // phone across several rounds even after broadening the selector each time - the exact
-  // gap was never pinned down). The Up tab has its own explicit Refresh button anyway, so
-  // pull-to-refresh-style behavior isn't needed there at all - simplest fix is to not
-  // start tracking a pull gesture anywhere on that tab, full stop, regardless of target.
-  if(document.querySelector('.side-icon.active')?.dataset.view === 'up') return;
   wrapEl.style.transition = '';
-  pullDrag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, axis: null, active: false };
+  // Skipping pull tracking on the Up tab entirely (an earlier attempt) also skipped the
+  // preventDefault() below there, which was the only thing suppressing the *native*
+  // bounce - so on a device where that's WebKit-based (iPhone Chrome/Safari - confirmed
+  // this is what's actually being tested on, not Android as first thought), disabling
+  // the whole gesture there made the native bounce MORE visible, not less. These are two
+  // separate concerns: suppressing the native bounce (wanted on every tab, especially Up,
+  // since that's exactly where people drag the transaction list most) vs showing this
+  // custom visual dip on top of it (not wanted specifically on Up - see commit history).
+  // Track the gesture and keep calling preventDefault() everywhere; just skip animating
+  // .wrap for it on Up.
+  const suppressVisual = document.querySelector('.side-icon.active')?.dataset.view === 'up';
+  pullDrag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, axis: null, active: false, suppressVisual };
 }, {passive:true});
 // {passive:false} + preventDefault() below, not passive - overscroll-behavior:none on
 // html/body (see its own comment) is the standards-track way to kill the native bounce
-// and is normally sufficient, but Android Chrome's native pull-to-refresh/bounce has a
-// known history of still leaking through in some cases regardless. Explicitly
-// preventDefault()-ing the exact same touchmove that's already driving this custom pull
-// is the stronger, more direct way to guarantee the browser can't also be processing its
-// own version of the same gesture underneath this one - only called while the custom
-// pull is actually active (axis is 'y' AND there's real pull to show), never for a
-// normal vertical scroll that isn't at a boundary, so it can't interfere with ordinary
-// scrolling the rest of the time.
+// and is normally sufficient on Android Chrome, but WebKit (iPhone Safari/Chrome - Chrome
+// on iOS is still WebKit under the hood, Apple requires it) has a long-standing gap where
+// overscroll-behavior suppresses scroll *chaining* to a parent but not the root scroll
+// view's own rubber-band animation - CSS alone can't stop it there. preventDefault() on
+// touchmove is the actual fix for that engine. Called as early as possible - the instant a
+// drag at a boundary is unambiguously vertical, not gated behind the wider axis-lock
+// threshold below (which exists to decide whether to show the *visual* effect, a separate
+// concern) - because WebKit can start its own bounce from the first few px of movement, so
+// waiting for that threshold let a flash of native bounce through before this took over.
+// Doesn't interfere with the pager's own horizontal-swipe detection - that's a fully
+// separate listener/threshold, and preventDefault() here doesn't stop other listeners on
+// the same event from still running.
 document.addEventListener('touchmove', (e) => {
   if(!pullDrag) return;
   const t = e.touches[0];
   const dx = t.clientX - pullDrag.startX, dy = t.clientY - pullDrag.startY;
+  const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+  const atTop = window.scrollY <= 0;
+  const atBottom = window.scrollY >= maxScroll - 1;
+  if((dy > 0 && atTop) || (dy < 0 && atBottom)) e.preventDefault();
   if(pullDrag.axis === null){
     if(Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
     pullDrag.axis = Math.abs(dx) > Math.abs(dy) * 1.5 ? 'x' : 'y';
@@ -5301,9 +5308,6 @@ document.addEventListener('touchmove', (e) => {
     if(pullDrag.active){ wrapEl.style.transform = ''; pullDrag.active = false; }
     return;
   }
-  const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-  const atTop = window.scrollY <= 0;
-  const atBottom = window.scrollY >= maxScroll - 1;
   let pull = 0;
   if(dy > 0 && atTop) pull = rubberBand(dy, 160);
   else if(dy < 0 && atBottom) pull = -rubberBand(-dy, 160);
@@ -5311,9 +5315,8 @@ document.addEventListener('touchmove', (e) => {
     if(pullDrag.active){ wrapEl.style.transform = ''; pullDrag.active = false; }
     return;
   }
-  e.preventDefault();
   pullDrag.active = true;
-  wrapEl.style.transform = `translateY(${pull}px)`;
+  if(!pullDrag.suppressVisual) wrapEl.style.transform = `translateY(${pull}px)`;
 }, {passive:false});
 // TEMPORARY - reads state after the listeners above/below have run each frame, purely
 // for the on-screen debug readout. Passive and last-registered so it never affects
