@@ -1139,8 +1139,14 @@ body.dark .auth-box{box-shadow:0 24px 60px -20px rgba(0,0,0,.6), var(--shadow);}
 <!-- TEMPORARY diagnostic overlay - remove once the real-device pull/scroll bug is
      actually root-caused. Shows live touch/scroll state so a screenshot mid-gesture
      reveals whether this app's own JS is doing anything at that moment, instead of
-     guessing blind from a static after-the-fact screenshot. -->
-<div id="dbgOverlay" style="position:fixed; top:2px; right:2px; z-index:999999; background:rgba(0,0,0,.8); color:#4f8; font:10px/1.4 monospace; padding:4px 6px; border-radius:4px; pointer-events:none; white-space:pre; max-width:55vw;"></div>
+     guessing blind from a static after-the-fact screenshot. Anchored to the BOTTOM of the
+     screen, not the top - it grew to 8 lines/~120px tall as more fields got added, which at
+     top:2px;right:2px was directly covering the real month-nav button and Today button
+     (confirmed via getBoundingClientRect() overlap, not a guess) - meaning it had been
+     hiding the exact controls it was supposed to help diagnose, on top of whatever the
+     actual app bug was. The bottom of the screen has no fixed-position app UI on mobile
+     (the tab strip is fixed to the top) so nothing real should ever end up under it there. -->
+<div id="dbgOverlay" style="position:fixed; bottom:2px; right:2px; z-index:999999; background:rgba(0,0,0,.8); color:#4f8; font:10px/1.4 monospace; padding:4px 6px; border-radius:4px; pointer-events:none; white-space:pre; max-width:55vw;"></div>
 <script>
 function dbgOverlay(text){
   const el = document.getElementById('dbgOverlay');
