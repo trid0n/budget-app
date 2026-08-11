@@ -267,6 +267,11 @@ input.name-input:hover, input.name-input:focus{outline:none;}
 .tx-link-badge{position:absolute; right:135px; top:50%; transform:translateY(-50%); z-index:4; display:flex; align-items:center; color:var(--ink-faint); background:none; border:none; padding:2px; cursor:pointer; opacity:.6; transition:opacity .15s, color .15s;}
 .tx-link-badge:hover{opacity:1; color:var(--gold);}
 .tx-link-badge.open{opacity:1; color:var(--gold);}
+/* Small dot, not a loud badge - just enough to notice on a pass over the list that an
+   item's amount sits above what its linked transactions add up to, without opening the
+   panel to find out. Anchors to the badge's own box (already position:absolute, so
+   already its own containing block for this) rather than an ancestor. */
+.tx-link-badge.over::after{content:''; position:absolute; top:-2px; right:-2px; width:6px; height:6px; border-radius:50%; background:var(--gold); border:1.5px solid var(--surface);}
 .tx-link-badge.tx-link-badge-inline{position:static; transform:none; flex-shrink:0;}
 .tx-link-badge[data-tip]::before{left:50%; right:auto; transform:translate(-50%,-4px);}
 .tx-link-badge[data-tip]:hover::before{transform:translate(-50%,0);}
@@ -726,7 +731,8 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-tx-amt.neg{color:var(--debit);}
 .up-tx-amt.pos{color:var(--credit);}
 .tx-assign-box{max-width:520px; width:92%; display:flex; flex-direction:column; gap:12px;}
-.tx-view-list{max-height:300px; overflow-y:auto; overflow-x:hidden; border:1px solid var(--rule); border-radius:10px; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
+.tx-view-list{overflow-x:hidden; border:1px solid var(--rule); border-radius:10px; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
+.tx-view-list.scrollable{max-height:300px; overflow-y:auto;}
 .tx-view-row{display:flex; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid var(--rule); font-size:.85rem; transition:background-color .12s; cursor:pointer;}
 .tx-view-row:hover{background:var(--paper-dim);}
 .tx-view-row:first-child{border-top:none;}
@@ -2116,6 +2122,17 @@ function getTxsForItem(catId, itemId){
   results.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
   return results;
 }
+// True when an item's own amount sits above what its linked transactions actually add up
+// to (e.g. edited up manually as a buffer, or left over from a transaction that was later
+// reassigned/unassigned without the item amount being pulled back down to match) - used to
+// give the paperclip badge a subtle "this might be stale" indicator without opening the
+// panel, and to gate the "set to transactions' total" fix button inside it.
+function itemAmountExceedsTxTotal(catId, itemId, amount){
+  const txs = getTxsForItem(catId, itemId);
+  if(!txs.length) return false;
+  const total = txs.reduce((s,t)=>s+(Number(t.amt)||0),0);
+  return Math.round(((Number(amount)||0) - total) * 100) / 100 > 0.01;
+}
 function findCatItemByName(categoryName, itemName){
   if(!monthData || !categoryName || !itemName) return null;
   if(categoryName.trim().toLowerCase() === 'income'){
@@ -2577,7 +2594,8 @@ function renderIncome(){
     const charged = !!i.charged;
     const linkedTxCount = getTxsForItem('income', i.id).length;
     const txPanelOpen = expandedTxPanels.has(`income:${i.id}`);
-    const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}" data-tx-view-item="${i.id}" data-tx-view-cat="income" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg></button>` : '';
+    const txOver = linkedTxCount > 0 && itemAmountExceedsTxTotal('income', i.id, i.amount);
+    const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}${txOver?' over':''}" data-tx-view-item="${i.id}" data-tx-view-cat="income" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked${txOver?' \u2014 amount is higher than they add up to':''} \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg></button>` : '';
     return `<div class="lrow ${charged?'charged':''}" data-item-row="${i.id}" data-cat="income" data-item="${i.id}">
       <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. salary" value="${escapeAttr(i.name)}" data-cat="income" data-item="${i.id}" data-field="name"></div>
       ${txBadge}
@@ -3157,7 +3175,7 @@ function renderSaverTxPanelHtml(accountId){
   }).join('') || '<div class="tx-assign-empty">No recent transactions.</div>';
   return `<button class="panel-close-btn" data-close-saver-panel="${escapeAttr(accountId)}" title="Close">${X_SVG}</button><div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(name)}"</span></div>
     <div class="tx-assign-sub">${state.txs.length} transaction${state.txs.length!==1?'s':''}</div>
-    <div class="tx-view-list">${rows}</div>`;
+    <div class="tx-view-list${state.txs.length>=5?' scrollable':''}">${rows}</div>`;
 }
 function renderTxPanelHtml(catId, itemId){
   const cat = findCatById(catId);
@@ -3173,11 +3191,11 @@ function renderTxPanelHtml(catId, itemId){
   // up manually as a buffer) - surface that gap here rather than leaving it silently
   // unexplained, since the transaction list alone won't show where the rest went.
   const diff = Math.round(((Number(item.amount)||0) - total) * 100) / 100;
-  const diffHtml = diff > 0.01 ? `<div class="tx-assign-sub tx-view-diff">${money(diff)} more than these transactions add up to</div>` : '';
+  const diffHtml = diff > 0.01 ? `<div class="tx-assign-sub tx-view-diff">${money(diff)} more than these transactions add up to — <button type="button" class="tx-assign-exclude-link" data-tx-fix-total="${escapeAttr(catId)}:${escapeAttr(itemId)}">set to ${money(total)}</button></div>` : '';
   return `<button class="panel-close-btn" data-close-tx-panel="${escapeAttr(catId)}:${escapeAttr(itemId)}" title="Close">${X_SVG}</button><div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(item.name)}"</span></div>
     <div class="tx-assign-sub">${txs.length} transaction${txs.length!==1?'s':''} — <span class="tx-view-sub-total">${money(total)} total</span></div>
     ${diffHtml}
-    <div class="tx-view-list">${rows}</div>`;
+    <div class="tx-view-list${txs.length>=5?' scrollable':''}">${rows}</div>`;
 }
 function renderOpenInlinePanels(){
   const host = document.getElementById('inlinePanelHost');
@@ -3375,7 +3393,8 @@ function leafRowHtml(catId, item){
   ) : '';
   const linkedTxCount = getTxsForItem(catId, item.id).length;
   const txPanelOpen = expandedTxPanels.has(`${catId}:${item.id}`);
-  const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}" data-tx-view-item="${item.id}" data-tx-view-cat="${catId}" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg></button>` : '';
+  const txOver = linkedTxCount > 0 && itemAmountExceedsTxTotal(catId, item.id, item.amount);
+  const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}${txOver?' over':''}" data-tx-view-item="${item.id}" data-tx-view-cat="${catId}" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked${txOver?' \u2014 amount is higher than they add up to':''} \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg></button>` : '';
   return `<div class="lrow leaf ${charged?'charged':''}" data-leaf-row="${item.id}" data-cat="${catId}" data-item="${item.id}">
     <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
     ${priceChangeHtml(item)}
@@ -6759,6 +6778,21 @@ document.body.addEventListener('click', (e) => {
   const jumpRow = e.target.closest('[data-tx-jump]');
   if(jumpRow){
     jumpToUpTransaction(jumpRow.dataset.txJump);
+    return;
+  }
+  const fixTotalBtn = e.target.closest('[data-tx-fix-total]');
+  if(fixTotalBtn){
+    if(!monthData) return;
+    const [catId, itemId] = fixTotalBtn.dataset.txFixTotal.split(':');
+    const cat = findCatById(catId);
+    const item = cat && cat.items.find(i=>i.id===itemId);
+    if(!item) return;
+    const total = getTxsForItem(catId, itemId).reduce((s,t)=>s+(Number(t.amt)||0),0);
+    pushUndo('month', monthData, {monthKey: settings.currentMonth});
+    item.amount = Math.round(total * 100) / 100;
+    scheduleSave();
+    renderGroups(); updateSummary();
+    toast(`Set "${item.name}" to ${money(item.amount)}`);
     return;
   }
   if(e.target.closest('[data-inline-add-grocery]')){ addGroceryRow(); return; }
