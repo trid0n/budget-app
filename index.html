@@ -70,8 +70,21 @@ body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sa
 
 .wrap{max-width:min(1900px, 96vw); width:100%; flex:1 1 auto; margin:0 auto; padding:34px 24px 80px; min-width:0; box-sizing:border-box;}
 
-.app-shell{display:flex; min-height:100vh;}
-.sidebar{width:210px; background:#1C2230; flex-shrink:0; display:flex; flex-direction:column; padding:20px 14px; gap:4px; position:sticky; top:0; height:100vh; overscroll-behavior:none;}
+/* margin-left reserves the strip .sidebar used to occupy as a flex item - now that it's
+   position:fixed (see below) it's taken out of flow entirely, so nothing else reserves
+   that space automatically the way a sticky flex item would. */
+.app-shell{display:flex; min-height:100vh; margin-left:210px;}
+/* position:fixed, not sticky. A sticky element can never stick past the bottom edge of
+   its own containing block (.app-shell here) - on a tab whose content is short (Up, with
+   few transactions loaded, is the common case), .app-shell ends up only marginally taller
+   than one viewport, so the sidebar hits that "can't stick any further" point almost as
+   soon as you start scrolling and starts moving with the page instead, exposing the much
+   darker page background below it (reported as "darker blue" showing up on the left once
+   scrolling starts, specifically on the Up tab - confirmed from a screen recording, not
+   guessed). Fixed has no such limit - it's purely viewport-relative, so it can never run
+   out of container to stick within. Same fix already used for the mobile top-bar version
+   of this sidebar (see its own comment further down), just applied to desktop too now. */
+.sidebar{width:210px; background:#1C2230; flex-shrink:0; display:flex; flex-direction:column; padding:20px 14px; gap:4px; position:fixed; top:0; left:0; height:100vh; overscroll-behavior:none;}
 .sidebar .brand{display:flex; align-items:center; gap:10px; padding:0 8px 20px; color:#fff; font-weight:800; font-size:1.05rem;}
 .sidebar .brand .mark{width:28px; height:28px; border-radius:8px; background:var(--gold); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.9rem; flex-shrink:0;}
 .sidebar .side-icon{display:flex; align-items:center; gap:12px; width:100%; padding:10px 12px; border-radius:9px; color:#8B93A5; font-size:.88rem; font-weight:600; cursor:pointer; background:none; border:none; text-align:left;}
@@ -864,7 +877,7 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
      Sizing math: 56px matches .sidebar's fixed mobile height, so this doesn't leave a
      grey gap the length of the tab strip below the actual viewport. */
   html, body{height:100%; overflow:hidden;}
-  .app-shell{flex-direction:column; min-height:auto; height:100%;}
+  .app-shell{flex-direction:column; min-height:auto; height:100%; margin-left:0;}
   /* Up-style condensed tab strip: content-sized tabs (not flex:1-stretched to fill the
      row) in a single non-wrapping line that scrolls horizontally - deliberately NOT
      trying to fit every tab on screen at once, same as Up's own "Up / Activity /
