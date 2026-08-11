@@ -7038,14 +7038,12 @@ function detectTransferEligible(){
     // Outside the auto window it only counts once the user has explicitly dragged it in.
     if(!inAutoWindow && !manual) return;
     const target = resolveTransferGroupTarget(t);
-    // Drop only a transfer that THIS group already settled, so a committed batch stops
-    // re-advertising itself. Testing merely "is the target item crossed off" was wrong: an
-    // item can be crossed off for entirely unrelated reasons (paid by hand, crossed off
-    // manually), and that silently threw its transfer out of the group - splitting the
-    // rail around it, showing it a contradictory grey "Excluded" badge, AND making a drag
-    // onto it a no-op, since this same line undid the manual inclusion the drag had just
-    // recorded. A drag is an explicit instruction, so it always wins here.
-    if(!manual && isTransferAlreadySettled(t.id, target)) return;
+    // Nothing is dropped for being already attributed or already crossed off - a transfer
+    // that's ALREADY sitting on the right item is still part of the batch visually, and
+    // committing with it in the selection is harmless (the commit step skips whatever is
+    // already done rather than re-adding its amount). Whether the batch as a whole still
+    // has anything outstanding is decided once, in recomputeTransferGroupSets, so a fully
+    // settled batch disappears instead of every row individually vanishing from it.
     list.push({tx: t, target});
   });
   return list;
@@ -7057,8 +7055,19 @@ function detectTransferGroup(){
 // pointer move (so the rail can redraw as it grows) without also rebuilding row HTML.
 function recomputeTransferGroupSets(){
   const eligible = detectTransferEligible();
-  transferGroupEligibleIds = new Set(eligible.map(g => g.tx.id));
   const group = eligible.filter(({tx}) => !transferGroupExcluded.has(tx.id));
+  // Once every transfer in the batch is linked AND crossed off there's nothing left to
+  // offer, so the whole thing stands down - no rail, no highlight, no banner. Decided for
+  // the batch as a whole rather than per row, so an already-done transfer sitting among
+  // still-outstanding ones stays visibly part of the group (and can be committed with
+  // them, which is a no-op for it) instead of punching a hole in the run.
+  const anyOutstanding = group.some(g => !isTransferAlreadySettled(g.tx.id, g.target));
+  if(!anyOutstanding){
+    transferGroupEligibleIds = new Set();
+    transferGroupHighlightIds = new Set();
+    return [];
+  }
+  transferGroupEligibleIds = new Set(eligible.map(g => g.tx.id));
   transferGroupHighlightIds = new Set(group.map(g => g.tx.id));
   return group;
 }
@@ -7202,11 +7211,15 @@ document.getElementById('txGroupCommitBtn').addEventListener('click', () => {
     return;
   }
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
+  let linkedCount = 0, alreadyDone = 0;
   linkable.forEach(({tx, target}) => {
+    if(isTransferAlreadySettled(tx.id, target)){ alreadyDone++; return; }
     const accountId = tx.relationships.transferAccount.data.id;
     if(target.isNewRule) transferRules[accountId] = {categoryName: target.categoryName, itemName: target.itemName, accountName: upAccountNameCache[accountId] || ''};
     const amt = parseFloat(tx.attributes.amount.value);
     const existing = txAssignments[tx.id];
+    // Already sitting on the right item - crossing it off is all that's left. Re-applying
+    // the amount here would double-count it against an item that already includes it.
     if(!existing || existing.catId !== target.cat.id || existing.itemId !== target.item.id){
       reverseTxAssignmentIfSameMonth(tx.id);
       applyTxAmountToItem(target.cat.id, target.item, amt);
@@ -7214,12 +7227,14 @@ document.getElementById('txGroupCommitBtn').addEventListener('click', () => {
       txAssignments[tx.id] = {monthKey: settings.currentMonth, catId: target.cat.id, itemId: target.item.id, itemName: target.item.name, categoryName: target.cat.name, merchantKey, txAmt: Math.abs(amt), desc: tx.attributes.description, date: tx.attributes.createdAt};
     }
     target.item.charged = true;
+    linkedCount++;
   });
   saveTransferRules();
   saveTxAssignments();
   scheduleSave();
   renderGroups(); updateSummary(); renderUpTxList();
-  toast(`Linked and crossed off ${linkable.length} transfer${linkable.length!==1?'s':''}.`
+  toast(`Linked and crossed off ${linkedCount} transfer${linkedCount!==1?'s':''}.`
+    + (alreadyDone ? ` ${alreadyDone} already done.` : '')
     + (unmatched ? ` ${unmatched} still need a budget item.` : ''));
 });
 document.getElementById('txRulesSearch').addEventListener('input', (e) => { txRulesSearchTerm = e.target.value; renderTxRulesList(); });
