@@ -469,6 +469,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-assign-exclude-link{background:none; border:none; color:var(--ink-faint); font-size:.78rem; font-weight:600; cursor:pointer; text-decoration:underline; text-underline-offset:3px; padding:0;}
 .tx-group-banner{display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--gold-bg); border:1px solid var(--gold); border-radius:10px; padding:10px 14px; margin-bottom:8px; font-size:.85rem; color:var(--ink);}
 .tx-group-banner-text{font-weight:600;}
+.tx-group-banner .mini-btn:disabled{opacity:.45; cursor:not-allowed;}
 .up-tx-row.tx-group-highlight, .up-tx-row2.tx-group-highlight{background:color-mix(in srgb, var(--gold) 10%, var(--surface));}
 /* A distinct badge for a transfer that WOULD be auto-excluded (no mapping existed yet)
    but resolves to a target via this month's group detection - showing the ordinary grey
@@ -6978,6 +6979,14 @@ function resolveTransferGroupTarget(t){
 // Everything that COULD be part of this month's batch, regardless of whether the user has
 // since dragged/clicked it out - the full range the rail needs to span so dragging back
 // over a previously-excluded row can re-include it.
+//
+// Membership is decided by the transfer's SHAPE (an outgoing internal transfer inside the
+// start-of-month window), NOT by whether it happens to resolve to a budget item. Requiring
+// a resolvable target meant a saver with no rule and no name match dropped out of the
+// group entirely, splitting the batch into disconnected runs with gaps between them -
+// which is exactly what the whole batch is not. Unresolvable ones still join the group
+// (target:null) so the run reads as one continuous thing; the commit step just can't link
+// those, and says so rather than silently doing nothing.
 function detectTransferEligible(){
   if(!monthData) return [];
   const list = [];
@@ -6990,7 +6999,8 @@ function detectTransferEligible(){
     const monthStart = new Date(txDate.getFullYear(), txDate.getMonth(), 1);
     if((txDate - monthStart) > START_OF_MONTH_TRANSFER_WINDOW_MS) return;
     const target = resolveTransferGroupTarget(t);
-    if(!target || target.item.charged) return;
+    // Already dealt with - leave it out so a finished batch stops re-advertising itself.
+    if(target && target.item.charged) return;
     list.push({tx: t, target});
   });
   return list;
@@ -7010,7 +7020,12 @@ function updateTransferGroupBanner(){
   const banner = document.getElementById('txGroupBanner');
   if(group.length >= 2){
     banner.style.display = '';
-    document.getElementById('txGroupBannerText').textContent = `${group.length} transfers look like the start of this month's saver batch.`;
+    const unmatched = group.filter(g => !g.target).length;
+    document.getElementById('txGroupBannerText').textContent =
+      `${group.length} transfers look like the start of this month's saver batch.`
+      + (unmatched ? ` ${unmatched} ${unmatched === 1 ? 'has no matching budget item' : 'have no matching budget item'} yet.` : '');
+    // Nothing to commit if every one of them is unmatched - the button would be a no-op.
+    document.getElementById('txGroupCommitBtn').disabled = unmatched === group.length;
   } else {
     banner.style.display = 'none';
   }
@@ -7110,9 +7125,17 @@ document.addEventListener('pointerup', () => {
 document.getElementById('txGroupCommitBtn').addEventListener('click', () => {
   if(!monthData) return;
   const group = detectTransferGroup();
-  if(!group.length) return;
+  // Everything in the group that actually resolves somewhere - the rest stay grouped and
+  // highlighted (they're still part of the batch), they just have nowhere to be linked to
+  // until they're assigned an item manually or a rule exists.
+  const linkable = group.filter(g => g.target);
+  const unmatched = group.length - linkable.length;
+  if(!linkable.length){
+    toast('None of these have a matching budget item yet — assign one first.');
+    return;
+  }
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
-  group.forEach(({tx, target}) => {
+  linkable.forEach(({tx, target}) => {
     const accountId = tx.relationships.transferAccount.data.id;
     if(target.isNewRule) transferRules[accountId] = {categoryName: target.categoryName, itemName: target.itemName, accountName: upAccountNameCache[accountId] || ''};
     const amt = parseFloat(tx.attributes.amount.value);
@@ -7129,7 +7152,8 @@ document.getElementById('txGroupCommitBtn').addEventListener('click', () => {
   saveTxAssignments();
   scheduleSave();
   renderGroups(); updateSummary(); renderUpTxList();
-  toast(`Linked and crossed off ${group.length} transfer${group.length!==1?'s':''}.`);
+  toast(`Linked and crossed off ${linkable.length} transfer${linkable.length!==1?'s':''}.`
+    + (unmatched ? ` ${unmatched} still need a budget item.` : ''));
 });
 document.getElementById('txRulesSearch').addEventListener('input', (e) => { txRulesSearchTerm = e.target.value; renderTxRulesList(); });
 document.getElementById('txRulesCloseBtn').addEventListener('click', () => document.getElementById('txRulesOverlay').classList.remove('show'));
