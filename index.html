@@ -1433,6 +1433,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <button class="mini-btn month-actions-gear" id="upTxMoreToggle" title="Timeframe"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2.5"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span></button>
           <button class="mini-btn month-actions-gear" id="upTxSearchToggle" title="Search"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></button>
           <button class="mini-btn" id="manageTxRulesBtn">Manage rules</button>
+          <button class="mini-btn" id="crossOffTransfersBtn" data-tip="Find this month's mapped saver transfers and cross off their matching budget items">Cross off transfers</button>
         </div>
         <div class="month-actions-panel up-tf-menu" id="upTxMorePanel">
           <button class="timeframe-btn" data-tf="1">Last month</button>
@@ -6891,6 +6892,59 @@ document.getElementById('manageTxRulesBtn').addEventListener('click', () => {
   renderTransferRulesList();
   document.getElementById('txRulesOverlay').classList.add('show');
 });
+// One-click batch version of the same match a saver transfer already gets one at a time
+// via transferRules/autoApplyTxRules - scoped to this month's outgoing transfers to a
+// mapped saver account, landing on the corresponding template item (see findTransferGuess
+// for why the template, not this month, is the source of truth for what a saver "is for").
+// The part autoApplyTxRules doesn't do on its own is crossing the item off (charged=true) -
+// that's the actual point of this button, for a recurring batch of transfers that all land
+// around the same time each month rather than confirming each one individually.
+function processSaverTransfers(){
+  if(!monthData){ toast('Open a month in the Budget tab first'); return; }
+  const candidates = upTransactions.filter(t => {
+    if(!isInternalTransfer(t)) return false;
+    const amt = parseFloat(t.attributes.amount.value);
+    if(!(amt < 0)) return false;
+    const transferAccountId = t.relationships.transferAccount.data.id;
+    if(!transferAccountId || !transferRules[transferAccountId]) return false;
+    return dateToKey(new Date(t.attributes.createdAt)) === settings.currentMonth;
+  });
+  if(!candidates.length){
+    toast('No mapped saver transfers found for this month — set one up via "Manage rules" first.');
+    return;
+  }
+  let crossedCount = 0, alreadyDone = 0, unmatched = 0, pushedUndo = false;
+  candidates.forEach(t => {
+    const amt = parseFloat(t.attributes.amount.value);
+    const transferAccountId = t.relationships.transferAccount.data.id;
+    const rule = transferRules[transferAccountId];
+    const found = findCatItemByName(rule.categoryName, rule.itemName);
+    if(!found){ unmatched++; return; }
+    if(found.item.charged){ alreadyDone++; return; }
+    if(!pushedUndo){ pushUndo('month', monthData, {monthKey: settings.currentMonth}); pushedUndo = true; }
+    const existing = txAssignments[t.id];
+    if(!existing || existing.catId !== found.cat.id || existing.itemId !== found.item.id){
+      reverseTxAssignmentIfSameMonth(t.id);
+      applyTxAmountToItem(found.cat.id, found.item, amt);
+      const merchantKey = extractMerchantKey(t.attributes.description, amt);
+      txAssignments[t.id] = {monthKey: settings.currentMonth, catId: found.cat.id, itemId: found.item.id, itemName: found.item.name, categoryName: found.cat.name, merchantKey, txAmt: Math.abs(amt), desc: t.attributes.description, date: t.attributes.createdAt};
+    }
+    found.item.charged = true;
+    crossedCount++;
+  });
+  if(crossedCount === 0){
+    toast(alreadyDone > 0 ? 'All of this month’s mapped saver transfers are already crossed off.' : 'Couldn’t match this month’s transfers to a budget item — check "Manage rules".');
+    return;
+  }
+  saveTxAssignments();
+  scheduleSave();
+  renderGroups(); updateSummary(); renderUpTxList();
+  const bits = [`Crossed off ${crossedCount} transfer${crossedCount!==1?'s':''}`];
+  if(alreadyDone) bits.push(`${alreadyDone} already done`);
+  if(unmatched) bits.push(`${unmatched} unmatched`);
+  toast(bits.join(' — ') + '.');
+}
+document.getElementById('crossOffTransfersBtn').addEventListener('click', processSaverTransfers);
 document.getElementById('txRulesSearch').addEventListener('input', (e) => { txRulesSearchTerm = e.target.value; renderTxRulesList(); });
 document.getElementById('txRulesCloseBtn').addEventListener('click', () => document.getElementById('txRulesOverlay').classList.remove('show'));
 document.getElementById('txRulesOverlay').addEventListener('click', (e) => { if(e.target.id === 'txRulesOverlay') document.getElementById('txRulesOverlay').classList.remove('show'); });
