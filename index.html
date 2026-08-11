@@ -2258,27 +2258,42 @@ function findTransferGuess(transferAccountId){
   if(!transferAccountId || !monthTemplate) return null;
   const accountName = upAccountNameCache[transferAccountId];
   if(!accountName) return null;
-  const nameWords = accountName.trim().toLowerCase().split(/\s+/).filter(w => w.length >= 3);
+  const accountLower = accountName.trim().toLowerCase();
+  const nameWords = accountLower.split(/\s+/).filter(w => w.length >= 3);
   if(!nameWords.length) return null;
-  let match = null;
+  // Scored rather than first-hit. Two separate traps this has to avoid:
+  //   1. Savers sharing a generic word ("Emergency Fund" / "Holiday Fund" both have
+  //      "fund") - so EVERY word of the item name has to be present, not just one.
+  //   2. One item's name being a subset of another's ("Water" vs "Hot water") - rule 1
+  //      alone still lets the "Hot water" account match the "Water" item, because every
+  //      word of "Water" does appear in "Hot water". Leftover unmatched account words are
+  //      therefore penalised, so the fuller match wins instead of whichever came first.
+  // An exact name match short-circuits both.
+  let best = null, bestScore = -Infinity;
   monthTemplate.categories.forEach(cat => {
-    if(match) return;
     cat.items.forEach(item => {
-      if(match) return;
       const itemLower = (item.name||'').trim().toLowerCase();
       if(!itemLower) return;
+      if(itemLower === accountLower){
+        best = {categoryName: cat.name, itemName: item.name};
+        bestScore = Infinity;
+        return;
+      }
+      if(bestScore === Infinity) return;
       const itemWords = itemLower.split(/\s+/).filter(w => w.length >= 3);
       if(!itemWords.length) return;
-      // every, not some - two savers named "Emergency Fund" and "Holiday Fund" share the
-      // word "fund", which used to be enough on its own to match the FIRST item checked
-      // regardless of which saver it actually was. Requiring every word in the item name
-      // to appear in the account name (not just one) means a shared generic word like
-      // "Fund"/"Saver"/"Account" alone is never sufficient - the distinctive word has to
-      // match too.
-      if(itemWords.every(iw => nameWords.some(nw => wordsMatchClosely(iw, nw)))) match = {categoryName: cat.name, itemName: item.name};
+      const matchedNameWords = new Set();
+      const allItemWordsMatch = itemWords.every(iw => {
+        const hit = nameWords.find(nw => wordsMatchClosely(iw, nw));
+        if(hit) matchedNameWords.add(hit);
+        return !!hit;
+      });
+      if(!allItemWordsMatch) return;
+      const score = matchedNameWords.size - (nameWords.length - matchedNameWords.size);
+      if(score > bestScore){ bestScore = score; best = {categoryName: cat.name, itemName: item.name}; }
     });
   });
-  return match ? {...match, reason: 'saver_name'} : null;
+  return best ? {...best, reason: 'saver_name'} : null;
 }
 function findGuessForTx(desc, amt, tx){
   if(isInternalTransfer(tx)){
@@ -6993,6 +7008,13 @@ function canJoinTransferGroup(t){
   if(!(parseFloat(t.attributes.amount.value) < 0)) return false;
   return dateToKey(new Date(t.attributes.createdAt)) === settings.currentMonth;
 }
+// True when THIS transfer is the one that crossed its target item off - i.e. it has
+// already been through the link-and-cross-off step and there's nothing left to do with it.
+function isTransferAlreadySettled(txId, target){
+  if(!target || !target.item.charged) return false;
+  const a = txAssignments[txId];
+  return !!(a && !a.excluded && a.catId === target.cat.id && a.itemId === target.item.id);
+}
 // Everything that COULD be part of this month's batch, regardless of whether the user has
 // since dragged/clicked it out - the full range the rail needs to span so dragging back
 // over a previously-excluded row can re-include it.
@@ -7009,14 +7031,21 @@ function detectTransferEligible(){
   const list = [];
   upTransactions.forEach(t => {
     if(!canJoinTransferGroup(t)) return;
+    const manual = transferGroupManual.has(t.id);
     const txDate = new Date(t.attributes.createdAt);
     const monthStart = new Date(txDate.getFullYear(), txDate.getMonth(), 1);
     const inAutoWindow = (txDate - monthStart) <= START_OF_MONTH_TRANSFER_WINDOW_MS;
     // Outside the auto window it only counts once the user has explicitly dragged it in.
-    if(!inAutoWindow && !transferGroupManual.has(t.id)) return;
+    if(!inAutoWindow && !manual) return;
     const target = resolveTransferGroupTarget(t);
-    // Already dealt with - leave it out so a finished batch stops re-advertising itself.
-    if(target && target.item.charged) return;
+    // Drop only a transfer that THIS group already settled, so a committed batch stops
+    // re-advertising itself. Testing merely "is the target item crossed off" was wrong: an
+    // item can be crossed off for entirely unrelated reasons (paid by hand, crossed off
+    // manually), and that silently threw its transfer out of the group - splitting the
+    // rail around it, showing it a contradictory grey "Excluded" badge, AND making a drag
+    // onto it a no-op, since this same line undid the manual inclusion the drag had just
+    // recorded. A drag is an explicit instruction, so it always wins here.
+    if(!manual && isTransferAlreadySettled(t.id, target)) return;
     list.push({tx: t, target});
   });
   return list;
