@@ -5827,16 +5827,6 @@ function autoApplyTxRules(){
       changed = true;
       return;
     }
-    if(existing && !existing.excluded && amt > 0 && existing.catId !== 'income'){
-      if(monthData && existing.monthKey === settings.currentMonth) reverseTxAssignmentIfSameMonth(t.id);
-      if(existing.merchantKey && txRules[existing.merchantKey] && txRules[existing.merchantKey].categoryName !== 'income'){
-        delete txRules[existing.merchantKey];
-        saveTxRules();
-      }
-      delete txAssignments[t.id];
-      existing = undefined;
-      changed = true;
-    }
     if(existing) return;
     if(isCoverTransferTx(t)){
       // The incoming "Cover from X" transfer, not the actual expense — exclude the
