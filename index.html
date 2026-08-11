@@ -485,7 +485,12 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
    row borders/radii. JS-positioned (see renderTransferGroupRail), same technique already
    used for #sideHighlight/positionOneInlinePanel elsewhere in this file. */
 .up-tx-list{position:relative;}
-.tx-group-rail{position:absolute; left:0; width:4px; z-index:5; border-radius:2px; overflow:hidden; cursor:grab;}
+/* touch-action:none so a drag along the rail is never stolen by the list's own scrolling
+   (the rail is inside .up-tx-list, which scrolls on desktop). */
+.tx-group-rail{position:absolute; left:0; width:4px; z-index:5; border-radius:3px; overflow:hidden; cursor:grab; touch-action:none; transition:width .12s ease;}
+/* Grows on hover (and stays grown while dragging) purely as an affordance - it's the only
+   cue that this thin line is a control you can grab at all. */
+.tx-group-rail:hover, .tx-group-rail.dragging{width:9px;}
 .tx-group-rail.dragging{cursor:grabbing;}
 .tx-group-rail-seg{width:100%; background:var(--rule); transition:background-color .1s;}
 .tx-group-rail-seg.included{background:var(--gold);}
@@ -5889,6 +5894,7 @@ async function fetchUpTransactionsFresh(){
   const errEl = document.getElementById('upError');
   errEl.textContent = '';
   transferGroupExcluded.clear();
+  transferGroupManual.clear();
   try{
     document.getElementById('upTxList').innerHTML = '<div class="pc-faint" style="padding:12px; text-align:center;">Loading transactions\u2026</div>';
     const txRes = await upFetch(`${upSpendingAccountId ? `/accounts/${upSpendingAccountId}/transactions` : '/transactions'}?page[size]=50${upTxSinceParam()}`);
@@ -6962,6 +6968,7 @@ document.getElementById('manageTxRulesBtn').addEventListener('click', () => {
 // from the budget entirely (that's still what the exclude button is for).
 const START_OF_MONTH_TRANSFER_WINDOW_MS = 48 * 60 * 60 * 1000; // covers bank processing running a little late without reaching into the rest of the month
 let transferGroupExcluded = new Set(); // tx ids the user has manually pulled out of the group this session
+let transferGroupManual = new Set(); // tx ids the user has dragged INTO the group that auto-detection didn't pick up (e.g. a transfer that landed a few days after the batch)
 let transferGroupHighlightIds = new Set(); // recomputed every render - the currently INCLUDED subset
 let transferGroupEligibleIds = new Set(); // recomputed every render - every candidate regardless of included/excluded, so the drag rail can reach excluded-but-eligible rows too
 function resolveTransferGroupTarget(t){
@@ -6975,6 +6982,16 @@ function resolveTransferGroupTarget(t){
   if(!guess) return null;
   const found = findCatItemByName(guess.categoryName, guess.itemName);
   return found ? {categoryName: guess.categoryName, itemName: guess.itemName, cat: found.cat, item: found.item, isNewRule: true} : null;
+}
+// Could this transaction be part of a saver batch at all? Outgoing internal transfer, in
+// the month being viewed. Deliberately WITHOUT the start-of-month window - that window is
+// what auto-detection uses to decide the batch on its own, but dragging is an explicit
+// instruction from the user, and the whole point of dragging past the ends of the rail is
+// to pick up a transfer that landed outside it (a few days late, say).
+function canJoinTransferGroup(t){
+  if(!t || !isInternalTransfer(t)) return false;
+  if(!(parseFloat(t.attributes.amount.value) < 0)) return false;
+  return dateToKey(new Date(t.attributes.createdAt)) === settings.currentMonth;
 }
 // Everything that COULD be part of this month's batch, regardless of whether the user has
 // since dragged/clicked it out - the full range the rail needs to span so dragging back
@@ -6991,13 +7008,12 @@ function detectTransferEligible(){
   if(!monthData) return [];
   const list = [];
   upTransactions.forEach(t => {
-    if(!isInternalTransfer(t)) return;
-    const amt = parseFloat(t.attributes.amount.value);
-    if(!(amt < 0)) return;
+    if(!canJoinTransferGroup(t)) return;
     const txDate = new Date(t.attributes.createdAt);
-    if(dateToKey(txDate) !== settings.currentMonth) return;
     const monthStart = new Date(txDate.getFullYear(), txDate.getMonth(), 1);
-    if((txDate - monthStart) > START_OF_MONTH_TRANSFER_WINDOW_MS) return;
+    const inAutoWindow = (txDate - monthStart) <= START_OF_MONTH_TRANSFER_WINDOW_MS;
+    // Outside the auto window it only counts once the user has explicitly dragged it in.
+    if(!inAutoWindow && !transferGroupManual.has(t.id)) return;
     const target = resolveTransferGroupTarget(t);
     // Already dealt with - leave it out so a finished batch stops re-advertising itself.
     if(target && target.item.charged) return;
@@ -7008,15 +7024,21 @@ function detectTransferEligible(){
 function detectTransferGroup(){
   return detectTransferEligible().filter(({tx}) => !transferGroupExcluded.has(tx.id));
 }
+// Shared by the render path and the drag path - the drag needs the sets refreshed on every
+// pointer move (so the rail can redraw as it grows) without also rebuilding row HTML.
+function recomputeTransferGroupSets(){
+  const eligible = detectTransferEligible();
+  transferGroupEligibleIds = new Set(eligible.map(g => g.tx.id));
+  const group = eligible.filter(({tx}) => !transferGroupExcluded.has(tx.id));
+  transferGroupHighlightIds = new Set(group.map(g => g.tx.id));
+  return group;
+}
 // Called from renderUpTxList() before the row HTML is built, so buildUpTxRowHtml/
 // buildUpTxRowHtmlDesktop can read transferGroupEligibleIds/transferGroupHighlightIds
 // while rendering each row. The rail itself is drawn afterward, once real row positions
 // exist to measure (see renderTransferGroupRail, called at the end of renderUpTxList).
 function updateTransferGroupBanner(){
-  const eligible = detectTransferEligible();
-  transferGroupEligibleIds = new Set(eligible.map(g => g.tx.id));
-  const group = eligible.filter(({tx}) => !transferGroupExcluded.has(tx.id));
-  transferGroupHighlightIds = new Set(group.map(g => g.tx.id));
+  const group = recomputeTransferGroupSets();
   const banner = document.getElementById('txGroupBanner');
   if(group.length >= 2){
     banner.style.display = '';
@@ -7065,6 +7087,7 @@ function renderTransferGroupRail(){
         rail.appendChild(seg);
       });
       rail.addEventListener('pointerdown', onTransferGroupRailPointerDown);
+      if(transferGroupDrag) rail.classList.add('dragging');
       list.appendChild(rail);
     }
     run = [];
@@ -7075,50 +7098,65 @@ function renderTransferGroupRail(){
   });
   flushRun();
 }
-let transferGroupDrag = null; // {mode, touchedIds, rail}
+let transferGroupDrag = null; // {mode, touchedIds}
+// Hit-tests against the transaction ROWS rather than the rail's own segments, so a drag
+// that runs past either end of the rail keeps going and pulls in neighbouring transfers
+// the auto-detection didn't claim - that's what makes "drag to include more" work rather
+// than just "drag within what's already grouped".
+function transferGroupRowAt(clientY){
+  const rows = [...document.querySelectorAll('#upTxList .up-tx-row, #upTxList .up-tx-row2')];
+  return rows.find(row => {
+    const r = row.getBoundingClientRect();
+    return clientY >= r.top && clientY <= r.bottom;
+  }) || null;
+}
 function onTransferGroupRailPointerDown(e){
-  const rail = e.currentTarget;
-  const rows = [...rail.querySelectorAll('.tx-group-rail-seg')];
-  const startSeg = rows.find(seg => {
-    const r = seg.getBoundingClientRect();
-    return e.clientY >= r.top && e.clientY <= r.bottom;
-  }) || rows[0];
-  if(!startSeg) return;
-  const startIncluded = !transferGroupExcluded.has(startSeg.dataset.txId);
-  transferGroupDrag = { mode: startIncluded ? 'exclude' : 'include', touchedIds: new Set(), rail };
-  rail.classList.add('dragging');
+  const startRow = transferGroupRowAt(e.clientY);
+  const startId = startRow && startRow.dataset.txRowId;
+  if(!startId) return;
+  const startIncluded = transferGroupHighlightIds.has(startId);
+  transferGroupDrag = { mode: startIncluded ? 'exclude' : 'include', touchedIds: new Set() };
+  e.currentTarget.classList.add('dragging');
   // Flip the row under the initial press BEFORE requesting pointer capture - capture can
   // throw (e.g. the pointer is already released/invalid by the time this runs), which
   // would otherwise skip the press's own toggle and only start responding on the first
   // move, making a plain click on the rail appear to do nothing.
-  applyTransferGroupDragAt(rail, e.clientY);
-  try{ rail.setPointerCapture(e.pointerId); }catch(err){}
+  applyTransferGroupDragAt(e.clientY);
+  try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(err){}
   e.preventDefault();
 }
-function applyTransferGroupDragAt(rail, clientY){
+function applyTransferGroupDragAt(clientY){
   if(!transferGroupDrag) return;
-  const seg = [...rail.querySelectorAll('.tx-group-rail-seg')].find(s => {
-    const r = s.getBoundingClientRect();
-    return clientY >= r.top && clientY <= r.bottom;
-  });
-  if(!seg || transferGroupDrag.touchedIds.has(seg.dataset.txId)) return;
-  transferGroupDrag.touchedIds.add(seg.dataset.txId);
-  if(transferGroupDrag.mode === 'exclude') transferGroupExcluded.add(seg.dataset.txId);
-  else transferGroupExcluded.delete(seg.dataset.txId);
-  // Instant visual feedback without a full row re-render mid-drag (row HTML rebuilding on
-  // every pointermove would be janky) - the underlying data is already correct, so a
-  // single renderUpTxList() on pointerup reconciles row content/banner text properly.
-  seg.classList.toggle('included', transferGroupDrag.mode === 'include');
-  const row = document.querySelector(`[data-tx-row-id="${CSS.escape(seg.dataset.txId)}"]`);
+  const row = transferGroupRowAt(clientY);
+  const txId = row && row.dataset.txRowId;
+  if(!txId || transferGroupDrag.touchedIds.has(txId)) return;
+  const tx = upTransactions.find(t => t.id === txId);
+  // Anything that couldn't be part of a saver batch at all (an ordinary purchase, or a
+  // transfer from another month) is simply skipped - dragging over it neither includes it
+  // nor breaks the sweep, so passing across one on the way to a real transfer is harmless.
+  if(!canJoinTransferGroup(tx)) return;
+  transferGroupDrag.touchedIds.add(txId);
+  if(transferGroupDrag.mode === 'exclude'){
+    transferGroupExcluded.add(txId);
+    transferGroupManual.delete(txId);
+  } else {
+    transferGroupExcluded.delete(txId);
+    transferGroupManual.add(txId);
+  }
+  // Redraw just the rail (cheap - a handful of divs) so it visibly grows/shrinks as the
+  // drag goes, without rebuilding row HTML on every pointermove. Row tint is toggled
+  // directly for the same reason; renderUpTxList() on pointerup reconciles everything
+  // properly (badges, banner text, commit button state).
+  recomputeTransferGroupSets();
   if(row) row.classList.toggle('tx-group-highlight', transferGroupDrag.mode === 'include');
+  renderTransferGroupRail();
 }
 document.addEventListener('pointermove', (e) => {
   if(!transferGroupDrag) return;
-  applyTransferGroupDragAt(transferGroupDrag.rail, e.clientY);
+  applyTransferGroupDragAt(e.clientY);
 });
 document.addEventListener('pointerup', () => {
   if(!transferGroupDrag) return;
-  transferGroupDrag.rail.classList.remove('dragging');
   transferGroupDrag = null;
   renderUpTxList();
 });
