@@ -1433,7 +1433,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <button class="mini-btn month-actions-gear" id="upTxMoreToggle" title="Timeframe"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2.5"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span></button>
           <button class="mini-btn month-actions-gear" id="upTxSearchToggle" title="Search"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></button>
           <button class="mini-btn" id="manageTxRulesBtn">Manage rules</button>
-          <button class="mini-btn" id="crossOffTransfersBtn" data-tip="Find this month's mapped saver transfers and cross off their matching budget items">Cross off transfers</button>
+          <button class="mini-btn" id="crossOffTransfersBtn" data-tip="Find this month's mapped saver transfers from right at the start of the month and cross off their matching budget items">Cross off transfers</button>
         </div>
         <div class="month-actions-panel up-tf-menu" id="upTxMorePanel">
           <button class="timeframe-btn" data-tf="1">Last month</button>
@@ -6893,12 +6893,16 @@ document.getElementById('manageTxRulesBtn').addEventListener('click', () => {
   document.getElementById('txRulesOverlay').classList.add('show');
 });
 // One-click batch version of the same match a saver transfer already gets one at a time
-// via transferRules/autoApplyTxRules - scoped to this month's outgoing transfers to a
-// mapped saver account, landing on the corresponding template item (see findTransferGuess
-// for why the template, not this month, is the source of truth for what a saver "is for").
-// The part autoApplyTxRules doesn't do on its own is crossing the item off (charged=true) -
-// that's the actual point of this button, for a recurring batch of transfers that all land
-// around the same time each month rather than confirming each one individually.
+// via transferRules/autoApplyTxRules - scoped to the automated batch that lands right at
+// the start of the month (see START_OF_MONTH_TRANSFER_WINDOW_MS below), landing on the
+// corresponding template item (see findTransferGuess for why the template, not this
+// month, is the source of truth for what a saver "is for"). Deliberately NOT "any transfer
+// to a mapped saver sometime this month" - a one-off manual top-up made mid-month to the
+// same saver shouldn't get swept up and crossed off by this. The part autoApplyTxRules
+// doesn't do on its own is crossing the item off (charged=true) - that's the actual point
+// of this button, for a recurring batch of transfers that all land together rather than
+// confirming each one individually.
+const START_OF_MONTH_TRANSFER_WINDOW_MS = 48 * 60 * 60 * 1000; // covers bank processing running a little late without reaching into the rest of the month
 function processSaverTransfers(){
   if(!monthData){ toast('Open a month in the Budget tab first'); return; }
   const candidates = upTransactions.filter(t => {
@@ -6907,10 +6911,13 @@ function processSaverTransfers(){
     if(!(amt < 0)) return false;
     const transferAccountId = t.relationships.transferAccount.data.id;
     if(!transferAccountId || !transferRules[transferAccountId]) return false;
-    return dateToKey(new Date(t.attributes.createdAt)) === settings.currentMonth;
+    const txDate = new Date(t.attributes.createdAt);
+    if(dateToKey(txDate) !== settings.currentMonth) return false;
+    const monthStart = new Date(txDate.getFullYear(), txDate.getMonth(), 1);
+    return (txDate - monthStart) <= START_OF_MONTH_TRANSFER_WINDOW_MS;
   });
   if(!candidates.length){
-    toast('No mapped saver transfers found for this month — set one up via "Manage rules" first.');
+    toast('No mapped saver transfers found at the start of this month — set one up via "Manage rules" first.');
     return;
   }
   let crossedCount = 0, alreadyDone = 0, unmatched = 0, pushedUndo = false;
