@@ -467,13 +467,12 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .modal-actions{display:flex; justify-content:flex-end; gap:10px;}
 .tx-assign-box .modal-actions{justify-content:space-between; align-items:center;}
 .tx-assign-exclude-link{background:none; border:none; color:var(--ink-faint); font-size:.78rem; font-weight:600; cursor:pointer; text-decoration:underline; text-underline-offset:3px; padding:0;}
-.transfer-group-box{max-width:560px;}
-.transfer-group-rows{display:flex; flex-direction:column; gap:10px; max-height:360px; overflow-y:auto; margin:4px 0 2px; padding-right:2px;}
-.transfer-group-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; background:var(--paper-dim); border:1px solid var(--rule); border-radius:10px;}
-.transfer-group-row-info{min-width:0;}
-.transfer-group-row-name{font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.transfer-group-row-meta{font-size:.76rem; color:var(--ink-faint); margin-top:2px;}
-.transfer-group-select{flex-shrink:0; max-width:190px;}
+.tx-group-banner{display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--gold-bg); border:1px solid var(--gold); border-radius:10px; padding:10px 14px; margin-bottom:8px; font-size:.85rem; color:var(--ink);}
+.tx-group-banner-text{font-weight:600;}
+/* Left-edge accent via box-shadow (not border) so it doesn't disturb the row's existing
+   padding/box model - just a background tint plus that accent to read as "grouped"
+   without needing a whole separate wrapper element around the highlighted rows. */
+.up-tx-row.tx-group-highlight, .up-tx-row2.tx-group-highlight{background:color-mix(in srgb, var(--gold) 10%, var(--surface)); box-shadow:inset 3px 0 0 var(--gold);}
 .tx-assign-exclude-link:hover{color:var(--debit);}
 .account-settings-box .modal-actions{justify-content:space-between; align-items:center;}
 .acct-logout-link{background:none; border:none; color:var(--ink-faint); font-size:.78rem; font-weight:600; cursor:pointer; text-decoration:underline; text-underline-offset:3px; padding:0;}
@@ -708,7 +707,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-tx-status.guess{background:var(--gold-bg); border-color:color-mix(in srgb, var(--gold) 40%, var(--rule)); color:var(--gold);}
 .up-tx-status.excluded{background:var(--paper-dim); border-color:var(--rule); color:var(--ink-faint);}
 .up-tx-status.unassigned:hover, .up-tx-status.guess:hover{border-color:var(--gold); color:var(--gold);}
-.up-tx-row2-main{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px;}
+.up-tx-row2-main{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px; position:relative;}
 .up-tx-row2-name{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font-weight:600; display:flex; align-items:center; gap:6px;}
 .up-tx-row2-date{color:var(--ink-faint); font-size:.72rem;}
 .up-tx-note-dot{color:var(--gold); font-size:.5rem;}
@@ -1440,8 +1439,6 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <button class="mini-btn month-actions-gear" id="upTxMoreToggle" title="Timeframe"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2.5"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span></button>
           <button class="mini-btn month-actions-gear" id="upTxSearchToggle" title="Search"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></button>
           <button class="mini-btn" id="manageTxRulesBtn">Manage rules</button>
-          <button class="mini-btn" id="crossOffTransfersBtn" data-tip="Find this month's mapped saver transfers from right at the start of the month and cross off their matching budget items">Cross off transfers</button>
-          <button class="mini-btn" id="findTransferGroupBtn" data-tip="Retroactively find a group of transfers from the start of this month and link each one to a budget item, even if none are mapped yet">Find transfer group</button>
         </div>
         <div class="month-actions-panel up-tf-menu" id="upTxMorePanel">
           <button class="timeframe-btn" data-tf="1">Last month</button>
@@ -1497,6 +1494,10 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           </div>
         </div>
         <div class="tx-loading-bar" id="upTxLoadingBar" style="display:none;"><div class="tx-loading-bar-inner"></div></div>
+        <div class="tx-group-banner" id="txGroupBanner" style="display:none;">
+          <span class="tx-group-banner-text" id="txGroupBannerText"></span>
+          <button class="mini-btn gold" id="txGroupCommitBtn">Link &amp; cross off</button>
+        </div>
         <div class="up-tx-list" id="upTxList"></div>
         <div class="up-tx-loadmore-row"><button class="mini-btn" id="upLoadMoreBtn" style="display:none;">Load more</button></div>
         <div class="up-status-row" id="upStatusRow" style="display:none;">
@@ -1725,19 +1726,6 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 </div>
 <div class="modal-overlay" id="accountSettingsOverlay">
   <div class="modal-box account-settings-box" id="accountSettingsModalBox"></div>
-</div>
-<div class="modal-overlay" id="transferGroupOverlay">
-  <div class="modal-box transfer-group-box">
-    <div class="modal-msg">
-      <strong>Link this transfer group?</strong>
-      <div class="tx-assign-sub" id="transferGroupSub" style="margin-top:4px;"></div>
-      <div class="transfer-group-rows" id="transferGroupRows"></div>
-    </div>
-    <div class="modal-actions">
-      <button class="mini-btn" id="transferGroupCancelBtn">Cancel</button>
-      <button class="mini-btn gold" id="transferGroupConfirmBtn">Link &amp; cross off</button>
-    </div>
-  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -5877,6 +5865,7 @@ function upTxSinceParam(){
 async function fetchUpTransactionsFresh(){
   const errEl = document.getElementById('upError');
   errEl.textContent = '';
+  transferGroupExcluded.clear();
   try{
     document.getElementById('upTxList').innerHTML = '<div class="pc-faint" style="padding:12px; text-align:center;">Loading transactions\u2026</div>';
     const txRes = await upFetch(`${upSpendingAccountId ? `/accounts/${upSpendingAccountId}/transactions` : '/transactions'}?page[size]=50${upTxSinceParam()}`);
@@ -6093,6 +6082,7 @@ function txMatchesSearchTerm(t, term){
 }
 function renderUpTxList(){
   autoApplyTxRules();
+  updateTransferGroupBanner();
   renderPayCycleRow();
   const prevEffectiveMonthKey = todaysEffectiveMonthKey;
   recomputeEffectivePeriod();
@@ -6154,14 +6144,15 @@ function buildUpTxRowHtml(t){
   const coverIcon = coverSource ? `<span class="up-tx-cover-icon" data-tip="Covered from &quot;${escapeAttr(coverSource)}&quot;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg></span>` : '';
   const merchantKeyHere = extractMerchantKey(t.attributes.description, amt);
   const isIncomeSource = upIncomeSourceKey && merchantKeyHere === upIncomeSourceKey;
-  const descClickable = amt > 0 ? ` data-tx-income-select="${t.id}"` : '';
-  const descTip = amt > 0 ? (isIncomeSource ? 'This is your set income source \u2014 tap to unset' : 'Tap to set as your income source') : '';
+  const isGroupHighlighted = transferGroupHighlightIds.has(t.id);
+  const descClickable = amt > 0 ? ` data-tx-income-select="${t.id}"` : (isGroupHighlighted ? ` data-tx-group-toggle="${t.id}"` : '');
+  const descTip = amt > 0 ? (isIncomeSource ? 'This is your set income source \u2014 tap to unset' : 'Tap to set as your income source') : (isGroupHighlighted ? 'Part of this month\u2019s transfer batch \u2014 tap to remove from the group' : '');
   // Up's own transaction message is read-only bank data (e.g. a note the sender attached
   // to a payment) - this app has no way to write one back, so tapping a row just shows
   // whatever's already there rather than opening an editor.
   const noteText = t.attributes.message || '';
   const noteDot = noteText ? `<span class="up-tx-note-dot" data-tip="Has a note \u2014 tap the row to view it">\u25cf</span>` : '';
-  return `<div class="up-tx-row2${isIncomeSource?' is-income-source':''}" data-tx-note="${escapeAttr(noteText)}" data-tx-row-id="${escapeAttr(t.id)}">
+  return `<div class="up-tx-row2${isIncomeSource?' is-income-source':''}${isGroupHighlighted?' tx-group-highlight':''}" data-tx-note="${escapeAttr(noteText)}" data-tx-row-id="${escapeAttr(t.id)}">
     ${statusHtml}
     <div class="up-tx-row2-main"${descClickable}${descTip?` data-tip="${escapeAttr(descTip)}"`:''}>
       <div class="up-tx-row2-name">${escapeAttr(t.attributes.description)}${held}${noteDot}${coverIcon}</div>
@@ -6201,10 +6192,11 @@ function buildUpTxRowHtmlDesktop(t){
   const coverIcon = coverSource ? `<span class="up-tx-cover-icon" data-tip="Covered from &quot;${escapeAttr(coverSource)}&quot;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg></span>` : '';
   const merchantKeyHere = extractMerchantKey(t.attributes.description, amt);
   const isIncomeSource = upIncomeSourceKey && merchantKeyHere === upIncomeSourceKey;
-  const descClickable = amt > 0 ? ` data-tx-income-select="${t.id}"` : '';
-  const descTip = amt > 0 ? (isIncomeSource ? 'This is your set income source. Click to unset.' : `${t.attributes.description} — click to set as your income source`) : `${t.attributes.description}${held}`;
+  const isGroupHighlighted = transferGroupHighlightIds.has(t.id);
+  const descClickable = amt > 0 ? ` data-tx-income-select="${t.id}"` : (isGroupHighlighted ? ` data-tx-group-toggle="${t.id}"` : '');
+  const descTip = amt > 0 ? (isIncomeSource ? 'This is your set income source. Click to unset.' : `${t.attributes.description} — click to set as your income source`) : (isGroupHighlighted ? 'Part of this month’s transfer batch — click to remove from the group' : `${t.attributes.description}${held}`);
   const noteHtml = t.attributes.message ? `<div class="up-tx-note" data-tip="${escapeAttr(t.attributes.message)}">${escapeAttr(t.attributes.message)}</div>` : '';
-  return `<div class="up-tx-row" data-tx-row-id="${escapeAttr(t.id)}"><div class="up-tx-desc-chip${isIncomeSource?' is-income-source':''}"${descClickable} data-tip="${escapeAttr(descTip)}">${escapeAttr(t.attributes.description)}${held}</div>${assignBtn}${wrongGuessBtn}${noteHtml}<div class="up-tx-date">${date}</div>${coverIcon}<div class="up-tx-amt ${amt<0?'neg':'pos'}">${amt<0?'-':'+'}${money(Math.abs(amt))}</div></div>`;
+  return `<div class="up-tx-row${isGroupHighlighted?' tx-group-highlight':''}" data-tx-row-id="${escapeAttr(t.id)}"><div class="up-tx-desc-chip${isIncomeSource?' is-income-source':''}"${descClickable} data-tip="${escapeAttr(descTip)}">${escapeAttr(t.attributes.description)}${held}</div>${assignBtn}${wrongGuessBtn}${noteHtml}<div class="up-tx-date">${date}</div>${coverIcon}<div class="up-tx-amt ${amt<0?'neg':'pos'}">${amt<0?'-':'+'}${money(Math.abs(amt))}</div></div>`;
 }
 // Groups transactions the way the Up app itself does: a month banner (with that month's
 // total spend) over one date banner per day, over the transactions from that day - not
@@ -6919,165 +6911,85 @@ document.getElementById('manageTxRulesBtn').addEventListener('click', () => {
   renderTransferRulesList();
   document.getElementById('txRulesOverlay').classList.add('show');
 });
-// One-click batch version of the same match a saver transfer already gets one at a time
-// via transferRules/autoApplyTxRules - scoped to the automated batch that lands right at
-// the start of the month (see START_OF_MONTH_TRANSFER_WINDOW_MS below), landing on the
-// corresponding template item (see findTransferGuess for why the template, not this
-// month, is the source of truth for what a saver "is for"). Deliberately NOT "any transfer
-// to a mapped saver sometime this month" - a one-off manual top-up made mid-month to the
-// same saver shouldn't get swept up and crossed off by this. The part autoApplyTxRules
-// doesn't do on its own is crossing the item off (charged=true) - that's the actual point
-// of this button, for a recurring batch of transfers that all land together rather than
-// confirming each one individually.
+// Ambient version of what used to be two separate buttons: rather than the user asking
+// "is there a transfer batch to process", every render of the Up tab list itself checks -
+// scoped to the automated batch window right at the start of the month (deliberately NOT
+// "any transfer to a mapped saver sometime this month" - a one-off manual top-up made
+// mid-month shouldn't get swept up), resolved via an existing transferRules mapping or a
+// best-effort guess (findTransferGuess, matching the saver's own Up display name against
+// template item names) if there isn't one yet. Matches get visually grouped in the list
+// (see .tx-group-highlight) with a banner offering to commit the whole group at once;
+// clicking a highlighted row's own name removes it from the group instead of excluding it
+// from the budget entirely (that's still what the exclude button is for).
 const START_OF_MONTH_TRANSFER_WINDOW_MS = 48 * 60 * 60 * 1000; // covers bank processing running a little late without reaching into the rest of the month
-function processSaverTransfers(){
-  if(!monthData){ toast('Open a month in the Budget tab first'); return; }
-  const candidates = upTransactions.filter(t => {
-    if(!isInternalTransfer(t)) return false;
-    const amt = parseFloat(t.attributes.amount.value);
-    if(!(amt < 0)) return false;
-    const transferAccountId = t.relationships.transferAccount.data.id;
-    if(!transferAccountId || !transferRules[transferAccountId]) return false;
-    const txDate = new Date(t.attributes.createdAt);
-    if(dateToKey(txDate) !== settings.currentMonth) return false;
-    const monthStart = new Date(txDate.getFullYear(), txDate.getMonth(), 1);
-    return (txDate - monthStart) <= START_OF_MONTH_TRANSFER_WINDOW_MS;
-  });
-  if(!candidates.length){
-    toast('No mapped saver transfers found at the start of this month — set one up via "Manage rules" first.');
-    return;
-  }
-  let crossedCount = 0, alreadyDone = 0, unmatched = 0, pushedUndo = false;
-  candidates.forEach(t => {
-    const amt = parseFloat(t.attributes.amount.value);
-    const transferAccountId = t.relationships.transferAccount.data.id;
-    const rule = transferRules[transferAccountId];
+let transferGroupExcluded = new Set(); // tx ids the user has manually unhighlighted this session
+let transferGroupHighlightIds = new Set(); // recomputed every render - what's currently highlighted
+function resolveTransferGroupTarget(t){
+  const accountId = t.relationships.transferAccount.data.id;
+  const rule = transferRules[accountId];
+  if(rule){
     const found = findCatItemByName(rule.categoryName, rule.itemName);
-    if(!found){ unmatched++; return; }
-    if(found.item.charged){ alreadyDone++; return; }
-    if(!pushedUndo){ pushUndo('month', monthData, {monthKey: settings.currentMonth}); pushedUndo = true; }
-    const existing = txAssignments[t.id];
-    if(!existing || existing.catId !== found.cat.id || existing.itemId !== found.item.id){
-      reverseTxAssignmentIfSameMonth(t.id);
-      applyTxAmountToItem(found.cat.id, found.item, amt);
-      const merchantKey = extractMerchantKey(t.attributes.description, amt);
-      txAssignments[t.id] = {monthKey: settings.currentMonth, catId: found.cat.id, itemId: found.item.id, itemName: found.item.name, categoryName: found.cat.name, merchantKey, txAmt: Math.abs(amt), desc: t.attributes.description, date: t.attributes.createdAt};
-    }
-    found.item.charged = true;
-    crossedCount++;
-  });
-  if(crossedCount === 0){
-    toast(alreadyDone > 0 ? 'All of this month’s mapped saver transfers are already crossed off.' : 'Couldn’t match this month’s transfers to a budget item — check "Manage rules".');
-    return;
+    return found ? {categoryName: rule.categoryName, itemName: rule.itemName, cat: found.cat, item: found.item, isNewRule: false} : null;
   }
-  saveTxAssignments();
-  scheduleSave();
-  renderGroups(); updateSummary(); renderUpTxList();
-  const bits = [`Crossed off ${crossedCount} transfer${crossedCount!==1?'s':''}`];
-  if(alreadyDone) bits.push(`${alreadyDone} already done`);
-  if(unmatched) bits.push(`${unmatched} unmatched`);
-  toast(bits.join(' — ') + '.');
+  const guess = findTransferGuess(accountId);
+  if(!guess) return null;
+  const found = findCatItemByName(guess.categoryName, guess.itemName);
+  return found ? {categoryName: guess.categoryName, itemName: guess.itemName, cat: found.cat, item: found.item, isNewRule: true} : null;
 }
-document.getElementById('crossOffTransfersBtn').addEventListener('click', processSaverTransfers);
-// Retroactive version of the same start-of-month window processSaverTransfers() uses,
-// but without requiring transferRules to already exist - for a batch that was never
-// confirmed at the time (just connected Up Bank, or the popup was dismissed without
-// ticking "always"). Shows every transfer in the window at once, pre-filled with its
-// existing rule or a best-effort guess (findTransferGuess, matching the saver's own Up
-// display name against template item names), so it reads as reviewing one group rather
-// than confirming each transfer in isolation.
-function findTransferGroupCandidates(){
+function detectTransferGroup(){
   if(!monthData) return [];
-  return upTransactions.filter(t => {
-    if(!isInternalTransfer(t)) return false;
+  const list = [];
+  upTransactions.forEach(t => {
+    if(!isInternalTransfer(t)) return;
     const amt = parseFloat(t.attributes.amount.value);
-    if(!(amt < 0)) return false;
+    if(!(amt < 0)) return;
+    if(transferGroupExcluded.has(t.id)) return;
     const txDate = new Date(t.attributes.createdAt);
-    if(dateToKey(txDate) !== settings.currentMonth) return false;
+    if(dateToKey(txDate) !== settings.currentMonth) return;
     const monthStart = new Date(txDate.getFullYear(), txDate.getMonth(), 1);
-    return (txDate - monthStart) <= START_OF_MONTH_TRANSFER_WINDOW_MS;
+    if((txDate - monthStart) > START_OF_MONTH_TRANSFER_WINDOW_MS) return;
+    const target = resolveTransferGroupTarget(t);
+    if(!target || target.item.charged) return;
+    list.push({tx: t, target});
   });
+  return list;
 }
-async function openTransferGroupModal(){
-  if(!monthData){ toast('Open a month in the Budget tab first'); return; }
-  const candidates = findTransferGroupCandidates();
-  if(candidates.length < 2){
-    toast(candidates.length === 1
-      ? 'Only one transfer found at the start of this month — nothing to group.'
-      : 'No transfers found at the start of this month.');
-    return;
+// Called from renderUpTxList() before the row HTML is built, so buildUpTxRowHtml/
+// buildUpTxRowHtmlDesktop can read transferGroupHighlightIds while rendering each row.
+function updateTransferGroupBanner(){
+  const group = detectTransferGroup();
+  transferGroupHighlightIds = new Set(group.map(g => g.tx.id));
+  const banner = document.getElementById('txGroupBanner');
+  if(group.length >= 2){
+    banner.style.display = '';
+    document.getElementById('txGroupBannerText').textContent = `${group.length} transfers look like the start of this month's saver batch.`;
+  } else {
+    banner.style.display = 'none';
   }
-  await Promise.all(candidates.map(t => {
-    const accountId = t.relationships.transferAccount.data.id;
-    return upAccountNameCache[accountId] ? null : fetchUpAccountName(accountId).catch(()=>{});
-  }));
-  const itemOptions = [];
-  monthData.categories.forEach(cat => cat.items.forEach(item => {
-    if((item.name||'').trim()) itemOptions.push({cat, item});
-  }));
-  document.getElementById('transferGroupSub').textContent = `${candidates.length} transfers found at the start of ${monthLabel(settings.currentMonth)} — review and link each one, or leave it as "Don't link".`;
-  document.getElementById('transferGroupRows').innerHTML = candidates.map(t => {
-    const accountId = t.relationships.transferAccount.data.id;
-    const accountName = upAccountNameCache[accountId] || 'Unknown account';
-    const amt = parseFloat(t.attributes.amount.value);
-    const dateStr = new Date(t.attributes.createdAt).toLocaleDateString('en-AU', {day:'numeric', month:'short'});
-    const guess = transferRules[accountId] || findTransferGuess(accountId);
-    const optionsHtml = itemOptions.map(({cat, item}) => {
-      const selected = guess && guess.categoryName === cat.name && guess.itemName === item.name ? ' selected' : '';
-      return `<option value="${escapeAttr(cat.id)}::${escapeAttr(item.id)}"${selected}>${escapeAttr(cat.name)} → ${escapeAttr(item.name)}</option>`;
-    }).join('');
-    return `<div class="transfer-group-row" data-tx-id="${escapeAttr(t.id)}" data-account-id="${escapeAttr(accountId)}">
-      <div class="transfer-group-row-info">
-        <div class="transfer-group-row-name">${escapeAttr(accountName)}</div>
-        <div class="transfer-group-row-meta">${dateStr} — ${money(Math.abs(amt))}</div>
-      </div>
-      <select class="mini-select transfer-group-select">
-        <option value="">Don’t link</option>
-        ${optionsHtml}
-      </select>
-    </div>`;
-  }).join('');
-  document.getElementById('transferGroupOverlay').classList.add('show');
 }
-function closeTransferGroupModal(){ document.getElementById('transferGroupOverlay').classList.remove('show'); }
-document.getElementById('findTransferGroupBtn').addEventListener('click', openTransferGroupModal);
-document.getElementById('transferGroupCancelBtn').addEventListener('click', closeTransferGroupModal);
-document.getElementById('transferGroupOverlay').addEventListener('click', (e) => { if(e.target.id === 'transferGroupOverlay') closeTransferGroupModal(); });
-document.getElementById('transferGroupConfirmBtn').addEventListener('click', () => {
+document.getElementById('txGroupCommitBtn').addEventListener('click', () => {
   if(!monthData) return;
-  const rows = document.querySelectorAll('#transferGroupRows .transfer-group-row');
-  let linkedCount = 0, pushedUndo = false;
-  rows.forEach(row => {
-    const select = row.querySelector('.transfer-group-select');
-    if(!select.value) return;
-    const [catId, itemId] = select.value.split('::');
-    const cat = findCatById(catId);
-    const item = cat && cat.items.find(i=>i.id===itemId);
-    if(!item) return;
-    const txId = row.dataset.txId;
-    const accountId = row.dataset.accountId;
-    const t = upTransactions.find(tx => tx.id === txId);
-    if(!t) return;
-    const amt = parseFloat(t.attributes.amount.value);
-    if(!pushedUndo){ pushUndo('month', monthData, {monthKey: settings.currentMonth}); pushedUndo = true; }
-    transferRules[accountId] = {categoryName: cat.name, itemName: item.name, accountName: upAccountNameCache[accountId] || ''};
-    const existing = txAssignments[txId];
-    if(!existing || existing.catId !== cat.id || existing.itemId !== item.id){
-      reverseTxAssignmentIfSameMonth(txId);
-      applyTxAmountToItem(cat.id, item, amt);
-      const merchantKey = extractMerchantKey(t.attributes.description, amt);
-      txAssignments[txId] = {monthKey: settings.currentMonth, catId: cat.id, itemId: item.id, itemName: item.name, categoryName: cat.name, merchantKey, txAmt: Math.abs(amt), desc: t.attributes.description, date: t.attributes.createdAt};
+  const group = detectTransferGroup();
+  if(!group.length) return;
+  pushUndo('month', monthData, {monthKey: settings.currentMonth});
+  group.forEach(({tx, target}) => {
+    const accountId = tx.relationships.transferAccount.data.id;
+    if(target.isNewRule) transferRules[accountId] = {categoryName: target.categoryName, itemName: target.itemName, accountName: upAccountNameCache[accountId] || ''};
+    const amt = parseFloat(tx.attributes.amount.value);
+    const existing = txAssignments[tx.id];
+    if(!existing || existing.catId !== target.cat.id || existing.itemId !== target.item.id){
+      reverseTxAssignmentIfSameMonth(tx.id);
+      applyTxAmountToItem(target.cat.id, target.item, amt);
+      const merchantKey = extractMerchantKey(tx.attributes.description, amt);
+      txAssignments[tx.id] = {monthKey: settings.currentMonth, catId: target.cat.id, itemId: target.item.id, itemName: target.item.name, categoryName: target.cat.name, merchantKey, txAmt: Math.abs(amt), desc: tx.attributes.description, date: tx.attributes.createdAt};
     }
-    item.charged = true;
-    linkedCount++;
+    target.item.charged = true;
   });
-  closeTransferGroupModal();
-  if(linkedCount === 0){ toast('Nothing linked.'); return; }
   saveTransferRules();
   saveTxAssignments();
   scheduleSave();
   renderGroups(); updateSummary(); renderUpTxList();
-  toast(`Linked and crossed off ${linkedCount} transfer${linkedCount!==1?'s':''}.`);
+  toast(`Linked and crossed off ${group.length} transfer${group.length!==1?'s':''}.`);
 });
 document.getElementById('txRulesSearch').addEventListener('input', (e) => { txRulesSearchTerm = e.target.value; renderTxRulesList(); });
 document.getElementById('txRulesCloseBtn').addEventListener('click', () => document.getElementById('txRulesOverlay').classList.remove('show'));
@@ -7097,6 +7009,12 @@ document.getElementById('transferRulesList').addEventListener('click', (e) => {
   renderTransferRulesList();
 });
 document.getElementById('upTxList').addEventListener('click', (e) => {
+  const groupToggle = e.target.closest('[data-tx-group-toggle]');
+  if(groupToggle){
+    transferGroupExcluded.add(groupToggle.dataset.txGroupToggle);
+    renderUpTxList();
+    return;
+  }
   const incomeSelectChip = e.target.closest('[data-tx-income-select]');
   if(incomeSelectChip){
     const txId = incomeSelectChip.dataset.txIncomeSelect;
