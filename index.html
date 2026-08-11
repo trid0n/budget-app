@@ -714,9 +714,14 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-tx-amt.pos{color:var(--credit);}
 .tx-assign-box{max-width:520px; width:92%; display:flex; flex-direction:column; gap:12px;}
 .tx-view-list{max-height:300px; overflow-y:auto; overflow-x:hidden; border:1px solid var(--rule); border-radius:10px; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
-.tx-view-row{display:flex; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid var(--rule); font-size:.85rem; transition:background-color .12s;}
+.tx-view-row{display:flex; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid var(--rule); font-size:.85rem; transition:background-color .12s; cursor:pointer;}
 .tx-view-row:hover{background:var(--paper-dim);}
 .tx-view-row:first-child{border-top:none;}
+.up-tx-row.tx-row-jump-highlight, .up-tx-row2.tx-row-jump-highlight{animation:txJumpFlash 1.6s ease;}
+@keyframes txJumpFlash{
+  0%{background:color-mix(in srgb, var(--gold) 25%, var(--surface));}
+  100%{background:transparent;}
+}
 .tx-view-row-info{display:flex; flex-direction:column; gap:3px; min-width:0; flex:1;}
 .tx-view-row-desc{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .tx-view-row-date{color:var(--ink-faint); font-size:.72rem;}
@@ -1410,7 +1415,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <button class="timeframe-btn" data-tf="since_last_pay" id="upPayCycleSinceBtn">Since last pay</button>
           <button class="timeframe-btn" data-tf="between_last_2_pays" id="upPayCycleBetweenBtn">Between last 2 pays</button>
           <div class="tf-menu-sep"></div>
-          <button type="button" class="tf-toggle-btn" id="upIncomeOnlyToggle" data-tip="Only show transactions where you received money">Incoming only</button>
+          <button type="button" class="tf-toggle-btn" id="upIncomeOnlyToggle">Incoming only</button>
         </div>
         <div class="up-tx-custom-range" id="upTxCustomRange" style="display:none;">
           <div class="grocery-field">From
@@ -3135,7 +3140,7 @@ function renderSaverTxPanelHtml(accountId){
   if(!state.txs) return `<div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(name)}"</span></div><div class="tx-assign-sub">Loading…</div>`;
   const rows = state.txs.map(t => {
     const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-AU', {day:'numeric', month:'short'}) : '';
-    return `<div class="tx-view-row"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div></div></div>`;
+    return `<div class="tx-view-row" data-tx-jump="${escapeAttr(t.txId)}"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div></div></div>`;
   }).join('') || '<div class="tx-assign-empty">No recent transactions.</div>';
   return `<button class="panel-close-btn" data-close-saver-panel="${escapeAttr(accountId)}" title="Close">${X_SVG}</button><div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(name)}"</span></div>
     <div class="tx-assign-sub">${state.txs.length} transaction${state.txs.length!==1?'s':''}</div>
@@ -3149,7 +3154,7 @@ function renderTxPanelHtml(catId, itemId){
   const total = txs.reduce((s,t)=>s+(Number(t.amt)||0),0);
   const rows = txs.map(t => {
     const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-AU', {day:'numeric', month:'short'}) : '';
-    return `<div class="tx-view-row"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div><button class="up-tx-exclude-btn" data-tx-unassign-view="${t.txId}" data-tip="Unassign this transaction">×</button></div></div>`;
+    return `<div class="tx-view-row" data-tx-jump="${escapeAttr(t.txId)}"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div><button class="up-tx-exclude-btn" data-tx-unassign-view="${t.txId}" data-tip="Unassign this transaction">×</button></div></div>`;
   }).join('') || '<div class="tx-assign-empty">No transactions linked yet.</div>';
   // item.amount can legitimately sit above the linked transactions' total (e.g. edited
   // up manually as a buffer) - surface that gap here rather than leaving it silently
@@ -5105,6 +5110,50 @@ function activateTab(view){
   if(view==='settings') showAccountSettingsTab();
   updatePagerPosition(true);
 }
+// Jumps from a transaction row inside an item's linked-transactions panel (or a saver's
+// history panel) straight to that same transaction in the Up tab. upTransactions only
+// holds whatever's already been fetched for the current timeframe/pagination state, so a
+// transaction from another month may genuinely not be loaded yet - this widens the
+// timeframe to "all" and, failing that, pages through the rest before giving up, rather
+// than silently landing on an empty-looking tab.
+async function jumpToUpTransaction(txId){
+  activateTab('up');
+  if(!upToken){ toast('Connect Up Bank first.'); return; }
+  let tx = upTransactions.find(t => t.id === txId);
+  if(!tx && (upTxTimeframe !== 'all' || upPayCycleFilter)){
+    clearAllTimeframeActive();
+    const allBtn = document.querySelector('#upTxMorePanel [data-tf="all"]');
+    if(allBtn) allBtn.classList.add('active');
+    upTxTimeframe = 'all';
+    upPayCycleFilter = null;
+    document.getElementById('upTxCustomRange').style.display = 'none';
+    await fetchUpTransactionsFresh();
+    tx = upTransactions.find(t => t.id === txId);
+  }
+  if(!tx && upTxNextUrl){
+    await loadAllUpTransactionsForSearch();
+    tx = upTransactions.find(t => t.id === txId);
+  }
+  if(!tx){
+    toast('Couldn’t find that transaction in your Up Bank history.');
+    return;
+  }
+  if(upTxSearchTerm){
+    upTxSearchTerm = '';
+    document.getElementById('upTxSearch').value = '';
+    document.getElementById('upTxSearchClear').style.display = 'none';
+    document.getElementById('upTxSearchToggle').classList.remove('has-active-filter');
+  }
+  if(upIncomeFilterActive){ upIncomeFilterActive = false; updateIncomeOnlyControls(); }
+  renderUpTxList();
+  setTimeout(() => {
+    const row = document.querySelector(`[data-tx-row-id="${CSS.escape(txId)}"]`);
+    if(!row) return;
+    row.scrollIntoView({behavior:'smooth', block:'center'});
+    row.classList.add('tx-row-jump-highlight');
+    setTimeout(() => row.classList.remove('tx-row-jump-highlight'), 1600);
+  }, 60);
+}
 document.querySelectorAll('.side-icon').forEach(btn => {
   btn.addEventListener('click', () => {
     // Settings is a real swipeable tab on a phone, same as every other tab, but stays a
@@ -6033,7 +6082,7 @@ function buildUpTxRowHtml(t){
   // whatever's already there rather than opening an editor.
   const noteText = t.attributes.message || '';
   const noteDot = noteText ? `<span class="up-tx-note-dot" data-tip="Has a note \u2014 tap the row to view it">\u25cf</span>` : '';
-  return `<div class="up-tx-row2${isIncomeSource?' is-income-source':''}" data-tx-note="${escapeAttr(noteText)}">
+  return `<div class="up-tx-row2${isIncomeSource?' is-income-source':''}" data-tx-note="${escapeAttr(noteText)}" data-tx-row-id="${escapeAttr(t.id)}">
     ${statusHtml}
     <div class="up-tx-row2-main"${descClickable}${descTip?` data-tip="${escapeAttr(descTip)}"`:''}>
       <div class="up-tx-row2-name">${escapeAttr(t.attributes.description)}${held}${noteDot}${coverIcon}</div>
@@ -6076,7 +6125,7 @@ function buildUpTxRowHtmlDesktop(t){
   const descClickable = amt > 0 ? ` data-tx-income-select="${t.id}"` : '';
   const descTip = amt > 0 ? (isIncomeSource ? 'This is your set income source. Click to unset.' : `${t.attributes.description} — click to set as your income source`) : `${t.attributes.description}${held}`;
   const noteHtml = t.attributes.message ? `<div class="up-tx-note" data-tip="${escapeAttr(t.attributes.message)}">${escapeAttr(t.attributes.message)}</div>` : '';
-  return `<div class="up-tx-row"><div class="up-tx-desc-chip${isIncomeSource?' is-income-source':''}"${descClickable} data-tip="${escapeAttr(descTip)}">${escapeAttr(t.attributes.description)}${held}</div>${assignBtn}${wrongGuessBtn}${noteHtml}<div class="up-tx-date">${date}</div>${coverIcon}<div class="up-tx-amt ${amt<0?'neg':'pos'}">${amt<0?'-':'+'}${money(Math.abs(amt))}</div></div>`;
+  return `<div class="up-tx-row" data-tx-row-id="${escapeAttr(t.id)}"><div class="up-tx-desc-chip${isIncomeSource?' is-income-source':''}"${descClickable} data-tip="${escapeAttr(descTip)}">${escapeAttr(t.attributes.description)}${held}</div>${assignBtn}${wrongGuessBtn}${noteHtml}<div class="up-tx-date">${date}</div>${coverIcon}<div class="up-tx-amt ${amt<0?'neg':'pos'}">${amt<0?'-':'+'}${money(Math.abs(amt))}</div></div>`;
 }
 // Groups transactions the way the Up app itself does: a month banner (with that month's
 // total spend) over one date banner per day, over the transactions from that day - not
@@ -6683,6 +6732,11 @@ document.body.addEventListener('click', (e) => {
     saveTxAssignments();
     scheduleSave();
     renderGroups(); updateSummary(); renderUpTxList();
+    return;
+  }
+  const jumpRow = e.target.closest('[data-tx-jump]');
+  if(jumpRow){
+    jumpToUpTransaction(jumpRow.dataset.txJump);
     return;
   }
   if(e.target.closest('[data-inline-add-grocery]')){ addGroceryRow(); return; }
