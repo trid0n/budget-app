@@ -412,13 +412,21 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
    clamping at all). Shared by #monthActionsPanel and #upTxMorePanel. */
 .month-actions-panel{position:fixed; z-index:120; background:var(--surface); border:1px solid var(--rule); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.22); padding:8px; display:flex; flex-direction:column; align-items:stretch; gap:2px; min-width:200px; max-width:calc(100vw - 16px); max-height:min(420px, calc(100vh - 16px)); overflow-y:auto; opacity:0; pointer-events:none; transform:translateY(-6px); transition:opacity .15s ease, transform .15s ease; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
 .month-actions-panel.open{opacity:1; pointer-events:auto; transform:translateY(0);}
-.month-actions-panel .chip-btn, .month-actions-panel .timeframe-btn{margin-left:0; width:100%; justify-content:flex-start; text-align:left; box-sizing:border-box;}
+.month-actions-panel .chip-btn, .month-actions-panel .timeframe-btn, .month-actions-panel .tf-toggle-btn{margin-left:0; width:100%; justify-content:flex-start; text-align:left; box-sizing:border-box;}
+.tf-menu-sep{height:1px; background:var(--rule); margin:4px 0;}
+.tf-toggle-btn{background:var(--paper-dim); border:1px solid var(--rule); color:var(--ink-soft); font-family:'Inter',sans-serif; font-size:.8rem; font-weight:600; padding:7px 14px; border-radius:20px; cursor:pointer; transition:background-color .15s, color .15s, border-color .15s;}
+.tf-toggle-btn:hover{border-color:var(--gold); color:var(--gold);}
+.tf-toggle-btn.active{background:var(--gold); border-color:var(--gold); color:#fff;}
 .period-mode-group{display:flex; align-items:center; gap:6px; flex-shrink:0;}
 .ledger-top-toggle-row{display:flex; justify-content:center; margin-bottom:14px;}
 .month-actions-gear{flex-shrink:0;}
 .up-refresh-btn{flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;}
 .month-actions-gear .btn-ic{display:inline-flex; transition:transform .4s ease;}
-.month-actions-gear.open .btn-ic{transform:rotate(180deg);}
+/* Only the actual gear/settings icon spins open — rotating a calendar or magnifying-glass
+   icon 180° reads as a glitch, not an animation, so those triggers (upTxMoreToggle,
+   upTxSearchToggle, adminSearchToggle) are excluded here even though they share the
+   .month-actions-gear class for sizing/border styling. */
+#monthActionsToggle.open .btn-ic{transform:rotate(180deg);}
 .month-actions-gear.has-active-filter{border-color:var(--gold); color:var(--gold);}
 .chip-btn{position:relative; display:inline-flex; align-items:center; border:none; border-radius:999px; padding:7px 14px 7px 20px; margin-left:8px; font-family:'Inter',sans-serif; font-size:.8rem; font-weight:500; cursor:pointer; flex-shrink:0;}
 .chip-ic{position:absolute; left:-8px; top:50%; transform:translateY(-50%); width:26px; height:26px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; border:2px solid var(--surface);}
@@ -1401,6 +1409,8 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <button class="timeframe-btn" data-tf="custom">Custom range</button>
           <button class="timeframe-btn" data-tf="since_last_pay" id="upPayCycleSinceBtn">Since last pay</button>
           <button class="timeframe-btn" data-tf="between_last_2_pays" id="upPayCycleBetweenBtn">Between last 2 pays</button>
+          <div class="tf-menu-sep"></div>
+          <button type="button" class="tf-toggle-btn" id="upIncomeOnlyToggle" data-tip="Only show transactions where you received money">Incoming only</button>
         </div>
         <div class="up-tx-custom-range" id="upTxCustomRange" style="display:none;">
           <div class="grocery-field">From
@@ -1439,7 +1449,7 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
         </div>
         <div class="month-actions-panel up-search-menu" id="upTxSearchPanel">
           <div class="up-tx-search-wrap">
-            <input type="text" id="upTxSearch" class="up-tx-search" placeholder="Search transactions by description...">
+            <input type="text" id="upTxSearch" class="up-tx-search" placeholder="Search by name or amount...">
             <button type="button" class="up-tx-search-clear" id="upTxSearchClear" title="Clear" style="display:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
           </div>
         </div>
@@ -5445,8 +5455,24 @@ function clearAllTimeframeActive(){
 // underlying state (is it the default view?) instead of "is anything active in there."
 function updateUpTxMoreToggleIndicator(){
   const toggle = document.getElementById('upTxMoreToggle');
-  const isDefault = upTxTimeframe === 'all' && !upPayCycleFilter;
+  const isDefault = upTxTimeframe === 'all' && !upPayCycleFilter && !upIncomeFilterActive;
   toggle.classList.toggle('has-active-filter', !isDefault);
+}
+// Keeps every control that reflects upIncomeFilterActive in sync with each other -
+// the "Choose income" status-row button (hidden once an income source is set, see
+// renderPayCycleRow) and the always-available "Incoming only" toggle in the timeframe
+// menu both drive the same underlying flag, so either one changing has to update both.
+function updateIncomeOnlyControls(){
+  const chooseBtn = document.getElementById('upChooseIncomeBtn');
+  chooseBtn.textContent = upIncomeFilterActive ? 'Showing income only ✕' : 'Choose income';
+  chooseBtn.classList.toggle('gold', upIncomeFilterActive);
+  document.getElementById('upIncomeOnlyToggle').classList.toggle('active', upIncomeFilterActive);
+  updateUpTxMoreToggleIndicator();
+}
+function toggleIncomeFilterActive(){
+  upIncomeFilterActive = !upIncomeFilterActive;
+  updateIncomeOnlyControls();
+  renderUpTxList();
 }
 function handleTimeframeBtnClick(e){
   const btn = e.target.closest('.timeframe-btn');
@@ -5913,8 +5939,29 @@ function renderPayCycleRow(){
   }
   sinceBtn.classList.toggle('active', upPayCycleFilter === 'since');
   betweenBtn.classList.toggle('active', upPayCycleFilter === 'between');
-  updateUpTxMoreToggleIndicator();
+  updateIncomeOnlyControls();
   document.getElementById('upTxLoadingBar').style.display = 'none';
+}
+// Matches on a literal description substring first (the common case), then falls back to
+// a word-by-word fuzzy match (same closeness rule findGuessForTx uses for merchant names -
+// see wordsMatchClosely) so a typo or a slightly different rendering of a name still finds
+// it, then finally on amount - the cleaned digits/decimal-point of the term against the
+// transaction's absolute value formatted to cents, so "45" or "$45.50" both find a $45.50
+// transaction without requiring an exact full-amount match.
+function txMatchesSearchTerm(t, term){
+  const descLower = (t.attributes.description||'').toLowerCase();
+  if(descLower.includes(term)) return true;
+  const termWords = term.split(/\s+/).filter(w => w.length >= 3);
+  if(termWords.length){
+    const descWords = descLower.split(/\s+/).filter(w => w.length >= 3);
+    if(termWords.every(tw => descWords.some(dw => wordsMatchClosely(tw, dw)))) return true;
+  }
+  const cleanedTerm = term.replace(/[^0-9.]/g, '');
+  if(cleanedTerm){
+    const amtStr = Math.abs(parseFloat(t.attributes.amount.value)).toFixed(2);
+    if(amtStr.includes(cleanedTerm)) return true;
+  }
+  return false;
 }
 function renderUpTxList(){
   autoApplyTxRules();
@@ -5923,7 +5970,7 @@ function renderUpTxList(){
   recomputeEffectivePeriod();
   if(todaysEffectiveMonthKey !== prevEffectiveMonthKey && monthData) updateSummary();
   const term = upTxSearchTerm.trim().toLowerCase();
-  let filtered = term ? upTransactions.filter(t => (t.attributes.description||'').toLowerCase().includes(term)) : upTransactions;
+  let filtered = term ? upTransactions.filter(t => txMatchesSearchTerm(t, term)) : upTransactions;
   // Hide the incoming "Cover from X" transfer as its own row — the cost transaction
   // it covers already shows a cover icon, so listing both was just the same money
   // shown twice (once as -, once as +).
@@ -6146,12 +6193,11 @@ document.getElementById('upTxSearchToggle').addEventListener('click', () => {
   closeFloatingMenus();
   if(open){ positionFloatingMenu(panel, btn); panel.classList.add('open'); btn.classList.add('open'); document.getElementById('upTxSearch').focus(); }
 });
-document.getElementById('upChooseIncomeBtn').addEventListener('click', () => {
-  upIncomeFilterActive = !upIncomeFilterActive;
-  const btn = document.getElementById('upChooseIncomeBtn');
-  btn.textContent = upIncomeFilterActive ? 'Showing income only \u2715' : 'Choose income';
-  btn.classList.toggle('gold', upIncomeFilterActive);
-  renderUpTxList();
+document.getElementById('upChooseIncomeBtn').addEventListener('click', toggleIncomeFilterActive);
+document.getElementById('upIncomeOnlyToggle').addEventListener('click', () => {
+  toggleIncomeFilterActive();
+  document.getElementById('upTxMorePanel').classList.remove('open');
+  document.getElementById('upTxMoreToggle').classList.remove('open');
 });
 async function loadTransactionsForRange(sinceIso, untilIso){
   let url = `${upSpendingAccountId ? `/accounts/${upSpendingAccountId}/transactions` : '/transactions'}?page[size]=50&filter[since]=${encodeURIComponent(sinceIso)}`;
@@ -6762,9 +6808,7 @@ document.getElementById('upTxList').addEventListener('click', (e) => {
       toast(`"${t.attributes.description}" set as your income source`);
       if(upIncomeFilterActive){
         upIncomeFilterActive = false;
-        const chooseBtn = document.getElementById('upChooseIncomeBtn');
-        chooseBtn.textContent = 'Choose income';
-        chooseBtn.classList.remove('gold');
+        updateIncomeOnlyControls();
       }
     }
     saveIncomeSource();
