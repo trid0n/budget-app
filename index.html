@@ -5117,6 +5117,15 @@ function activateTab(view){
 // timeframe to "all" and, failing that, pages through the rest before giving up, rather
 // than silently landing on an empty-looking tab.
 async function jumpToUpTransaction(txId){
+  // The panel this was clicked from is anchored (via positionOneInlinePanel) to a row
+  // on whichever tab it was opened from - once we've switched to Up, that anchor is no
+  // longer on screen, so the panel has nothing sensible to stay pinned to and was
+  // drifting to the viewport's top-left corner. Close it rather than try to re-anchor it
+  // somewhere on a tab it was never shown on.
+  expandedInlineSources.clear();
+  expandedTxPanels.clear();
+  expandedSaverPanels.clear();
+  renderOpenInlinePanels();
   activateTab('up');
   if(!upToken){ toast('Connect Up Bank first.'); return; }
   let tx = upTransactions.find(t => t.id === txId);
