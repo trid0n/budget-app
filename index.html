@@ -5964,7 +5964,7 @@ function buildUpTxStatusHtml(t, amt, transferAttr){
   }
   const guess = findGuessForTx(t.attributes.description, amt, t);
   if(guess){
-    return `<button class="up-tx-status guess" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}"${transferAttr} data-tip="Guessing \u201c${escapeAttr(guess.itemName)}\u201d \u2014 tap to confirm">?</button><button class="up-tx-exclude-btn" data-tx-exclude="${t.id}" data-tip="Exclude \u2014 don\u2019t count this toward any budget category">\u00d7</button>`;
+    return `<button class="up-tx-status guess" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}"${transferAttr} data-tip="Guessing \u201c${escapeAttr(guess.itemName)}\u201d \u2014 tap to confirm">?</button><button class="up-tx-exclude-btn" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Wrong guess \u2014 search for the right one">\u00d7</button>`;
   }
   return `<button class="up-tx-status unassigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Not categorised \u2014 tap to assign">+</button>`;
 }
@@ -6006,7 +6006,7 @@ function buildUpTxRowHtmlDesktop(t){
   const assignment = txAssignments[t.id];
   const transferAccountId = isInternalTransfer(t) ? (t.relationships.transferAccount.data.id || '') : '';
   const transferAttr = transferAccountId ? ` data-tx-transfer-account="${escapeAttr(transferAccountId)}"` : '';
-  let assignBtn, showExclude = false;
+  let assignBtn, showWrongGuessBtn = false;
   if(assignment && assignment.excluded){
     assignBtn = `<button class="up-tx-assign-btn excluded" data-tx-unexclude="${t.id}" data-tip="Excluded from budget categories. Click to undo.">Excluded</button>`;
   } else if(assignment && assignment.catId){
@@ -6016,12 +6016,12 @@ function buildUpTxRowHtmlDesktop(t){
     const guess = findGuessForTx(t.attributes.description, amt, t);
     if(guess){
       assignBtn = `<button class="up-tx-assign-btn guess ${guess.reason==='amount_rough'?'rough':''}" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}"${transferAttr} data-tip="${escapeAttr(guess.itemName)}"><span class="up-tx-assign-btn-text">${escapeAttr(guess.itemName)}</span> ?</button>`;
-      showExclude = true;
+      showWrongGuessBtn = true;
     } else {
       assignBtn = `<button class="up-tx-assign-btn" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Assign to a budget line item">Assign</button>`;
     }
   }
-  const excludeBtn = showExclude ? `<button class="up-tx-exclude-btn" data-tx-exclude="${t.id}" data-tip="Exclude — don’t count this toward any budget category">×</button>` : '';
+  const wrongGuessBtn = showWrongGuessBtn ? `<button class="up-tx-exclude-btn" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Wrong guess — search for the right one">×</button>` : '';
   const coverSource = findCoverSourceForTx(t);
   const coverIcon = coverSource ? `<span class="up-tx-cover-icon" data-tip="Covered from &quot;${escapeAttr(coverSource)}&quot;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg></span>` : '';
   const merchantKeyHere = extractMerchantKey(t.attributes.description, amt);
@@ -6029,7 +6029,7 @@ function buildUpTxRowHtmlDesktop(t){
   const descClickable = amt > 0 ? ` data-tx-income-select="${t.id}"` : '';
   const descTip = amt > 0 ? (isIncomeSource ? 'This is your set income source. Click to unset.' : `${t.attributes.description} — click to set as your income source`) : `${t.attributes.description}${held}`;
   const noteHtml = t.attributes.message ? `<div class="up-tx-note" data-tip="${escapeAttr(t.attributes.message)}">${escapeAttr(t.attributes.message)}</div>` : '';
-  return `<div class="up-tx-row"><div class="up-tx-desc-chip${isIncomeSource?' is-income-source':''}"${descClickable} data-tip="${escapeAttr(descTip)}">${escapeAttr(t.attributes.description)}${held}</div>${assignBtn}${excludeBtn}${noteHtml}<div class="up-tx-date">${date}</div>${coverIcon}<div class="up-tx-amt ${amt<0?'neg':'pos'}">${amt<0?'-':'+'}${money(Math.abs(amt))}</div></div>`;
+  return `<div class="up-tx-row"><div class="up-tx-desc-chip${isIncomeSource?' is-income-source':''}"${descClickable} data-tip="${escapeAttr(descTip)}">${escapeAttr(t.attributes.description)}${held}</div>${assignBtn}${wrongGuessBtn}${noteHtml}<div class="up-tx-date">${date}</div>${coverIcon}<div class="up-tx-amt ${amt<0?'neg':'pos'}">${amt<0?'-':'+'}${money(Math.abs(amt))}</div></div>`;
 }
 // Groups transactions the way the Up app itself does: a month banner (with that month's
 // total spend) over one date banner per day, over the transactions from that day - not
