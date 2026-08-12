@@ -7028,8 +7028,12 @@ function isTransferAlreadySettled(txId, target){
 // those, and says so rather than silently doing nothing.
 function detectTransferEligible(){
   if(!monthData) return [];
-  const list = [];
-  upTransactions.forEach(t => {
+  // Positions are taken over the transactions that actually RENDER as rows, not raw
+  // upTransactions - a hidden "Cover from X" row (see isCoverTransferTx) would otherwise
+  // count as something sitting between two transfers that are visibly adjacent.
+  const visible = upTransactions.filter(t => !isCoverTransferTx(t));
+  const candidates = [];
+  visible.forEach((t, idx) => {
     if(!canJoinTransferGroup(t)) return;
     const manual = transferGroupManual.has(t.id);
     const txDate = new Date(t.attributes.createdAt);
@@ -7044,9 +7048,17 @@ function detectTransferEligible(){
     // already done rather than re-adding its amount). Whether the batch as a whole still
     // has anything outstanding is decided once, in recomputeTransferGroupSets, so a fully
     // settled batch disappears instead of every row individually vanishing from it.
-    list.push({tx: t, target});
+    candidates.push({tx: t, target, idx, manual});
   });
-  return list;
+  // A batch is a RUN of saver transfers sitting directly against each other in the list.
+  // A single transfer with ordinary spending either side of it is just a transfer, not the
+  // start-of-month batch, so it's dropped however well it matches on date/shape. A manual
+  // drag is an explicit instruction and stays exempt - that's what lets a stray one be
+  // pulled in deliberately.
+  const idxs = new Set(candidates.map(c => c.idx));
+  return candidates
+    .filter(c => c.manual || idxs.has(c.idx - 1) || idxs.has(c.idx + 1))
+    .map(({tx, target}) => ({tx, target}));
 }
 function detectTransferGroup(){
   return detectTransferEligible().filter(({tx}) => !transferGroupExcluded.has(tx.id));
