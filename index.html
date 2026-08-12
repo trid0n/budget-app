@@ -175,7 +175,9 @@ header.mast.mast-empty{padding-bottom:0; margin-bottom:0; max-height:0; overflow
 
 /* topbar: ready-to-assign + mini summary */
 .topbar{display:flex; gap:16px; align-items:stretch; flex-wrap:wrap; margin-bottom:18px;}
-.assign-card{background:linear-gradient(135deg, #2c9c62, #227d4e); border-radius:12px; padding:10px 20px; display:flex; align-items:center; justify-content:center; gap:22px; color:#fff; flex:0 0 230px; width:230px; height:115px; min-width:0; overflow:hidden; text-align:center;}
+/* height matches .progress-card/.summary-mini/.notes-box - it sits in the same
+   align-items:stretch row as them, so a shorter card just reads as misaligned. */
+.assign-card{background:linear-gradient(135deg, #2c9c62, #227d4e); border-radius:12px; padding:10px 20px; display:flex; align-items:center; justify-content:center; gap:22px; color:#fff; flex:0 0 230px; width:230px; height:150px; min-width:0; overflow:hidden; text-align:center;}
 .assign-card.over{background:linear-gradient(135deg, var(--debit), #e0685f);}
 .assign-card.zero{background:linear-gradient(135deg, #4B5A63, #6B7885);}
 .assign-card .amt{font-size:1.6rem; font-weight:800; letter-spacing:-0.01em; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
@@ -295,6 +297,9 @@ input.name-input:hover, input.name-input:focus{outline:none;}
 .tpl-source-link.open{opacity:1; background:var(--gold); color:#fff;}
 #inlinePanelHost{position:fixed; top:0; left:0; width:0; height:0; z-index:250;}
 .inline-source-panel{position:fixed; width:340px; max-width:min(340px, 90vw); background:var(--surface); border:1px solid var(--rule); border-radius:12px; box-shadow:0 16px 40px rgba(0,0,0,.35); padding:14px 16px; animation:popoverIn .16s cubic-bezier(.34,1.56,.64,1);}
+/* Fading out on hover-away (see scheduleTxPanelHoverClose). animation:none so the
+   pop-in keyframes above don't fight the fade if it starts while they're still running. */
+.inline-source-panel.fading{animation:none; opacity:0; transform:scale(.98); transition:opacity .16s ease, transform .16s ease; pointer-events:none;}
 .panel-close-btn{display:none; position:absolute; top:10px; right:10px; width:24px; height:24px; border-radius:50%; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-faint); align-items:center; justify-content:center; cursor:pointer; z-index:1;}
 .inline-source-panel.inline-panel-wide{width:520px; max-width:min(520px, 92vw);}
 @keyframes popoverIn{ 0%{opacity:0; transform:scale(.96);} 100%{opacity:1; transform:scale(1);} }
@@ -416,7 +421,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
    month instead of always leaving a near-empty row with just the gear behind. Plain block
    flow now, not flex - back to how .balance-bar-left's own content (label/amount/sub/link,
    stacked) always looked; flex here was only ever for laying it out next to that gear. */
-.balance-bar{background:var(--surface); border:1px solid var(--rule); border-radius:12px; padding:14px 20px; margin-bottom:18px;}
+.balance-bar{background:var(--surface); border:1px solid var(--rule); border-radius:12px; padding:14px 20px; margin-bottom:18px; text-align:center;}
 .balance-bar-lbl{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin-bottom:2px;}
 .balance-bar-amt{font-size:1.5rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums;}
 .balance-bar-sub{font-size:.74rem; color:var(--ink-faint); margin-top:2px;}
@@ -558,16 +563,24 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 @media (max-width:700px){
   .topbar{gap:10px;}
   .assign-card{padding:10px 14px; gap:14px;}
+  /* Only surfaced on phones - see the element's own comment for why it's hidden by default. */
+  #dbgOverlay{display:block !important;}
 }
 @media (min-width:1700px){
   .wrap{max-width:1900px; padding:34px 56px 56px;}
   .topbar{gap:22px; margin-bottom:26px;}
-  .assign-card{padding:14px 22px; gap:24px; flex-basis:270px; width:270px; height:135px;}
+  .assign-card{padding:14px 22px; gap:24px; flex-basis:270px; width:270px; height:170px;}
   .assign-card .amt{font-size:1.8rem;}
   .progress-card, .summary-mini, .notes-box{height:170px;}
   .thead{grid-template-columns:1fr 140px 34px;}
   .lrow.leaf{grid-template-columns:18px 1fr 140px 34px;}
   .grow{grid-template-columns:24px 1fr 140px 34px;}
+  /* The amount+delete columns widen to 174px here (140+34), but .tx-link-badge's own
+     right offset is measured from the row's right edge - left at its narrow-screen 135px
+     it ended up INSIDE the amount cell, sitting on top of .tpl-source-link (which anchors
+     to that cell's left edge) whenever an item had both linked transactions and a template
+     source. Keep the same ~10px clearance past the cell that the default layout has. */
+  .tx-link-badge{right:184px;}
   .thead{padding:13px 22px;}
   .grow div.gcell, .grow-name{padding:13px 22px;}
   .grow .del-cell{padding:13px 6px;}
@@ -1062,7 +1075,6 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
      either fighting the gear for space or a 3-column layout for one line of text, not
      worth it for a header that's mostly just there to anchor the gear's popup now. */
   .notes-box textarea{text-align:center;}
-  .balance-bar{text-align:center;}
   .or-summary-bar{grid-template-columns:1fr;}
   /* Explicit height, not just padding+content auto-sizing - relying on the inner 30px
      buttons plus padding/border to add up to a predictable total was fragile (a button's
@@ -1227,7 +1239,10 @@ body.dark .auth-box{box-shadow:0 24px 60px -20px rgba(0,0,0,.6), var(--shadow);}
      hiding the exact controls it was supposed to help diagnose, on top of whatever the
      actual app bug was. The bottom of the screen has no fixed-position app UI on mobile
      (the tab strip is fixed to the top) so nothing real should ever end up under it there. -->
-<div id="dbgOverlay" style="position:fixed; bottom:2px; right:2px; z-index:999999; background:rgba(0,0,0,.8); color:#4f8; font:10px/1.4 monospace; padding:4px 6px; border-radius:4px; pointer-events:none; white-space:pre; max-width:55vw;"></div>
+<!-- Hidden on desktop: this only ever existed to debug the mobile pull/pager saga, and on
+     a big screen it's just green text sitting in the corner of the app. Still available on
+     phones, where that investigation may need it again. -->
+<div id="dbgOverlay" style="position:fixed; bottom:2px; right:2px; z-index:999999; background:rgba(0,0,0,.8); color:#4f8; font:10px/1.4 monospace; padding:4px 6px; border-radius:4px; pointer-events:none; white-space:pre; max-width:55vw; display:none;"></div>
 <script>
 function dbgOverlay(text){
   const el = document.getElementById('dbgOverlay');
@@ -2165,6 +2180,14 @@ function getTxsForItem(catId, itemId){
     const a = txAssignments[txId];
     if(a.excluded) continue;
     if(a.catId === catId && a.itemId === itemId && a.monthKey === settings.currentMonth){
+      // An assignment whose stored month disagrees with the transaction's own date is the
+      // signature of a bug that used to attribute every rule-matched transaction to
+      // whichever month was open (see autoApplyTxRules) - a year of monthly saver
+      // transfers all landing on one month's item. Those are filtered out here so the
+      // panel shows what genuinely belongs to this month, which also makes its "Set to
+      // $X" button offer the right corrected total. Assignments with no stored date at
+      // all are kept - there's nothing to judge them by.
+      if(a.date && dateToKey(new Date(a.date)) !== a.monthKey) continue;
       results.push({txId, desc: a.desc || a.itemName, date: a.date, amt: a.txAmt});
     }
   }
@@ -3266,6 +3289,55 @@ function renderTxPanelHtml(catId, itemId){
     <div class="tx-assign-sub">${txs.length} transaction${txs.length!==1?'s':''} — <span class="tx-view-sub-total">${money(total)} total</span></div>
     ${diffHtml}
     <div class="tx-view-list${txs.length>=5?' scrollable':''}">${rows}</div>`;
+}
+// Keeps a paperclip badge's appearance and its tooltip wording in step with whether its
+// panel is open - previously inlined in the click handler, pulled out so closing a panel
+// from elsewhere (opening a different one, hovering away) updates the badge the same way.
+function syncTxBadgeOpenState(badge, open){
+  if(!badge) return;
+  badge.classList.toggle('open', open);
+  if(badge.dataset.tip){
+    badge.dataset.tip = `${badge.dataset.tip.replace(/click to (view|hide)$/, '')}click to ${open?'hide':'view'}`;
+  }
+}
+// Closing an item's transaction list by moving the pointer off it, rather than making the
+// user aim for the little × every time. Deliberately delayed: the panel is positioned a
+// few pixels off its row, so a direct path from the badge to the panel can cross a gap,
+// and without the grace period that reads as the panel slamming shut mid-approach.
+const TX_PANEL_HOVER_CLOSE_MS = 260;
+let txPanelHoverCloseTimer = null;
+function cancelTxPanelHoverClose(){
+  if(txPanelHoverCloseTimer){ clearTimeout(txPanelHoverCloseTimer); txPanelHoverCloseTimer = null; }
+  document.querySelectorAll('#inlinePanelHost [data-tx-panel-for].fading').forEach(p => p.classList.remove('fading'));
+}
+function scheduleTxPanelHoverClose(){
+  if(!expandedTxPanels.size) return;
+  cancelTxPanelHoverClose();
+  txPanelHoverCloseTimer = setTimeout(() => {
+    txPanelHoverCloseTimer = null;
+    const panels = [...document.querySelectorAll('#inlinePanelHost [data-tx-panel-for]')];
+    if(!panels.length) return;
+    panels.forEach(p => p.classList.add('fading'));
+    // Let the fade actually play before the panel is torn out of the DOM.
+    setTimeout(() => {
+      expandedTxPanels.clear();
+      document.querySelectorAll('[data-tx-view-item].open').forEach(b => syncTxBadgeOpenState(b, false));
+      renderOpenInlinePanels();
+    }, 160);
+  }, TX_PANEL_HOVER_CLOSE_MS);
+}
+// Only where hovering is a real gesture - on touch there's no "pointer left", so this
+// would either never fire or fire at random after a tap.
+if(window.matchMedia && window.matchMedia('(hover: hover)').matches){
+  document.addEventListener('mouseover', (e) => {
+    if(!expandedTxPanels.size) return;
+    // Still over the panel itself, or back on the badge that opened it - stay put.
+    if(e.target.closest('#inlinePanelHost [data-tx-panel-for]') || e.target.closest('[data-tx-view-item]')){
+      cancelTxPanelHoverClose();
+      return;
+    }
+    scheduleTxPanelHoverClose();
+  });
 }
 function renderOpenInlinePanels(){
   const host = document.getElementById('inlinePanelHost');
@@ -6029,6 +6101,16 @@ function autoApplyTxRules(){
       return;
     }
     if(!monthData) return;
+    // Only ever attribute a transaction to the month it actually happened in. Without
+    // this, loading a wide timeframe (All time) meant every past transaction matching a
+    // merchant/saver rule got attributed to whichever month happened to be OPEN and had
+    // its amount added there - a monthly $30 saver transfer going back a year silently
+    // piled ~$1.8k onto this month's item, from transactions the visible list wasn't even
+    // showing. Same calendar-month test the transfer batch already uses
+    // (canJoinTransferGroup). In pay-cycle mode a transaction right on a period boundary
+    // may fall outside and simply not auto-assign - it can still be assigned by hand,
+    // which is a far smaller problem than silently inflating an item.
+    if(dateToKey(new Date(t.attributes.createdAt)) !== settings.currentMonth) return;
     const target = getRuleTargetForTx(t.attributes.description, amt) || (transferRule ? {categoryName: transferRule.categoryName, itemName: transferRule.itemName} : null);
     if(!target) return;
     const found = findCatItemByName(target.categoryName, target.itemName);
@@ -6831,9 +6913,14 @@ document.getElementById('view-ledger').addEventListener('click', (e) => {
   if(badge){
     const key = `${badge.dataset.txViewCat}:${badge.dataset.txViewItem}`;
     const nowOpen = !expandedTxPanels.has(key);
-    if(nowOpen) expandedTxPanels.add(key); else expandedTxPanels.delete(key);
-    badge.classList.toggle('open', nowOpen);
-    badge.dataset.tip = `${badge.dataset.tip.replace(/click to (view|hide)$/, '')}click to ${nowOpen?'hide':'view'}`;
+    // One at a time - opening a second list used to leave the first one hanging around,
+    // and two floating panels anchored to different rows just compete for the same space.
+    expandedTxPanels.clear();
+    document.querySelectorAll('[data-tx-view-item].open').forEach(b => {
+      if(b !== badge) syncTxBadgeOpenState(b, false);
+    });
+    if(nowOpen) expandedTxPanels.add(key);
+    syncTxBadgeOpenState(badge, nowOpen);
     renderOpenInlinePanels();
     return;
   }
