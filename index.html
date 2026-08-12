@@ -7015,12 +7015,30 @@ function canJoinTransferGroup(t){
   if(!(parseFloat(t.attributes.amount.value) < 0)) return false;
   return dateToKey(new Date(t.attributes.createdAt)) === settings.currentMonth;
 }
-// True when THIS transfer is the one that crossed its target item off - i.e. it has
-// already been through the link-and-cross-off step and there's nothing left to do with it.
-function isTransferAlreadySettled(txId, target){
+// A saver transfer IS the whole of what that line item cost this month, so committing one
+// makes it the item's ONLY linked transaction and sets the item's amount to exactly that
+// transfer (rather than stacking on top of a manual estimate or last month's leftover).
+// This checks whether an item already looks that way. Written in terms of "every
+// transaction on the item belongs to this batch, and the amount equals their total" rather
+// than a literal "exactly one transaction", so two transfers legitimately landing on the
+// same item settle instead of fighting each other forever.
+function isTransferNormalised(txId, target, batchIds){
+  if(!target) return false;
+  const txs = getTxsForItem(target.cat.id, target.item.id);
+  if(!txs.length || !txs.some(x => x.txId === txId)) return false;
+  if(!txs.every(x => batchIds.has(x.txId))) return false;
+  const total = Math.round(txs.reduce((s,x)=>s+(Number(x.amt)||0),0) * 100) / 100;
+  return Math.abs((Number(target.item.amount)||0) - total) < 0.005;
+}
+// True when THIS transfer has been fully dealt with: linked to its item, crossed off, AND
+// left in the state a commit produces. A batch committed before that last rule existed
+// fails this and so is offered again - pressing "Link & cross off" once brings it into
+// line, which is how an older month gets fixed up retrospectively.
+function isTransferAlreadySettled(txId, target, batchIds){
   if(!target || !target.item.charged) return false;
   const a = txAssignments[txId];
-  return !!(a && !a.excluded && a.catId === target.cat.id && a.itemId === target.item.id);
+  if(!(a && !a.excluded && a.catId === target.cat.id && a.itemId === target.item.id)) return false;
+  return isTransferNormalised(txId, target, batchIds || new Set(transferBatchCandidates().map(c => c.tx.id)));
 }
 // Every transfer that could belong to a batch on its own merits, BEFORE the "must be
 // touching another one" rule is applied - shared by the live-batch and the settled-remnant
@@ -7078,8 +7096,10 @@ function detectTransferEligible(){
 // real table with fixed columns (see db.saveTxAssignments) - recording a new field there
 // would need a schema migration, which can't be applied from here. Inference also means
 // batches crossed off before this existed still show their remnant.
-function detectSettledTransferRuns(){
-  const settled = transferBatchCandidates().filter(c => !c.manual && isTransferAlreadySettled(c.tx.id, c.target));
+function detectSettledTransferRuns(candidates, batchIds){
+  const all = candidates || transferBatchCandidates();
+  const ids2 = batchIds || new Set(all.map(c => c.tx.id));
+  const settled = all.filter(c => !c.manual && isTransferAlreadySettled(c.tx.id, c.target, ids2));
   const byIdx = new Map(settled.map(c => [c.idx, c]));
   const ids = new Set();
   settled.forEach(c => {
@@ -7095,15 +7115,23 @@ function detectTransferGroup(){
 // Shared by the render path and the drag path - the drag needs the sets refreshed on every
 // pointer move (so the rail can redraw as it grows) without also rebuilding row HTML.
 function recomputeTransferGroupSets(){
-  const eligible = detectTransferEligible();
+  // Candidates (and the id set derived from them) are built once here and threaded into
+  // everything below - isTransferAlreadySettled needs that set, and letting each call
+  // rebuild it would make this quadratic over the transaction list.
+  const candidates = transferBatchCandidates();
+  const batchIds = new Set(candidates.map(c => c.tx.id));
+  const idxs = new Set(candidates.map(c => c.idx));
+  const eligible = candidates
+    .filter(c => c.manual || idxs.has(c.idx - 1) || idxs.has(c.idx + 1))
+    .map(({tx, target}) => ({tx, target}));
   const group = eligible.filter(({tx}) => !transferGroupExcluded.has(tx.id));
-  transferGroupSettledIds = detectSettledTransferRuns();
+  transferGroupSettledIds = detectSettledTransferRuns(candidates, batchIds);
   // Once every transfer in the batch is linked AND crossed off there's nothing left to
   // offer, so the whole thing stands down - no rail, no highlight, no banner. Decided for
   // the batch as a whole rather than per row, so an already-done transfer sitting among
   // still-outstanding ones stays visibly part of the group (and can be committed with
   // them, which is a no-op for it) instead of punching a hole in the run.
-  const anyOutstanding = group.some(g => !isTransferAlreadySettled(g.tx.id, g.target));
+  const anyOutstanding = group.some(g => !isTransferAlreadySettled(g.tx.id, g.target, batchIds));
   if(!anyOutstanding){
     transferGroupEligibleIds = new Set();
     transferGroupHighlightIds = new Set();
@@ -7315,23 +7343,44 @@ document.getElementById('txGroupCommitBtn').addEventListener('click', () => {
     return;
   }
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
+  const batchIds = new Set(transferBatchCandidates().map(c => c.tx.id));
   let linkedCount = 0, alreadyDone = 0;
-  linkable.forEach(({tx, target}) => {
-    if(isTransferAlreadySettled(tx.id, target)){ alreadyDone++; return; }
-    const accountId = tx.relationships.transferAccount.data.id;
-    if(target.isNewRule) transferRules[accountId] = {categoryName: target.categoryName, itemName: target.itemName, accountName: upAccountNameCache[accountId] || ''};
-    const amt = parseFloat(tx.attributes.amount.value);
-    const existing = txAssignments[tx.id];
-    // Already sitting on the right item - crossing it off is all that's left. Re-applying
-    // the amount here would double-count it against an item that already includes it.
-    if(!existing || existing.catId !== target.cat.id || existing.itemId !== target.item.id){
+  // Grouped by destination item, because a saver transfer is meant to BE that item's cost
+  // for the month: the item ends up holding exactly the batch's transfers for it and
+  // nothing else, with its amount set to their total rather than added to whatever was
+  // sitting there. Doing it per item (not per transfer) keeps that true even in the rare
+  // case where two transfers in the batch land on the same item.
+  const byItem = new Map();
+  linkable.forEach(entry => {
+    if(isTransferAlreadySettled(entry.tx.id, entry.target, batchIds)){ alreadyDone++; return; }
+    const key = entry.target.cat.id + '::' + entry.target.item.id;
+    if(!byItem.has(key)) byItem.set(key, {cat: entry.target.cat, item: entry.target.item, entries: []});
+    byItem.get(key).entries.push(entry);
+  });
+  byItem.forEach(({cat, item, entries}) => {
+    // Detach anything else currently hanging off this item - it's being replaced, not
+    // added to. Marked unassignedManually (rather than deleted) so autoApplyTxRules reads
+    // it as a deliberate choice and doesn't immediately re-attach it.
+    getTxsForItem(cat.id, item.id).forEach(other => {
+      if(entries.some(e => e.tx.id === other.txId)) return;
+      txAssignments[other.txId] = {monthKey: settings.currentMonth, unassignedManually: true};
+    });
+    let total = 0;
+    entries.forEach(({tx, target}) => {
+      const accountId = tx.relationships.transferAccount.data.id;
+      if(target.isNewRule) transferRules[accountId] = {categoryName: target.categoryName, itemName: target.itemName, accountName: upAccountNameCache[accountId] || ''};
+      const amt = parseFloat(tx.attributes.amount.value);
+      // Only matters when this transfer was previously attributed to some OTHER item -
+      // that item needs its amount reduced. The target item's own amount is set outright
+      // below, so no reversal is needed against it.
       reverseTxAssignmentIfSameMonth(tx.id);
-      applyTxAmountToItem(target.cat.id, target.item, amt);
       const merchantKey = extractMerchantKey(tx.attributes.description, amt);
-      txAssignments[tx.id] = {monthKey: settings.currentMonth, catId: target.cat.id, itemId: target.item.id, itemName: target.item.name, categoryName: target.cat.name, merchantKey, txAmt: Math.abs(amt), desc: tx.attributes.description, date: tx.attributes.createdAt};
-    }
-    target.item.charged = true;
-    linkedCount++;
+      txAssignments[tx.id] = {monthKey: settings.currentMonth, catId: cat.id, itemId: item.id, itemName: item.name, categoryName: cat.name, merchantKey, txAmt: Math.abs(amt), desc: tx.attributes.description, date: tx.attributes.createdAt};
+      total += Math.abs(amt);
+      linkedCount++;
+    });
+    item.amount = Math.round(total * 100) / 100;
+    item.charged = true;
   });
   saveTransferRules();
   saveTxAssignments();
