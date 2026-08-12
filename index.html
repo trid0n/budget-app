@@ -494,6 +494,11 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-group-rail.dragging{cursor:grabbing;}
 .tx-group-rail-seg{width:100%; background:var(--rule); transition:background-color .1s;}
 .tx-group-rail-seg.included{background:var(--gold);}
+/* The remnant of a batch that's been dealt with - deliberately much quieter than the live
+   rail: thinner, faded, no hover growth and no pointer handling at all, so it reads as a
+   trace of something finished rather than a control. */
+.tx-group-rail.settled{width:2px; background:color-mix(in srgb, var(--gold) 32%, transparent); pointer-events:none; cursor:default; transition:none;}
+.tx-group-rail.settled:hover{width:2px;}
 /* Widens the actual hit target well past the visible 4px bar without widening what's
    drawn - dragging a 4px-wide strip accurately is unrealistic, especially on touch. */
 .tx-group-rail::before{content:''; position:absolute; top:0; bottom:0; left:-10px; right:-10px;}
@@ -6987,6 +6992,7 @@ let transferGroupExcluded = new Set(); // tx ids the user has manually pulled ou
 let transferGroupManual = new Set(); // tx ids the user has dragged INTO the group that auto-detection didn't pick up (e.g. a transfer that landed a few days after the batch)
 let transferGroupHighlightIds = new Set(); // recomputed every render - the currently INCLUDED subset
 let transferGroupEligibleIds = new Set(); // recomputed every render - every candidate regardless of included/excluded, so the drag rail can reach excluded-but-eligible rows too
+let transferGroupSettledIds = new Set(); // recomputed every render - runs already linked AND crossed off, drawn as a faded remnant rail
 function resolveTransferGroupTarget(t){
   const accountId = t.relationships.transferAccount.data.id;
   const rule = transferRules[accountId];
@@ -7016,9 +7022,10 @@ function isTransferAlreadySettled(txId, target){
   const a = txAssignments[txId];
   return !!(a && !a.excluded && a.catId === target.cat.id && a.itemId === target.item.id);
 }
-// Everything that COULD be part of this month's batch, regardless of whether the user has
-// since dragged/clicked it out - the full range the rail needs to span so dragging back
-// over a previously-excluded row can re-include it.
+// Every transfer that could belong to a batch on its own merits, BEFORE the "must be
+// touching another one" rule is applied - shared by the live-batch and the settled-remnant
+// detection below so both judge membership identically. Each entry carries its list
+// position (idx) so either caller can work out adjacency.
 //
 // Membership is decided by the transfer's SHAPE (an outgoing internal transfer inside the
 // start-of-month window), NOT by whether it happens to resolve to a budget item. Requiring
@@ -7027,7 +7034,7 @@ function isTransferAlreadySettled(txId, target){
 // which is exactly what the whole batch is not. Unresolvable ones still join the group
 // (target:null) so the run reads as one continuous thing; the commit step just can't link
 // those, and says so rather than silently doing nothing.
-function detectTransferEligible(){
+function transferBatchCandidates(){
   if(!monthData) return [];
   // Positions are taken over the transactions that actually RENDER as rows, not raw
   // upTransactions - a hidden "Cover from X" row (see isCoverTransferTx) would otherwise
@@ -7051,6 +7058,10 @@ function detectTransferEligible(){
     // settled batch disappears instead of every row individually vanishing from it.
     candidates.push({tx: t, target, idx, manual});
   });
+  return candidates;
+}
+function detectTransferEligible(){
+  const candidates = transferBatchCandidates();
   // A batch is a RUN of saver transfers sitting directly against each other in the list.
   // A single transfer with ordinary spending either side of it is just a transfer, not the
   // start-of-month batch, so it's dropped however well it matches on date/shape. A manual
@@ -7061,6 +7072,23 @@ function detectTransferEligible(){
     .filter(c => c.manual || idxs.has(c.idx - 1) || idxs.has(c.idx + 1))
     .map(({tx, target}) => ({tx, target}));
 }
+// The leftovers of a batch that's been dealt with: a run of adjacent saver transfers that
+// are all linked to their item AND crossed off. Inferred from that state rather than from
+// a "this was committed as a batch" flag on the assignment, because tx_assignments is a
+// real table with fixed columns (see db.saveTxAssignments) - recording a new field there
+// would need a schema migration, which can't be applied from here. Inference also means
+// batches crossed off before this existed still show their remnant.
+function detectSettledTransferRuns(){
+  const settled = transferBatchCandidates().filter(c => !c.manual && isTransferAlreadySettled(c.tx.id, c.target));
+  const byIdx = new Map(settled.map(c => [c.idx, c]));
+  const ids = new Set();
+  settled.forEach(c => {
+    // Same "must be touching" rule as a live batch - a single crossed-off transfer on its
+    // own was never a group, so it gets no remnant.
+    if(byIdx.has(c.idx - 1) || byIdx.has(c.idx + 1)) ids.add(c.tx.id);
+  });
+  return ids;
+}
 function detectTransferGroup(){
   return detectTransferEligible().filter(({tx}) => !transferGroupExcluded.has(tx.id));
 }
@@ -7069,6 +7097,7 @@ function detectTransferGroup(){
 function recomputeTransferGroupSets(){
   const eligible = detectTransferEligible();
   const group = eligible.filter(({tx}) => !transferGroupExcluded.has(tx.id));
+  transferGroupSettledIds = detectSettledTransferRuns();
   // Once every transfer in the batch is linked AND crossed off there's nothing left to
   // offer, so the whole thing stands down - no rail, no highlight, no banner. Decided for
   // the batch as a whole rather than per row, so an already-done transfer sitting among
@@ -7145,9 +7174,10 @@ window.addEventListener('resize', sizeUpTxList);
 function renderTransferGroupRail(){
   const list = document.getElementById('upTxList');
   list.querySelectorAll('.tx-group-rail').forEach(el => el.remove());
-  if(!transferGroupEligibleIds.size) return;
   const rows = [...list.querySelectorAll('.up-tx-row, .up-tx-row2')];
   if(!rows.length) return;
+  renderSettledTransferRail(list, rows);
+  if(!transferGroupEligibleIds.size) return;
   // offsetTop/offsetHeight (pure CSS box-model, resolved against the nearest positioned
   // ancestor - #upTxList itself, see .up-tx-list{position:relative}) rather than
   // getBoundingClientRect() - the latter is viewport/paint-pipeline-relative and can read
@@ -7178,6 +7208,34 @@ function renderTransferGroupRail(){
   };
   rows.forEach(row => {
     if(transferGroupEligibleIds.has(row.dataset.txRowId)) run.push(row);
+    else flushRun();
+  });
+  flushRun();
+}
+// The quiet trace a finished batch leaves behind: the same left-edge line, faded right
+// down and non-interactive, so scrolling back through the month still shows which
+// transfers were dealt with as one group. Drawn as a single bar per run rather than
+// per-row segments - there's nothing to toggle any more, so it doesn't need them.
+function renderSettledTransferRail(list, rows){
+  if(!transferGroupSettledIds.size) return;
+  let run = [];
+  const flushRun = () => {
+    if(run.length >= 2){
+      const rail = document.createElement('div');
+      rail.className = 'tx-group-rail settled';
+      const top = run[0].offsetTop;
+      const bottom = run[run.length-1].offsetTop + run[run.length-1].offsetHeight;
+      rail.style.top = top + 'px';
+      rail.style.height = (bottom - top) + 'px';
+      list.appendChild(rail);
+    }
+    run = [];
+  };
+  rows.forEach(row => {
+    const id = row.dataset.txRowId;
+    // A row that's part of the LIVE batch is already getting the active rail - it would
+    // sit underneath and just muddy the edge.
+    if(transferGroupSettledIds.has(id) && !transferGroupEligibleIds.has(id)) run.push(row);
     else flushRun();
   });
   flushRun();
