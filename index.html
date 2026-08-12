@@ -5191,7 +5191,7 @@ function activateTab(view){
   // hidden - and the list is usually first rendered at boot, from another tab. Re-measure
   // once it's genuinely on screen (renderTransferGroupRail only reads layout and rebuilds
   // its own elements, so this is cheap and safe to repeat).
-  if(view==='up'){ renderUpConnectState(); if(upToken && upTransactions.length === 0) refreshUpData(); requestAnimationFrame(renderTransferGroupRail); }
+  if(view==='up'){ renderUpConnectState(); if(upToken && upTransactions.length === 0) refreshUpData(); requestAnimationFrame(() => { sizeUpTxList(); renderTransferGroupRail(); }); }
   if(view==='template') renderTemplateEditor();
   if(view==='ledger'){
     updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths();
@@ -6161,7 +6161,8 @@ function renderUpTxList(){
   // swap above can still read 0 in the same synchronous task on some render paths (a
   // real, reproduced timing race, not theoretical), same category of fix already used by
   // inlinePanelPositionLoop's own requestAnimationFrame loop elsewhere in this file.
-  requestAnimationFrame(renderTransferGroupRail);
+  // Sizing runs first so the rail measures rows against the list's final height.
+  requestAnimationFrame(() => { sizeUpTxList(); renderTransferGroupRail(); });
 }
 // Small status button covering all four assignment states (excluded/assigned/guessed/
 // unassigned) - carries whichever data-tx-* attributes the existing delegated click
@@ -7102,6 +7103,39 @@ function updateTransferGroupBanner(){
     banner.style.display = 'none';
   }
 }
+// The list used to be capped at a flat 420px, which on a tall window showed only ~8 rows
+// while leaving a large empty gap under the savers grid. Size it to whatever vertical room
+// is actually left instead, so everything below it (balance hero, savers) lands near the
+// bottom of the viewport rather than floating halfway up. Measured, not a CSS calc(), since
+// the stuff below varies in height (the savers grid wraps to more rows as savers are added,
+// the status row hides entirely, etc).
+const UP_TX_LIST_MIN_HEIGHT = 240;
+function sizeUpTxList(){
+  const list = document.getElementById('upTxList');
+  if(!list) return;
+  // Mobile drops the cap entirely (see the max-width:700px block) - the phone layout
+  // scrolls the whole pane instead, so an explicit height here would fight it.
+  if(isMobilePagerActive()){ list.style.maxHeight = ''; return; }
+  const rect = list.getBoundingClientRect();
+  if(!rect.height && !rect.top) return; // not laid out yet (e.g. tab never opened)
+  // Position within the PAGE, not the viewport, so the result doesn't shift as the page
+  // scrolls - the goal is "tall enough that this tab needs no page scroll", which is a
+  // property of the layout, not of where the user happens to be scrolled to.
+  const listTopInPage = rect.top + window.scrollY;
+  // Distance from the list's bottom edge to the bottom of the last thing under it, taken
+  // as one span rather than by summing each sibling's offsetHeight - summing silently drops
+  // the margins between them (and the savers grid's own top margin), which left the grid
+  // hanging ~26px past the fold. Raising the list's height shifts these down but doesn't
+  // change the span, so it stays valid after the resize it's being used to compute.
+  let lastVisible = null;
+  for(let el = list.nextElementSibling; el; el = el.nextElementSibling){
+    if(el.offsetParent !== null) lastVisible = el;
+  }
+  const below = lastVisible ? Math.max(0, lastVisible.getBoundingClientRect().bottom - rect.bottom) : 0;
+  const available = window.innerHeight - listTopInPage - below - 16;
+  list.style.maxHeight = Math.max(UP_TX_LIST_MIN_HEIGHT, Math.round(available)) + 'px';
+}
+window.addEventListener('resize', sizeUpTxList);
 // Draws one continuous draggable rail per contiguous run of eligible rows (walking every
 // rendered transaction row in order - a run breaks only where an INeligible row sits
 // between two eligible ones, not at date-group boundaries within the mobile view). Each
@@ -7389,6 +7423,10 @@ async function refreshUpData(){
       }).join('')}</div>`;
     }
     document.getElementById('upAccounts').innerHTML = html || '<div class="pc-faint">No accounts found.</div>';
+    // The savers grid is part of what sits below the list, and it only exists once this
+    // fetch lands - re-measure now that it does, or the list keeps a height computed
+    // against an empty space below it.
+    requestAnimationFrame(sizeUpTxList);
     if(spendingAcc){ upSpendingBalance = parseFloat(spendingAcc.attributes.balance.value); lastKnownUpBalance = upSpendingBalance; upSpendingAccountId = spendingAcc.id; db.saveSettings({ last_up_balance: upSpendingBalance }).catch(()=>{}); updateSummary(); }
     await fetchUpTransactionsFresh();
     document.getElementById('upMeta').textContent = 'Updated ' + new Date().toLocaleTimeString('en-AU', {hour:'2-digit', minute:'2-digit'});
