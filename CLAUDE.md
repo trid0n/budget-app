@@ -217,17 +217,43 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
 14. **Per-platform tab visibility**: each user can now hide a feature/tab they have access
     to on just their phone or just their PC (`platformHidden`, self-service, layered on
     top of — not instead of — the existing admin on/off grant) — see the `platform_hidden`
-    migration above and `isFeatureVisibleNow()`/`refreshAllFeatureVisibility()`.
+    migration above and `isFeatureVisibleNow()`/`refreshAllFeatureVisibility()`. Shipped
+    first as two independent mobile/PC toggles, then reworked on request into one 4-way
+    segmented control per feature (Both/Phone/PC/Off) — "hidden on both" is as valid a
+    choice as either single-platform one, and one tap reaches any state.
+15. **Per-item "restore to template"**: a `›` button next to each item row's delete opens a
+    small shared floating menu (`#itemRowMenuPanel`, one instance repositioned per click)
+    with `restoreItemToTemplate()`. For a source-synced item (Tech/Groceries/Ballet/Monthly
+    Costs) it re-runs that source's own apportionment rather than copying the template's
+    flat number — those two are never the same value for day-apportioned items like Public
+    Transport. Deliberately not reusing `syncAmountEverywhere()`: that no-ops on a past
+    month by design, but an explicit restore click should still work there.
+16. **Items follow their transactions' total**: `applyTxAmountToItem()` now *sets* an item to
+    the sum of all its linked transactions instead of adding onto whatever the amount
+    happened to be (which blended a stale template estimate with real transactions). Self-
+    corrects prior drift. A manually-typed amount still sticks until the next transaction
+    is attributed to that item.
+17. **Ctrl/Cmd-click multi-select in the Up tab**: builds a `selectedTxIds` selection; the
+    next assign / confirm-guess / exclude applies to every selected transaction. Shared
+    `assignTxToItem()` / `excludeTx()` / `applyBulkAssignIfSelected()` helpers were factored
+    out of the four existing call sites so all of them get bulk-apply without duplication.
+18. **New jar-and-coin logo + Template tab icon**: favicon and sidebar brand mark redrawn
+    (the brand mark's coin is filled with `var(--gold)` — the same colour as its own tile —
+    so it reads as a cut-out and tracks dark mode for free). Template's `▥` swapped for `⧉`,
+    since `▥` was nearly indistinguishable from Records' `▤` right below it. **How the
+    favicon was chosen**: rendered each candidate to a canvas at true 16/20/32px and
+    upscaled 8x with `image-rendering:pixelated`. Judging a favicon from a large preview
+    tells you nothing about what survives at tab size — worth repeating for any future
+    icon work.
 
 ## Known open items
 
 - **Verify the remaining schema migrations were actually run** (see warning above):
   `period_mode` on `user_settings`, and the `up_transfer_rules` table. (`platform_hidden`
   is confirmed applied as of 2026-08-13.)
-- The project-management **task list tool** (`TaskList`/`TaskCreate`) still has 18 stale
-  entries from the original Supabase-migration project (all marked completed) — it hasn't
-  been used for anything since. Fine to ignore, or worth clearing out and starting fresh
-  if picking it back up.
+- The project-management **task list tool** (`TaskList`/`TaskCreate`) was cleared and
+  reused for the 2026-08-13 six-feature batch (all completed). Safe to clear again for a
+  fresh batch — nothing depends on its history.
 - `README.md` step 7 still tells a new setter-upper to add `SUPABASE_URL`/
   `SUPABASE_ANON_KEY` as GitHub repo secrets for the keep-alive workflow — this is now
   **stale/wrong** per the fix in point 6 above (values are hardcoded in the workflow
@@ -285,3 +311,18 @@ Worth knowing these exist as a class, since static review missed all of them:
 Moral: for anything visual or stateful, screenshot/exercise it — don't just confirm the
 code "looks right." For scroll-container bugs specifically, don't reason from the CSS at
 all — sweep the live DOM for elements with real `scrollHeight > clientHeight` first.
+
+- **The Up tab's leftover ~48px of page scroll** (2026-08-13) — a second instance of the
+  `[data-tip]::before` tooltip bug that had already bitten `.tf-toggle-btn` once (see item
+  9's "Gotcha" above). `#upChooseIncomeBtn`'s tooltip is `position:absolute; top:100%`, but
+  `.mini-btn` had no `position:relative`, so it anchored to a distant ancestor and laid out
+  as real content far below the fold — creating genuine page scroll on a tab whose
+  transaction list was already correctly capped. Two rounds of "make `sizeUpTxList()`'s
+  arithmetic more correct" (adding `.wrap`'s real 80px bottom padding, then measuring the
+  overflow directly) both failed to find it, because the extra height was never coming from
+  the list. **What worked**: binary-searching the live DOM — walk `#upContent`'s children,
+  `display:none` each in turn, re-read `document.documentElement.scrollHeight`, and see
+  which one changes it. That named the culprit in one pass with no CSS reasoning at all.
+  Generalise: when "the page is taller than it should be," don't compute what the height
+  *ought* to be — hide things until it changes. And if a `[data-tip]` element ever seems
+  involved, check its nearest positioned ancestor first; this is now the third instance.
