@@ -850,10 +850,13 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .settings-form-content{max-width:420px;}
 .account-settings-box .auth-field{margin-top:14px; margin-bottom:0;}
 .acct-admin-subhdr{font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin:22px 0 8px;}
-.platform-vis-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-top:1px solid var(--rule); font-size:.85rem; color:var(--ink-soft);}
-.platform-vis-btns{display:flex; gap:6px; flex-shrink:0;}
-.platform-vis-btn{width:32px; height:28px; border-radius:8px; border:1px solid var(--rule); background:var(--paper-dim); font-size:.9rem; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:.4; filter:grayscale(1); transition:opacity .15s, border-color .15s, filter .15s;}
-.platform-vis-btn.on{opacity:1; filter:none; border-color:var(--gold); background:var(--gold-bg);}
+/* Label on its own line, the 4-way segmented control gets the FULL row width on the
+   line below - a single mutually-exclusive control (both/phone/pc/off) reads better
+   wide and shallow than squeezed onto one line next to a variable-length feature name. */
+.platform-vis-row{display:flex; flex-direction:column; gap:6px; padding:10px 0; border-top:1px solid var(--rule); font-size:.85rem; color:var(--ink-soft);}
+.platform-vis-seg{display:flex; gap:4px;}
+.pvs-btn{flex:1; border-radius:14px; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-soft); font-family:'Inter',sans-serif; font-size:.72rem; font-weight:600; padding:6px 2px; cursor:pointer; text-align:center; transition:background-color .15s, color .15s, border-color .15s;}
+.pvs-btn.active{background:var(--gold); border-color:var(--gold); color:#fff;}
 /* Its own visually distinct spot, not squeezed in among Close/Save - a top border and
    different (destructive-leaning) color signal this is a different kind of action, not
    just another form button. */
@@ -3125,28 +3128,47 @@ function refreshAllFeatureVisibility(){
   updatePagerPosition(false);
 }
 const FEATURE_LABELS = { tech:'Tech Replacement', grocery:'Groceries', monthlycosts:'Monthly Costs', ballet:'Flexible Tracker', up:'Up Bank', dashboard:'Dashboard', records:'Other Records', template:'Template' };
+// One mutually-exclusive state per feature rather than two independent switches - "hidden
+// on both" and "shown on both" are just as valid a choice as either single-platform option,
+// and a 4-way segmented control makes all four equally reachable in one tap instead of
+// needing two taps to get from "both" to "neither" (or needing to think about them as two
+// separate questions at all).
+const PLATFORM_VIS_STATES = [
+  {key:'both', label:'Both'},
+  {key:'mobile', label:'Phone'},
+  {key:'pc', label:'PC'},
+  {key:'neither', label:'Off'},
+];
+function platformVisStateFor(feature){
+  const hiddenOn = platformHidden[feature] || [];
+  const mobileHidden = hiddenOn.includes('mobile'), pcHidden = hiddenOn.includes('pc');
+  if(mobileHidden && pcHidden) return 'neither';
+  if(mobileHidden) return 'pc';
+  if(pcHidden) return 'mobile';
+  return 'both';
+}
+function hiddenPlatformsForState(state){
+  if(state === 'both') return [];
+  if(state === 'neither') return ['mobile','pc'];
+  // state is the platform that's still SHOWING, so the OTHER one is what's hidden.
+  return [state === 'mobile' ? 'pc' : 'mobile'];
+}
 // Lists only features you're currently granted (admin toggle or self-toggle) - hiding one
 // you don't have access to anyway would be a meaningless control to show.
 function renderPlatformVisRows(){
   const container = document.getElementById('platformVisRows');
   const features = Object.keys(FEATURE_LABELS).filter(isFeatureGrantedNow);
   container.innerHTML = features.map(f => {
-    const hiddenOn = platformHidden[f] || [];
-    const mobileOn = !hiddenOn.includes('mobile');
-    const pcOn = !hiddenOn.includes('pc');
-    return `<div class="platform-vis-row"><span>${escapeAttr(FEATURE_LABELS[f])}</span><div class="platform-vis-btns">
-      <button class="platform-vis-btn${mobileOn?' on':''}" data-plat-vis="${f}:mobile" title="${mobileOn?'Showing':'Hidden'} on mobile — tap to ${mobileOn?'hide':'show'}">\u{1F4F1}</button>
-      <button class="platform-vis-btn${pcOn?' on':''}" data-plat-vis="${f}:pc" title="${pcOn?'Showing':'Hidden'} on PC — tap to ${pcOn?'hide':'show'}">\u{1F5A5}\u{FE0F}</button>
-    </div></div>`;
+    const current = platformVisStateFor(f);
+    const segButtons = PLATFORM_VIS_STATES.map(s => `<button class="pvs-btn${s.key===current?' active':''}" data-plat-vis="${f}:${s.key}">${s.label}</button>`).join('');
+    return `<div class="platform-vis-row"><span>${escapeAttr(FEATURE_LABELS[f])}</span><div class="platform-vis-seg">${segButtons}</div></div>`;
   }).join('');
 }
 document.getElementById('platformVisRows').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-plat-vis]');
   if(!btn) return;
-  const [feature, platform] = btn.dataset.platVis.split(':');
-  const hiddenOn = new Set(platformHidden[feature] || []);
-  if(hiddenOn.has(platform)) hiddenOn.delete(platform); else hiddenOn.add(platform);
-  platformHidden[feature] = [...hiddenOn];
+  const [feature, state] = btn.dataset.platVis.split(':');
+  platformHidden[feature] = hiddenPlatformsForState(state);
   db.saveSettings({ platform_hidden: platformHidden }).catch(()=>{});
   renderPlatformVisRows();
   refreshAllFeatureVisibility();
