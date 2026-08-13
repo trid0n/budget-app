@@ -497,6 +497,13 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .balance-mode-toggle{display:flex; gap:6px;}
 .modal-overlay{position:fixed; inset:0; background:rgba(10,12,16,.55); display:none; align-items:center; justify-content:center; z-index:200;}
 .modal-overlay.show{display:flex;}
+/* Freeze the page behind an open modal - otherwise the tab underneath keeps its own
+   scrollbar (visible down the right-hand edge next to the modal) and scrolls when you
+   wheel over the backdrop. No width compensation needed: scrollbar-gutter:stable on
+   <html> keeps the gutter reserved even while overflow is hidden, so laid-out content
+   doesn't move (verified by measuring .wrap's own edge - documentElement.clientWidth is
+   the viewport and looks like it shifts here even when nothing actually does). */
+html:has(.modal-overlay.show){overflow:hidden;}
 .modal-box{background:var(--surface); border:1px solid var(--rule); border-radius:14px; padding:22px 24px; max-width:360px; width:90%; box-shadow:0 12px 40px rgba(0,0,0,.35); animation:modalPop .18s cubic-bezier(.34,1.56,.64,1);}
 @keyframes modalPop{ 0%{transform:scale(.94); opacity:0;} 100%{transform:scale(1); opacity:1;} }
 .modal-msg{font-size:.92rem; color:var(--ink); line-height:1.5; margin-bottom:18px;}
@@ -869,7 +876,12 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-rule-target{color:var(--ink-faint); font-size:.78rem;}
 .tx-rule-del{flex-shrink:0; width:24px; height:24px; border-radius:50%; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-faint); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s, color .15s;}
 .tx-rule-del:hover{border-color:var(--debit); color:var(--debit);}
-.account-settings-box{max-width:380px; position:relative;}
+/* Capped to the viewport with its own internal scroll - the settings form is long enough
+   to exceed the screen, and .modal-overlay centres it, so without this it overflowed off
+   BOTH the top and bottom edges with no way to reach either end. Scrollbar chrome hidden
+   to match the rest of the app (scrolling itself still works normally). */
+.account-settings-box{max-width:380px; position:relative; max-height:calc(100vh - 32px); overflow-y:auto; scrollbar-width:none; -ms-overflow-style:none;}
+.account-settings-box::-webkit-scrollbar{width:0; height:0;}
 /* .panel-close-btn is display:none by default (only shown on the floating inline-source
    panels at the mobile breakpoint - see that rule below) - this reuses its circular ×
    styling but needs to always show here, not just under 680px, since the settings form
@@ -1313,6 +1325,22 @@ function dbgOverlay(text){
 // immediately; applyTheme() below still runs once real settings load, correcting this
 // if it was ever wrong (e.g. changed on another device) and keeping the cache in sync.
 try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('dark'); }catch(e){}
+// Same problem, same fix, for tab visibility: the sidebar buttons are in the HTML as
+// visible, and renderFeatureToggle() only hides the disabled ones once Supabase settings
+// arrive - so a tab you've turned off still flashed on screen first and then vanished.
+// The cache is written whenever visibility is recomputed (see cacheHiddenNavViews), and
+// refreshAllFeatureVisibility() re-runs on real settings anyway, correcting any staleness.
+try{
+  var cachedHidden = JSON.parse(localStorage.getItem('hiddenNavViews') || '[]');
+  if(cachedHidden.length){
+    var earlyStyle = document.createElement('style');
+    earlyStyle.id = 'earlyHiddenNavStyle';
+    earlyStyle.textContent = cachedHidden.map(function(v){
+      return '.side-icon[data-view="' + v + '"]{display:none;}';
+    }).join('');
+    document.head.appendChild(earlyStyle);
+  }
+}catch(e){}
 </script>
 <div class="auth-overlay hidden" id="authOverlay">
   <div class="auth-box">
@@ -1752,25 +1780,18 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
             <button class="timeframe-btn period-mode-btn" data-period-mode="paycycle">Pay cycle</button>
           </div>
         </div>
-        <!-- Self-service, available to every user (not admin-gated) - which of the
-             features/tabs you already have access to should show on your phone vs your
-             PC. Layered on top of, not instead of, whatever an admin has granted below -
-             see isFeatureVisibleNow(). Only lists features you're currently granted, since
-             hiding one you don't have anyway would be meaningless. -->
-        <h3 class="acct-admin-subhdr">Tab visibility</h3>
+        <!-- One control per feature covering both questions at once: whether it's on at
+             all, and which platforms it shows on. This replaced a pair of sections (an
+             on/off switch list and a separate per-platform list) that split one decision
+             across two places - see renderPlatformVisRows(). Rows stay listed when set to
+             Off, otherwise there'd be no way to turn one back on. -->
+        <h3 class="acct-admin-subhdr">Tabs &amp; features</h3>
         <div id="platformVisRows"></div>
         <div class="auth-error" id="acctError"></div>
         <div class="acct-success" id="acctSuccess"></div>
         <div class="modal-actions">
           <button class="mini-btn" id="acctCloseBtn">Close</button>
           <button class="mini-btn gold" id="acctSaveBtn">Save changes</button>
-        </div>
-        <!-- Admin-only: your own feature toggles, inline and always expanded (there's only
-             ever one row here) - replaces the old standalone "Show Up Bank tab" switch,
-             now consistent with how every other user's toggles are managed below. -->
-        <div id="acctOwnAdminCard" style="display:none;">
-          <h3 class="acct-admin-subhdr">My feature access</h3>
-          <div id="acctOwnAdminToggles"></div>
         </div>
         <!-- Admin-only: manage everyone else - what used to be the standalone Users tab,
              now a collapsible section here instead. -->
@@ -3159,6 +3180,17 @@ function refreshAllFeatureVisibility(){
   if(balletCard) balletCard.style.display = isFeatureVisibleNow('ballet') ? '' : 'none';
   setupPagerViewPositions();
   updatePagerPosition(false);
+  cacheHiddenNavViews();
+}
+// Records which nav tabs are hidden right now, for the pre-paint style in <head> to use on
+// the next load (see its comment). Dropped here rather than at boot because that early
+// style must survive until the real settings have actually been applied - removing it any
+// sooner would let a hidden tab flash back in, which is the exact thing it prevents.
+function cacheHiddenNavViews(){
+  const hidden = Object.keys(FEATURE_NAV_VIEWS).filter(f => !isFeatureVisibleNow(f)).map(f => FEATURE_NAV_VIEWS[f]);
+  try{ localStorage.setItem('hiddenNavViews', JSON.stringify(hidden)); }catch(e){}
+  const early = document.getElementById('earlyHiddenNavStyle');
+  if(early) early.remove();
 }
 const FEATURE_LABELS = { tech:'Tech Replacement', grocery:'Groceries', monthlycosts:'Monthly Costs', ballet:'Flexible Tracker', up:'Up Bank', dashboard:'Dashboard', records:'Other Records', template:'Template' };
 // One mutually-exclusive state per feature rather than two independent switches - "hidden
@@ -3172,7 +3204,11 @@ const PLATFORM_VIS_STATES = [
   {key:'pc', label:'PC'},
   {key:'neither', label:'Off'},
 ];
+// "Off" is the feature flag being off outright, not merely hidden on both platforms -
+// those were two different controls before this was unified, and having Off mean only the
+// latter would have left the real flag stranded with no UI to reach it.
 function platformVisStateFor(feature){
+  if(!featureFlags[feature]) return 'neither';
   const hiddenOn = platformHidden[feature] || [];
   const mobileHidden = hiddenOn.includes('mobile'), pcHidden = hiddenOn.includes('pc');
   if(mobileHidden && pcHidden) return 'neither';
@@ -3186,23 +3222,33 @@ function hiddenPlatformsForState(state){
   // state is the platform that's still SHOWING, so the OTHER one is what's hidden.
   return [state === 'mobile' ? 'pc' : 'mobile'];
 }
-// Lists only features you're currently granted (admin toggle or self-toggle) - hiding one
-// you don't have access to anyway would be a meaningless control to show.
+// Every feature you're allowed to control, listed whatever state it's in - deliberately
+// NOT filtered to currently-enabled ones, or switching a row to Off would remove the only
+// control that could switch it back. Ballet is the one real access grant: a non-admin only
+// sees it when an admin has granted it (see balletFeatureAvailable).
+function controllableFeatures(){
+  return Object.keys(FEATURE_LABELS).filter(f => f === 'ballet' ? balletFeatureAvailable() : true);
+}
 function renderPlatformVisRows(){
   const container = document.getElementById('platformVisRows');
-  const features = Object.keys(FEATURE_LABELS).filter(isFeatureGrantedNow);
-  container.innerHTML = features.map(f => {
+  container.innerHTML = controllableFeatures().map(f => {
     const current = platformVisStateFor(f);
     const segButtons = PLATFORM_VIS_STATES.map(s => `<button class="pvs-btn${s.key===current?' active':''}" data-plat-vis="${f}:${s.key}">${s.label}</button>`).join('');
     return `<div class="platform-vis-row"><span>${escapeAttr(FEATURE_LABELS[f])}</span><div class="platform-vis-seg">${segButtons}</div></div>`;
   }).join('');
 }
-document.getElementById('platformVisRows').addEventListener('click', (e) => {
+document.getElementById('platformVisRows').addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-plat-vis]');
   if(!btn) return;
   const [feature, state] = btn.dataset.platVis.split(':');
+  const enabled = state !== 'neither';
   platformHidden[feature] = hiddenPlatformsForState(state);
-  db.saveSettings({ platform_hidden: platformHidden }).catch(()=>{});
+  const patch = { platform_hidden: platformHidden };
+  // Writing our own row directly (RLS already scopes it to auth.uid()) rather than through
+  // the admin RPC - this is always the signed-in user's own settings, never someone else's.
+  if(FEATURE_COLUMNS[feature] && featureFlags[feature] !== enabled) patch[FEATURE_COLUMNS[feature]] = enabled;
+  db.saveSettings(patch).catch(()=>{});
+  if(featureFlags[feature] !== enabled) applyLiveFeatureFlagChange(feature, enabled);
   renderPlatformVisRows();
   refreshAllFeatureVisibility();
 });
@@ -3285,15 +3331,12 @@ function renderAdminUsersList(){
   list.innerHTML = filtered.map(adminUserCardHtml).join('') || `<div class="pc-faint" style="padding:12px;">${term ? 'No users match your search.' : 'No other users found.'}</div>`;
 }
 async function renderAdminSection(){
-  document.getElementById('acctOwnAdminCard').style.display = isAdmin ? '' : 'none';
   document.getElementById('manageUsersCard').style.display = isAdmin ? '' : 'none';
   if(!isAdmin) return;
   const list = document.getElementById('adminUsersList');
   list.innerHTML = '<div class="pc-faint" style="padding:12px;">Loading…</div>';
   try{
     adminUsersCache = await db.adminListUsers();
-    const self = adminUsersCache.find(u => u.user_id === authUserId);
-    document.getElementById('acctOwnAdminToggles').innerHTML = self ? adminFlagRowsHtml(self) : '';
     renderAdminUsersList();
   }catch(e){
     list.innerHTML = `<div class="pc-faint" style="padding:12px;">Couldn’t load users: ${escapeAttr(e.message||'unknown error')}</div>`;
@@ -8933,7 +8976,7 @@ function populateAccountSettingsFields(){
   // own upTransactions.length check elsewhere - only fetch once per session, not on every
   // visit to Settings.
   if(isAdmin && adminUsersCache.length === 0) renderAdminSection();
-  else if(isAdmin) { document.getElementById('acctOwnAdminCard').style.display = ''; document.getElementById('manageUsersCard').style.display = ''; }
+  else if(isAdmin) document.getElementById('manageUsersCard').style.display = '';
 }
 // #settingsFormContent (name/email/password/Up-tab toggle) has exactly one instance in
 // the DOM, moved between two different parents depending on context rather than
@@ -9060,13 +9103,9 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   renderMonthlyCostRows();
   syncMonthlyCostsToTemplate();
   renderOtherRecordsBudgetSummary();
-  renderFeatureToggle('tech');
-  renderFeatureToggle('grocery');
-  renderFeatureToggle('monthlycosts');
-  renderFeatureToggle('up');
-  renderFeatureToggle('dashboard');
-  renderFeatureToggle('records');
-  renderFeatureToggle('template');
+  // Covers all seven of the individual renderFeatureToggle() calls this replaced, and also
+  // refreshes the pre-paint hidden-tab cache now that real settings are in.
+  refreshAllFeatureVisibility();
   renderBalletCardChrome();
   updateSideHighlight();
   setupPagerViewPositions();
