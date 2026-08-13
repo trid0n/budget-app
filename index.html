@@ -6096,6 +6096,31 @@ function autoApplyTxRules(){
     // X" side of a transfer pair isn't a savings transfer and is never mapped.
     const transferAccountId = isInternalTransfer(t) ? (t.relationships.transferAccount.data.id || null) : null;
     const transferRule = (transferAccountId && amt < 0) ? transferRules[transferAccountId] : null;
+    // A reimbursed expense (a matching "Cover from X" transfer landed within 48h for the
+    // same amount - see findCoverSourceForTx) never counts against the budget, so it's
+    // always kept excluded - unlike every other rule below, this overrides even a prior
+    // manual assignment (not just the usual "first time seen" guard), since the whole
+    // point is the expense shouldn't be counted no matter how it got assigned before the
+    // cover transfer showed up.
+    if(findCoverSourceForTx(t)){
+      if(existing && existing.catId){
+        // refreshUpData() can call this before monthData exists yet (see the "re-render
+        // now that it definitely does" comment elsewhere in this file) - reversing needs
+        // monthData loaded to find and decrement the item. Leaving the assignment alone
+        // for now (rather than excluding without reversing) means it gets another chance
+        // on the next render instead of the item amount staying inflated forever.
+        if(!monthData) return;
+        reverseTxAssignmentIfSameMonth(t.id);
+        txAssignments[t.id] = {monthKey: settings.currentMonth, excluded: true};
+        changed = true;
+        return;
+      }
+      if(!existing || !existing.excluded){
+        txAssignments[t.id] = {monthKey: settings.currentMonth, excluded: true};
+        changed = true;
+      }
+      return;
+    }
     if(isCoverOrTransfer && !transferRule){
       // Only ever fires the first time a transaction is seen (existing is still
       // undefined) - once the user has excluded, un-excluded, or manually assigned it,
