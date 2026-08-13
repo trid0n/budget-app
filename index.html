@@ -51,7 +51,12 @@ body{transition:background .15s ease, color .15s ease;}
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
 input[type=number]{-moz-appearance:textfield;}
-html{scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper); overflow-y:scroll; overflow-x:hidden; scrollbar-gutter:stable; overscroll-behavior:none;}
+/* overflow-y:auto, not scroll - `scroll` paints a permanently-visible scrollbar track on
+   every tab even when there's nothing to scroll (which is what made the Up tab still look
+   scrollable after its actual overflow was fixed). scrollbar-gutter:stable already
+   reserves the space unconditionally, so `auto` keeps the no-layout-shift-between-tabs
+   behaviour that `scroll` was there for, without the dead track. */
+html{scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper); overflow-y:auto; overflow-x:hidden; scrollbar-gutter:stable; overscroll-behavior:none;}
 /* Without this, scrolling past the top/bottom of the page hands off to the browser's own
    native rubber-band bounce - which on a page with a position:sticky sidebar can detach
    the sidebar and reveal blank background above/below it (the "darker blue" gap). Also a
@@ -86,7 +91,12 @@ body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sa
    of this sidebar (see its own comment further down), just applied to desktop too now. */
 .sidebar{width:210px; background:#1C2230; flex-shrink:0; display:flex; flex-direction:column; padding:20px 14px; gap:4px; position:fixed; top:0; left:0; height:100vh; overscroll-behavior:none;}
 .sidebar .brand{display:flex; align-items:center; gap:10px; padding:0 8px 20px; color:#fff; font-weight:800; font-size:1.05rem;}
-.sidebar .brand .mark{width:28px; height:28px; border-radius:8px; background:var(--gold); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.9rem; flex-shrink:0;}
+/* No background/padding of its own - the mark IS the favicon artwork (which carries its
+   own dark rounded-square tile), drawn at the full 28px. An earlier version inset a
+   smaller monochrome jar into a solid --gold tile, which at 28px collapsed into an
+   unreadable white blob with the dollar sign invisible - verified by rendering both to a
+   canvas at true 28/20px and upscaling, the same check used to pick the favicon itself. */
+.sidebar .brand .mark{width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
 .sidebar .side-icon{display:flex; align-items:center; gap:12px; width:100%; padding:10px 12px; border-radius:9px; color:#8B93A5; font-size:.88rem; font-weight:600; cursor:pointer; background:none; border:none; text-align:left;}
 .sidebar .side-icon .ic{font-size:1rem; width:18px; text-align:center; flex-shrink:0;}
 .sidebar .side-icon{position:relative; z-index:1;}
@@ -1318,9 +1328,9 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 </div>
 <div class="app-shell">
   <div class="sidebar">
-    <!-- Jar in white (currentColor) on .mark's gold tile; the coin is filled with that same
-         gold so it reads as a cut-out hole rather than needing a third colour. -->
-    <div class="brand"><span class="mark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="4.6" y="2.4" width="14.8" height="3.4" rx="1.6" fill="currentColor" opacity=".6"/><path d="M4.6 6.6h14.8v11.9a3.2 3.2 0 0 1-3.2 3.2H7.8a3.2 3.2 0 0 1-3.2-3.2Z" fill="currentColor"/><circle cx="12" cy="14" r="4.7" fill="var(--gold)"/><line x1="12" y1="10.8" x2="12" y2="17.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M13.7 12.5c0-.7-.8-1.1-1.7-1.1s-1.7.4-1.7 1.1.8 1 1.7 1.3 1.7.6 1.7 1.3-.8 1.1-1.7 1.1-1.7-.4-1.7-1.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Budget</div>
+    <!-- Same artwork as the favicon, deliberately - one design, and it's already been
+         checked for legibility down to 16px. See .sidebar .brand .mark's CSS comment. -->
+    <div class="brand"><span class="mark"><svg width="28" height="28" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#161A22"/><rect x="4.6" y="2.4" width="14.8" height="3.4" rx="1.6" fill="#7FA8F0"/><path d="M4.6 6.6h14.8v11.9a3.2 3.2 0 0 1-3.2 3.2H7.8a3.2 3.2 0 0 1-3.2-3.2Z" fill="#4F7FE8"/><circle cx="12" cy="14" r="5.6" fill="#161A22"/><circle cx="12" cy="14" r="4.6" fill="#E8B44F"/><line x1="12" y1="10.5" x2="12" y2="17.5" stroke="#161A22" stroke-width="1.9" stroke-linecap="round"/><path d="M13.8 12.4c0-.8-.8-1.2-1.8-1.2s-1.8.4-1.8 1.2.8 1.1 1.8 1.4 1.8.6 1.8 1.4-.8 1.2-1.8 1.2-1.8-.4-1.8-1.2" fill="none" stroke="#161A22" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Budget</div>
     <div class="side-highlight" id="sideHighlight"></div>
     <button class="side-icon active" data-view="ledger" title="Budget"><span class="ic">◆</span>Budget</button>
     <button class="side-icon" data-view="up" id="upNavBtn" title="Up Bank"><span class="ic">▲</span>Up</button>
@@ -7534,7 +7544,13 @@ function updateTransferGroupBanner(){
 // bottom of the viewport rather than floating halfway up. Measured, not a CSS calc(), since
 // the stuff below varies in height (the savers grid wraps to more rows as savers are added,
 // the status row hides entirely, etc).
-const UP_TX_LIST_MIN_HEIGHT = 240;
+// Deliberately low: this is the floor the list is allowed to shrink to in order to keep
+// the whole tab inside the viewport. At 240 it couldn't shrink far enough once the savers
+// grid wrapped to several rows (12 savers on a 720px-tall window overflowed by ~116px),
+// which put a page scrollbar back on a tab that's supposed to need none. The list is the
+// one thing here that's *meant* to scroll internally, so it's the right element to give
+// up space - a short-but-scrollable list beats scrolling the whole page.
+const UP_TX_LIST_MIN_HEIGHT = 120;
 function sizeUpTxList(){
   const list = document.getElementById('upTxList');
   if(!list) return;
