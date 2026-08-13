@@ -317,10 +317,14 @@ input.amt-input{width:100%; border:none; background:transparent; padding:5px 7px
 input.amt-input:focus{cursor:text;}
 .amt-wrap.plain input.amt-input{padding-left:7px;}
 input.amt-input:hover, input.amt-input:focus{outline:none;}
-.del-cell{text-align:center; flex-shrink:0;}
+.del-cell{text-align:center; flex-shrink:0; display:flex; align-items:center; justify-content:center; gap:2px;}
 .del-cell button{opacity:1; transition:color .1s;}
 .del-cell button{background:none; border:none; color:var(--ink-faint); cursor:pointer; border-radius:7px; width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; position:relative; overflow:hidden; z-index:0;}
 .del-cell button::before{content:''; position:absolute; inset:0; background:var(--debit); border-radius:50%; transform:scale(0); transition:transform .28s cubic-bezier(.4,0,.2,1); z-index:-1;}
+/* Not destructive like the delete button next to it - same hover-fill mechanic, gold
+   instead of the debit red so it doesn't read as "this deletes something too". */
+.item-menu-toggle::before{background:var(--gold);}
+.item-menu-toggle{font-size:1rem; font-weight:700;}
 .del-cell button:hover{color:#fff;}
 .del-cell button:hover::before{transform:scale(1.6);}
 .rtable-del{background:none; border:none; color:var(--ink-faint); cursor:pointer; border-radius:7px; width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; position:relative; overflow:hidden; z-index:0; margin:0 auto;}
@@ -355,7 +359,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .thead div{text-align:right;} .thead div:first-child{text-align:left;}
 .group{background:var(--surface); border:1px solid var(--rule); border-left:4px solid var(--cat-color, var(--gold)); border-radius:10px; margin-bottom:12px; overflow:hidden; box-shadow:var(--shadow);}
 .group:last-child{margin-bottom:0;}
-.grow{display:grid; grid-template-columns:24px 1fr 95px 30px; padding:0; align-items:center; background:var(--paper-dim); font-weight:700; font-size:.86rem; border-bottom:1px solid var(--rule); border-left:3px solid transparent; transition:background-color .15s, border-left-color .15s; cursor:pointer; user-select:none;}
+.grow{display:grid; grid-template-columns:24px 1fr 95px 56px; padding:0; align-items:center; background:var(--paper-dim); font-weight:700; font-size:.86rem; border-bottom:1px solid var(--rule); border-left:3px solid transparent; transition:background-color .15s, border-left-color .15s; cursor:pointer; user-select:none;}
 .grow .gcell{cursor:pointer;}
 .grow-name{display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer; min-width:0; position:relative;}
 .grip-handle{display:flex; align-items:center; justify-content:center; color:var(--ink-faint); cursor:grab; flex-shrink:0; padding:10px 2px 10px 10px; opacity:.5; transition:opacity .15s; touch-action:none;}
@@ -398,7 +402,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .income-card.collapsed .income-body{grid-template-rows:0fr;}
 .income-body-inner{overflow:hidden; min-height:0;}
 .group-body-inner{overflow:hidden; min-height:0;}
-.lrow.leaf{display:grid; grid-template-columns:18px 1fr 95px 30px; padding:0; align-items:center; cursor:pointer; position:relative; user-select:none;}
+.lrow.leaf{display:grid; grid-template-columns:18px 1fr 95px 56px; padding:0; align-items:center; cursor:pointer; position:relative; user-select:none;}
 .lrow.leaf .grip-handle{padding:8px 0 8px 10px; opacity:0;}
 .lrow.leaf:hover .grip-handle{opacity:.6;}
 .lrow.leaf.dragging{opacity:.4;}
@@ -586,8 +590,8 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
   .assign-card .amt{font-size:1.8rem;}
   .progress-card, .summary-mini, .notes-box{height:170px;}
   .thead{grid-template-columns:1fr 140px 34px;}
-  .lrow.leaf{grid-template-columns:18px 1fr 140px 34px;}
-  .grow{grid-template-columns:24px 1fr 140px 34px;}
+  .lrow.leaf{grid-template-columns:18px 1fr 140px 60px;}
+  .grow{grid-template-columns:24px 1fr 140px 60px;}
   /* The amount+delete columns widen to 174px here (140+34), but .tx-link-badge's own
      right offset is measured from the row's right edge - left at its narrow-screen 135px
      it ended up INSIDE the amount cell, sitting on top of .tpl-source-link (which anchors
@@ -1128,10 +1132,10 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
   /* Wide enough that a typical amount ("1234.56") is fully visible without focusing the
      field - the earlier 64px was tuned before input font-size was bumped to 16px (for
      the iOS zoom fix below), which needs more room to show the same digits. */
-  .lrow.leaf{grid-template-columns:20px 1fr 96px 26px;}
+  .lrow.leaf{grid-template-columns:20px 1fr 96px 52px;}
   .amt-wrap{width:96px; min-width:0;}
   .leaf-name{flex:1; min-width:0;}
-  .grow{grid-template-columns:20px 1fr 96px 26px;}
+  .grow{grid-template-columns:20px 1fr 96px 52px;}
   .grip-handle{opacity:1; padding:10px 6px 10px 8px;}
   .lrow.leaf .grip-handle{opacity:1; padding:10px 6px 10px 8px;}
   .inline-source-panel{left:8px !important; right:8px; width:auto !important; max-width:none !important;}
@@ -1758,6 +1762,12 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 <div class="toast" id="toast"></div>
 <div class="float-tip" id="floatTip"></div>
 <div id="inlinePanelHost"></div>
+<!-- Single shared instance, repositioned/retargeted on demand (see itemRowMenuTarget) -
+     there can be dozens of item rows on screen, one floating panel per row would be
+     wasteful and complicate the body-relocation trick below for no benefit. -->
+<div class="month-actions-panel" id="itemRowMenuPanel">
+  <button class="tf-toggle-btn" id="itemRowMenuRestore" title="Recalculates this item back to what your template says it should be this month">Restore to template</button>
+</div>
 <div class="modal-overlay" id="txAssignOverlay">
   <div class="modal-box tx-assign-box">
     <div class="tx-assign-hdr">Assign <span id="txAssignAmt"></span> from <span id="txAssignDesc"></span></div>
@@ -3636,8 +3646,67 @@ function leafRowHtml(catId, item){
     ${txBadge}
     <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. rent" value="${escapeAttr(item.name)}" data-cat="${catId}" data-item="${item.id}" data-field="name"></div>
     <div class="gcell">${linkBtn}<div class="amt-wrap"><span class="sign"></span><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-cat="${catId}" data-item="${item.id}" data-field="amount" ${locked?'readonly':''}></div></div>
-    <div class="del-cell"><button data-cat="${catId}" data-item="${item.id}" class="item-del" title="Remove">${X_SVG}</button></div>
+    <div class="del-cell"><button data-item-menu-toggle="${catId}:${item.id}" class="item-menu-toggle month-actions-gear" title="More options">›</button><button data-cat="${catId}" data-item="${item.id}" class="item-del" title="Remove">${X_SVG}</button></div>
   </div>`;
+}
+// The item-level "..." menu currently has one action (restore-to-template) - shared
+// single panel instance repositioned per click, see #itemRowMenuPanel's own comment.
+let itemRowMenuTarget = null;
+document.getElementById('view-ledger').addEventListener('click', (e) => {
+  const toggle = e.target.closest('[data-item-menu-toggle]');
+  if(!toggle) return;
+  const [catId, itemId] = toggle.dataset.itemMenuToggle.split(':');
+  const panel = document.getElementById('itemRowMenuPanel');
+  const open = itemRowMenuTarget?.catId === catId && itemRowMenuTarget?.itemId === itemId && panel.classList.contains('open');
+  closeFloatingMenus();
+  if(open){ itemRowMenuTarget = null; return; }
+  itemRowMenuTarget = {catId, itemId};
+  positionFloatingMenu(panel, toggle);
+  panel.classList.add('open');
+  toggle.classList.add('open');
+});
+document.getElementById('itemRowMenuRestore').addEventListener('click', () => {
+  if(!itemRowMenuTarget) return;
+  restoreItemToTemplate(itemRowMenuTarget.catId, itemRowMenuTarget.itemId);
+  closeFloatingMenus();
+  itemRowMenuTarget = null;
+});
+// Recomputes a single item's amount the same way it would come out of the template -
+// for a plain item that's just copying the template's own flat value; for an item
+// synced from Tech/Groceries/Ballet/Monthly Costs it re-runs that source's own
+// apportionment math (day-remaining-based for Groceries/Monthly Costs, flat for Tech/
+// Ballet) rather than just copying the template's number, since those items' MONTH
+// amount is never the same as the template's flat number - see syncAmountEverywhere.
+// Deliberately its own standalone function rather than reusing syncAmountEverywhere
+// directly: that function silently no-ops on a past month (by design, so ambient source
+// edits don't retroactively rewrite history) but an explicit "restore" click here should
+// still work as a deliberate one-off correction even when viewing a past month.
+function restoreItemToTemplate(catId, itemId){
+  if(!monthData) return;
+  const list = findList(catId);
+  const item = list && list.find(i => i.id === itemId);
+  if(!item) return;
+  const source = tplSourceFor(item.name);
+  const totalDays = daysInMonth(settings.currentMonth);
+  const remaining = daysRemainingInMonth(settings.currentMonth);
+  const apportion = full => totalDays > 0 ? Math.round((full/totalDays)*remaining*100)/100 : Math.round(full*100)/100;
+  let newAmount;
+  if(source === 'tech') newAmount = Math.round(updateTechTotal()*100)/100;
+  else if(source === 'grocery') newAmount = apportion(cachedGroceryMonthlyTotal);
+  else if(source === 'ballet') newAmount = Math.round(cachedBalletMonthlyAmount*100)/100;
+  else if(source === 'monthlycost') newAmount = apportion(getMonthlyCostFor(item.name));
+  else {
+    const cat = monthData.categories.find(c => c.id === catId);
+    const tplCat = monthTemplate && cat && monthTemplate.categories.find(c => (c.name||'').trim().toLowerCase() === (cat.name||'').trim().toLowerCase());
+    const tplItem = tplCat && tplCat.items.find(i => (i.name||'').trim().toLowerCase() === (item.name||'').trim().toLowerCase());
+    if(!tplItem){ toast('This item isn’t in your template'); return; }
+    newAmount = Math.round((Number(tplItem.amount)||0)*100)/100;
+  }
+  if(newAmount === (Number(item.amount)||0)){ toast('Already matches the template'); return; }
+  pushUndo('month', monthData, {monthKey: settings.currentMonth});
+  item.amount = newAmount;
+  renderGroups(); updateSummary(); scheduleSave();
+  toast('Restored to template amount');
 }
 function renderInlineSourceTable(source){
   if(source === 'grocery'){
@@ -3882,7 +3951,7 @@ function positionFloatingMenu(panel, anchorEl){
 // the (currently slid-off-screen) track" instead. Relocating them to be direct children
 // of <body> once, up front, sidesteps that entirely - same fix already used elsewhere in
 // this file for #floatTip/#inlinePanelHost/.modal-overlay/.toast.
-['monthActionsPanel', 'upTxMorePanel', 'upTxSearchPanel'].forEach(id => {
+['monthActionsPanel', 'upTxMorePanel', 'upTxSearchPanel', 'itemRowMenuPanel'].forEach(id => {
   const el = document.getElementById(id);
   if(el) document.body.appendChild(el);
 });
@@ -4924,7 +4993,7 @@ document.getElementById('view-ledger').addEventListener('pointerdown', (e) => {
     if(!onHandle && (e.target.closest('.sh-name-input') || e.target.closest('.sh-del'))) return;
     mode = 'category'; el = catGrow;
   } else if(itemRow && itemRow.dataset.cat && itemRow.dataset.item){
-    if(!onHandle && (e.target.closest('.name-input') || e.target.closest('.amt-input') || e.target.closest('.item-del') || e.target.closest('.tpl-source-link') || e.target.closest('.tx-link-badge'))) return;
+    if(!onHandle && (e.target.closest('.name-input') || e.target.closest('.amt-input') || e.target.closest('.item-del') || e.target.closest('.item-menu-toggle') || e.target.closest('.tpl-source-link') || e.target.closest('.tx-link-badge'))) return;
     mode = 'item'; el = itemRow;
   } else {
     return;
@@ -5066,7 +5135,7 @@ document.getElementById('view-ledger').addEventListener('click', async (e) => {
     return;
   }
   const leafRow = e.target.closest('.lrow');
-  if(leafRow && leafRow.dataset.cat && leafRow.dataset.item && !e.target.closest('.name-input') && !e.target.closest('.amt-input') && !e.target.closest('.item-del') && !e.target.closest('.tpl-source-link') && !e.target.closest('.tx-link-badge')){
+  if(leafRow && leafRow.dataset.cat && leafRow.dataset.item && !e.target.closest('.name-input') && !e.target.closest('.amt-input') && !e.target.closest('.item-del') && !e.target.closest('.item-menu-toggle') && !e.target.closest('.tpl-source-link') && !e.target.closest('.tx-link-badge')){
     toggleItemCharged(leafRow.dataset.cat, leafRow.dataset.item, leafRow);
     return;
   }

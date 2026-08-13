@@ -68,14 +68,8 @@ The full migration (table + RLS policy) is in `supabase/schema.sql`. Until it's 
 so saver-transfer mapping silently does nothing rather than erroring.
 
 A third migration added a `platform_hidden` column to `user_settings` (self-service
-per-platform tab visibility — see feature history below). Check whether it's been run:
-
-```sql
-alter table public.user_settings add column if not exists platform_hidden jsonb not null default '{}'::jsonb;
-```
-
-Until it's applied, toggling a mobile/PC visibility switch in Account settings silently
-no-ops (same swallowed-upsert-error pattern as the other two above) rather than erroring.
+per-platform tab visibility — see feature history below). **Confirmed run** by the user
+(2026-08-13) — no longer an open item.
 
 ## How to test changes (established pattern — use this, don't skip verification)
 
@@ -227,8 +221,9 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
 
 ## Known open items
 
-- **Verify all three schema migrations were actually run** (see warning above):
-  `period_mode` and `platform_hidden` on `user_settings`, and the `up_transfer_rules` table.
+- **Verify the remaining schema migrations were actually run** (see warning above):
+  `period_mode` on `user_settings`, and the `up_transfer_rules` table. (`platform_hidden`
+  is confirmed applied as of 2026-08-13.)
 - The project-management **task list tool** (`TaskList`/`TaskCreate`) still has 18 stale
   entries from the original Supabase-migration project (all marked completed) — it hasn't
   been used for anything since. Fine to ignore, or worth clearing out and starting fresh
