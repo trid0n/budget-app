@@ -6900,19 +6900,23 @@ function resolveAssignmentCatEmoji(assignment){
   if(inTemplate) return getCategoryEmoji(inTemplate);
   return categoryEmoji(assignment.categoryName);
 }
-// Adds a transaction's amount onto an item's running total - except for an income item
-// that doesn't yet have any other real transaction linked, where the current value is
-// just the template's unedited estimate (a placeholder, not accumulated real income),
-// so the first actual pay should replace that estimate outright rather than stack on
-// top of it. A second real pay in the same month still adds normally, since by then the
-// value reflects an actual received amount rather than an estimate.
+// Sets an item's amount to the total of its linked transactions (this one plus whatever
+// was already attributed) rather than adding onto whatever item.amount happened to be -
+// an item with real transactions should always read as their actual total, not a blend of
+// a leftover template estimate plus however many transactions have landed on top of it. A
+// manually-typed amount still sticks between transaction events (nothing re-syncs on its
+// own) - it's only recomputed like this at the moment a transaction is newly attributed,
+// per the item row's own "amount reflects its transactions" contract. Income keeps its
+// own separate first-pay-replaces-the-estimate rule below, since the same reasoning
+// applies to income before it's ever had a real transaction linked.
 function applyTxAmountToItem(catId, item, txAmt){
   const amt = Math.abs(Number(txAmt)) || 0;
   if(catId === 'income' && getTxsForItem(catId, item.id).length === 0){
     item.amount = Math.round(amt * 100) / 100;
     return;
   }
-  item.amount = Math.round(((Number(item.amount)||0) + amt) * 100) / 100;
+  const existingTotal = getTxsForItem(catId, item.id).reduce((s,t) => s + (Number(t.amt)||0), 0);
+  item.amount = Math.round((existingTotal + amt) * 100) / 100;
 }
 function completeTxAssignment(catId, itemId, itemName){
   if(!txAssignCurrent || !monthData) return;
