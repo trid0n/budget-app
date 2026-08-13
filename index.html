@@ -571,7 +571,13 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .empty-state{background:var(--surface); border:1px dashed var(--rule); border-radius:12px; padding:44px 20px; text-align:center; color:var(--ink-soft);}
 .empty-state h3{font-family:'Inter',sans-serif; margin:0 0 8px; color:var(--ink); font-size:1.1rem;}
 .btn-row{display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap;}
-.mini-btn{font-family:'Inter',sans-serif; font-size:.82rem; border:1px solid var(--rule); border-radius:8px; background:var(--surface); color:var(--ink); padding:8px 16px; cursor:pointer;}
+/* position:relative so a [data-tip]::before on any .mini-btn (e.g. #upChooseIncomeBtn)
+   anchors its own top:100% to ITS box, not whatever distant positioned ancestor it falls
+   back to otherwise - same bug class as the .tf-toggle-btn fix elsewhere in this file:
+   without this, the tooltip rendered far below the viewport as real (non-fixed) content,
+   creating genuine page-level scroll on the Up tab that had nothing to do with its
+   transaction list. */
+.mini-btn{position:relative; font-family:'Inter',sans-serif; font-size:.82rem; border:1px solid var(--rule); border-radius:8px; background:var(--surface); color:var(--ink); padding:8px 16px; cursor:pointer;}
 .mini-btn.danger-text{color:var(--debit); border-color:color-mix(in srgb, var(--debit) 35%, var(--rule));}
 .mini-btn.danger-text:hover{background:var(--debit-bg);}
 .mini-btn:hover{background:var(--paper-dim);}
@@ -7532,22 +7538,22 @@ function sizeUpTxList(){
   if(isMobilePagerActive()){ list.style.maxHeight = ''; return; }
   const rect = list.getBoundingClientRect();
   if(!rect.height && !rect.top) return; // not laid out yet (e.g. tab never opened)
-  // Position within the PAGE, not the viewport, so the result doesn't shift as the page
-  // scrolls - the goal is "tall enough that this tab needs no page scroll", which is a
-  // property of the layout, not of where the user happens to be scrolled to.
-  const listTopInPage = rect.top + window.scrollY;
-  // Distance from the list's bottom edge to the bottom of the last thing under it, taken
-  // as one span rather than by summing each sibling's offsetHeight - summing silently drops
-  // the margins between them (and the savers grid's own top margin), which left the grid
-  // hanging ~26px past the fold. Raising the list's height shifts these down but doesn't
-  // change the span, so it stays valid after the resize it's being used to compute.
-  let lastVisible = null;
-  for(let el = list.nextElementSibling; el; el = el.nextElementSibling){
-    if(el.offsetParent !== null) lastVisible = el;
-  }
-  const below = lastVisible ? Math.max(0, lastVisible.getBoundingClientRect().bottom - rect.bottom) : 0;
-  const available = window.innerHeight - listTopInPage - below - 16;
-  list.style.maxHeight = Math.max(UP_TX_LIST_MIN_HEIGHT, Math.round(available)) + 'px';
+  // Reconstructing "how much space is available" from the page's own geometry (list's
+  // position + everything below it + .wrap's bottom padding) kept coming up short by a
+  // few tens of px no matter how many of those pieces got added in - .app-shell is a flex
+  // row that stretches .wrap to match the sidebar's height, which isn't visible in any
+  // single element's own box model, only in the actual rendered result. Measuring the
+  // real overflow directly and shrinking by exactly that is self-correcting regardless of
+  // which layout mechanism caused it, instead of chasing every contributing factor by hand.
+  // Temporarily uncapped so a previous (possibly too-small) max-height doesn't mask how
+  // tall the page actually wants to be - this is synchronous with the measurement right
+  // after it, so nothing paints in between.
+  const prevMaxHeight = list.style.maxHeight;
+  list.style.maxHeight = 'none';
+  const overflow = document.documentElement.scrollHeight - window.innerHeight;
+  if(overflow <= 0){ list.style.maxHeight = prevMaxHeight || ''; return; }
+  const naturalHeight = list.getBoundingClientRect().height;
+  list.style.maxHeight = Math.max(UP_TX_LIST_MIN_HEIGHT, Math.round(naturalHeight - overflow)) + 'px';
 }
 window.addEventListener('resize', sizeUpTxList);
 // Draws one continuous draggable rail per contiguous run of eligible rows (walking every
