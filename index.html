@@ -4681,7 +4681,14 @@ async function switchToMonth(key){
 let undoStack = [];
 let pendingFieldSnapshot = null;
 function pushUndo(type, dataRef, extra){
-  undoStack.push({type, snapshot: JSON.parse(JSON.stringify(dataRef)), extra: extra||null});
+  const entry = {type, snapshot: JSON.parse(JSON.stringify(dataRef)), extra: extra||null};
+  // Transaction assignments live outside monthData, but every month-level action that
+  // touches them (assigning, excluding, unassigning from an item's panel, committing a
+  // transfer batch) changes both together. Snapshotting only monthData meant undo put the
+  // item's amount back but left the assignment gone - so an unassigned transaction never
+  // returned to the item's list, and the two states silently drifted apart.
+  if(type === 'month') entry.txAssignments = JSON.parse(JSON.stringify(txAssignments));
+  undoStack.push(entry);
   if(undoStack.length > 60) undoStack.shift();
 }
 function undo(){
@@ -4691,8 +4698,18 @@ function undo(){
     settings.currentMonth = action.extra.monthKey;
     saveSettings();
     monthData = withIds(action.snapshot);
+    // Restored before the renders below so they see the matching assignment state - this
+    // is what puts an unassigned transaction back into its item's list, not just the
+    // item's amount back to what it was.
+    if(action.txAssignments){
+      txAssignments = action.txAssignments;
+      saveTxAssignments();
+    }
     renderMonthDropdown();
     finishLoadMonth();
+    // The Up tab's own list shows each transaction's assigned/excluded state, so it's
+    // stale too until re-rendered (it's a different view of the data just restored).
+    if(upTransactions.length) renderUpTxList();
   } else if(action.type==='tech'){ techItems = action.snapshot; renderTechRows(); saveTech(); }
   else if(action.type==='grocery'){ grocery = action.snapshot; renderGroceryRows(); updateGroceryTotal(); saveGrocery(); const ge=document.getElementById('groceryEatOut'); if(ge) ge.value=grocery.eatOut; }
   else if(action.type==='ballet'){ ballet = action.snapshot; renderBalletCalc(); saveBallet(); }
@@ -6480,6 +6497,10 @@ function txMatchesSearchTerm(t, term){
   }
   return false;
 }
+// Identifies "which view of the list is this" (search term + active filters). Used to tell
+// a re-render of the same view (keep the scroll position) from a switch to different
+// content (start at the top) - see the restore in renderUpTxList below.
+let lastUpTxViewSig = null;
 function renderUpTxList(){
   autoApplyTxRules();
   updateTransferGroupBanner();
@@ -6507,10 +6528,25 @@ function renderUpTxList(){
       });
     }
   }
-  document.getElementById('upTxList').innerHTML = (term && upTxSearchPending)
+  const listEl = document.getElementById('upTxList');
+  // Assigning/excluding a transaction re-renders this whole list, and replacing innerHTML
+  // resets scrollTop to 0 - which threw you back to the top every time you categorised
+  // something partway down. Keep the position across renders that show the SAME view, and
+  // only reset to the top when the view itself changed (a different search/filter, i.e.
+  // genuinely different content, where the old offset means nothing). Restored
+  // synchronously right after the swap so there's no visible jump.
+  const viewSig = [term, upIncomeFilterActive, upPayCycleFilter, upTxTimeframe].join('|');
+  const prevScrollTop = listEl.scrollTop;
+  listEl.innerHTML = (term && upTxSearchPending)
     ? `<div class="pc-faint" style="padding:12px;">Loading transactions…</div>`
     : filtered.length ? (isMobilePagerActive() ? renderUpTxGroups(filtered) : filtered.map(buildUpTxRowHtmlDesktop).join(''))
     : `<div class="pc-faint" style="padding:12px;">${upIncomeFilterActive ? 'No incoming (+) transactions in this range.' : term ? 'No transactions match your search.' : 'No recent transactions.'}</div>`;
+  // Replacing innerHTML doesn't reset scrollTop on its own (the element keeps it as long as
+  // the new content is tall enough), so both branches are explicit: same view keeps the
+  // position, a different view (new search/filter) starts at the top where the first
+  // results are.
+  listEl.scrollTop = (viewSig === lastUpTxViewSig) ? prevScrollTop : 0;
+  lastUpTxViewSig = viewSig;
   const loadMoreBtn = document.getElementById('upLoadMoreBtn');
   loadMoreBtn.style.display = (!term && upTxNextUrl) ? '' : 'none';
   // Deferred a frame - offsetTop/offsetHeight on rows just inserted via the innerHTML
@@ -7590,12 +7626,23 @@ function sizeUpTxList(){
   // Temporarily uncapped so a previous (possibly too-small) max-height doesn't mask how
   // tall the page actually wants to be - this is synchronous with the measurement right
   // after it, so nothing paints in between.
+  // scrollTop has to be saved and put back around this: with maxHeight:none the list is
+  // tall enough to need no internal scrolling at all, so the browser clamps its scrollTop
+  // to 0, and re-capping afterwards doesn't undo that. Since this runs after every render,
+  // that silently threw the list back to the top every time a transaction was assigned or
+  // a transfer batch committed.
+  const prevScrollTop = list.scrollTop;
   const prevMaxHeight = list.style.maxHeight;
   list.style.maxHeight = 'none';
   const overflow = document.documentElement.scrollHeight - window.innerHeight;
-  if(overflow <= 0){ list.style.maxHeight = prevMaxHeight || ''; return; }
+  if(overflow <= 0){
+    list.style.maxHeight = prevMaxHeight || '';
+    list.scrollTop = prevScrollTop;
+    return;
+  }
   const naturalHeight = list.getBoundingClientRect().height;
   list.style.maxHeight = Math.max(UP_TX_LIST_MIN_HEIGHT, Math.round(naturalHeight - overflow)) + 'px';
+  list.scrollTop = prevScrollTop;
 }
 window.addEventListener('resize', sizeUpTxList);
 // Draws one continuous draggable rail per contiguous run of eligible rows (walking every
