@@ -846,6 +846,10 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .settings-form-content{max-width:420px;}
 .account-settings-box .auth-field{margin-top:14px; margin-bottom:0;}
 .acct-admin-subhdr{font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin:22px 0 8px;}
+.platform-vis-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-top:1px solid var(--rule); font-size:.85rem; color:var(--ink-soft);}
+.platform-vis-btns{display:flex; gap:6px; flex-shrink:0;}
+.platform-vis-btn{width:32px; height:28px; border-radius:8px; border:1px solid var(--rule); background:var(--paper-dim); font-size:.9rem; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:.4; filter:grayscale(1); transition:opacity .15s, border-color .15s, filter .15s;}
+.platform-vis-btn.on{opacity:1; filter:none; border-color:var(--gold); background:var(--gold-bg);}
 /* Its own visually distinct spot, not squeezed in among Close/Save - a top border and
    different (destructive-leaning) color signal this is a different kind of action, not
    just another form button. */
@@ -1708,6 +1712,13 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
             <button class="timeframe-btn period-mode-btn" data-period-mode="paycycle">Pay cycle</button>
           </div>
         </div>
+        <!-- Self-service, available to every user (not admin-gated) - which of the
+             features/tabs you already have access to should show on your phone vs your
+             PC. Layered on top of, not instead of, whatever an admin has granted below -
+             see isFeatureVisibleNow(). Only lists features you're currently granted, since
+             hiding one you don't have anyway would be meaningless. -->
+        <h3 class="acct-admin-subhdr">Tab visibility</h3>
+        <div id="platformVisRows"></div>
         <div class="auth-error" id="acctError"></div>
         <div class="acct-success" id="acctSuccess"></div>
         <div class="modal-actions">
@@ -2160,6 +2171,12 @@ let settings = { currentMonth: DEFAULT_MONTH, theme: 'light', lastGoal: 0, balan
 // erroring, so an unmigrated database preserves exactly today's behavior for everyone.
 let isAdmin = false;
 let featureFlags = { tech: true, grocery: true, monthlycosts: true, ballet: false, up: true, dashboard: true, records: true, template: true };
+// Self-service, layered on top of featureFlags above rather than replacing it - an admin
+// still controls whether a feature is granted at all, but each user can additionally hide
+// a feature/tab they DO have on just their phone or just their PC (a display preference,
+// not an access grant). {featureKey: ['mobile'|'pc', ...]}. Falls back to {} until the
+// platform_hidden migration has been run - see schema.sql.
+let platformHidden = {};
 let displayName = '';
 // The calendar-month key "today" belongs to for budgeting purposes. Equal to the real
 // calendar month unless periodMode is 'paycycle', in which case it's the month after
@@ -2589,6 +2606,7 @@ async function loadEverything(){
       records: settingsRow.feature_records !== false,
       template: settingsRow.feature_template !== false,
     };
+    platformHidden = settingsRow.platform_hidden || {};
     displayName = settingsRow.display_name || '';
   }
   // A name entered at sign-up can't be saved until authUserId exists, which only
@@ -3058,17 +3076,71 @@ const FEATURE_COLUMNS = { tech:'feature_tech', grocery:'feature_grocery', monthl
 // odd one out: the feature/flag name is "records" but the actual view id is "other" (the
 // sidebar's own historical name for that tab).
 const FEATURE_NAV_VIEWS = { up:'up', dashboard:'dashboard', records:'other', template:'template' };
+// Whether an admin has granted this feature at all - separate from whether the CURRENT
+// user has additionally hidden it on this platform (see isFeatureVisibleNow below).
+function isFeatureGrantedNow(feature){
+  return feature === 'ballet' ? balletFeatureAvailable() : !!featureFlags[feature];
+}
+// The actual "should this be on screen right now" check - a feature must be both granted
+// (admin toggle, or self-toggle for tech/grocery/monthlycosts) AND not personally hidden
+// by this user on whichever platform they're currently on. Deliberately NOT used to gate
+// any data/calculation logic (e.g. renderTechRows' own featureFlags.tech check) - hiding a
+// tab on just your phone shouldn't stop it syncing to your template, only turning the
+// feature off entirely should.
+function isFeatureVisibleNow(feature){
+  if(!isFeatureGrantedNow(feature)) return false;
+  const hiddenOn = platformHidden[feature];
+  if(!hiddenOn || !hiddenOn.length) return true;
+  return !hiddenOn.includes(isMobilePagerActive() ? 'mobile' : 'pc');
+}
 function renderFeatureToggle(feature){
   const btn = document.querySelector(`.feature-toggle-switch[data-feature="${feature}"]`);
   if(btn) btn.classList.toggle('on', !!featureFlags[feature]);
   if(FEATURE_NAV_VIEWS[feature]){
     const navBtn = document.querySelector(`.side-icon[data-view="${FEATURE_NAV_VIEWS[feature]}"]`);
-    if(navBtn) navBtn.style.display = featureFlags[feature] ? '' : 'none';
+    if(navBtn) navBtn.style.display = isFeatureVisibleNow(feature) ? '' : 'none';
     return;
   }
   const cardEl = document.getElementById(FEATURE_CARD_IDS[feature]);
-  if(cardEl) cardEl.style.display = featureFlags[feature] ? '' : 'none';
+  if(cardEl) cardEl.style.display = isFeatureVisibleNow(feature) ? '' : 'none';
 }
+// Re-applies every feature's visibility - needed when the viewport crosses the mobile/
+// desktop breakpoint (isMobilePagerActive() changes) without a full reload, since
+// platform-hidden state depends on that, not just on featureFlags.
+function refreshAllFeatureVisibility(){
+  Object.keys(FEATURE_COLUMNS).forEach(renderFeatureToggle);
+  const balletCard = document.getElementById('balletRecordCard');
+  if(balletCard) balletCard.style.display = isFeatureVisibleNow('ballet') ? '' : 'none';
+  setupPagerViewPositions();
+  updatePagerPosition(false);
+}
+const FEATURE_LABELS = { tech:'Tech Replacement', grocery:'Groceries', monthlycosts:'Monthly Costs', ballet:'Flexible Tracker', up:'Up Bank', dashboard:'Dashboard', records:'Other Records', template:'Template' };
+// Lists only features you're currently granted (admin toggle or self-toggle) - hiding one
+// you don't have access to anyway would be a meaningless control to show.
+function renderPlatformVisRows(){
+  const container = document.getElementById('platformVisRows');
+  const features = Object.keys(FEATURE_LABELS).filter(isFeatureGrantedNow);
+  container.innerHTML = features.map(f => {
+    const hiddenOn = platformHidden[f] || [];
+    const mobileOn = !hiddenOn.includes('mobile');
+    const pcOn = !hiddenOn.includes('pc');
+    return `<div class="platform-vis-row"><span>${escapeAttr(FEATURE_LABELS[f])}</span><div class="platform-vis-btns">
+      <button class="platform-vis-btn${mobileOn?' on':''}" data-plat-vis="${f}:mobile" title="${mobileOn?'Showing':'Hidden'} on mobile — tap to ${mobileOn?'hide':'show'}">\u{1F4F1}</button>
+      <button class="platform-vis-btn${pcOn?' on':''}" data-plat-vis="${f}:pc" title="${pcOn?'Showing':'Hidden'} on PC — tap to ${pcOn?'hide':'show'}">\u{1F5A5}\u{FE0F}</button>
+    </div></div>`;
+  }).join('');
+}
+document.getElementById('platformVisRows').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-plat-vis]');
+  if(!btn) return;
+  const [feature, platform] = btn.dataset.platVis.split(':');
+  const hiddenOn = new Set(platformHidden[feature] || []);
+  if(hiddenOn.has(platform)) hiddenOn.delete(platform); else hiddenOn.add(platform);
+  platformHidden[feature] = [...hiddenOn];
+  db.saveSettings({ platform_hidden: platformHidden }).catch(()=>{});
+  renderPlatformVisRows();
+  refreshAllFeatureVisibility();
+});
 // Applies a feature flag change to the CURRENTLY LOADED session's live UI - shared by the
 // self-toggle switches (Account settings etc, always your own account) and the admin
 // Users-tab switches when an admin happens to toggle their own row. Anyone else's account
@@ -3077,6 +3149,7 @@ function renderFeatureToggle(feature){
 function applyLiveFeatureFlagChange(feature, newVal){
   featureFlags[feature] = newVal;
   renderFeatureToggle(feature);
+  renderPlatformVisRows();
   if(FEATURE_NAV_VIEWS[feature]){
     // A nav tab's button just appeared/disappeared - every later tab's pager position
     // shifts by one slot, so positions need recomputing regardless of which way this went.
@@ -5377,6 +5450,10 @@ function closeFloatingMenus(){
   document.querySelectorAll('.month-actions-gear.open').forEach(b => b.classList.remove('open'));
 }
 window.addEventListener('resize', () => { updateSideHighlight(); updatePagerPosition(false); closeFloatingMenus(); });
+// Platform-hidden visibility depends on isMobilePagerActive(), which can flip without a
+// full reload (resizing a desktop browser window, rotating/resizing in dev tools) - re-
+// apply it here rather than only on initial load.
+window.addEventListener('resize', refreshAllFeatureVisibility);
 document.addEventListener('click', (e) => {
   if(e.target.closest('.month-actions-panel, .month-actions-gear, .admin-search-inline')) return;
   closeFloatingMenus();
@@ -8344,7 +8421,7 @@ function renderBalletCardChrome(){
   const mtgCard = document.getElementById('mtgRecordCard');
   if(mtgCard) mtgCard.style.display = mtgFeatureAvailable() ? '' : 'none';
   if(!card) return;
-  card.style.display = balletFeatureAvailable() ? '' : 'none';
+  card.style.display = isFeatureVisibleNow('ballet') ? '' : 'none';
   if(!balletFeatureAvailable()) return;
   const generic = balletIsGenericForCurrentUser();
   card.querySelector('h2').innerHTML = generic
@@ -8608,6 +8685,7 @@ function populateAccountSettingsFields(){
   document.getElementById('acctError').textContent = '';
   document.getElementById('acctSuccess').textContent = '';
   renderAccountVerifyBadge();
+  renderPlatformVisRows();
   // Same "keep loaded, don't silently re-collapse an expanded card" idea as the Up tab's
   // own upTransactions.length check elsewhere - only fetch once per session, not on every
   // visit to Settings.

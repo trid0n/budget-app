@@ -42,6 +42,7 @@ create table if not exists public.user_settings (
   feature_dashboard    boolean not null default true,  -- Dashboard tab — admin-toggleable per user from the Users tab, default on
   feature_records      boolean not null default true,  -- Other Records tab — admin-toggleable per user from the Users tab, default on
   feature_template     boolean not null default true,  -- Template tab — admin-toggleable per user from the Users tab, default on
+  platform_hidden      jsonb not null default '{}'::jsonb,  -- self-service, NOT admin-controlled — {featureKey: ['mobile'|'pc', ...]} — which platforms each user has personally hidden a feature/tab on, layered on top of (not instead of) the feature_* grant above. See index.html's isFeatureVisibleNow().
   updated_at     timestamptz not null default now()
 );
 

@@ -67,6 +67,16 @@ The full migration (table + RLS policy) is in `supabase/schema.sql`. Until it's 
 `db.loadTransferRules()` fails and is caught (falls back to `{}` — see `loadEverything()`),
 so saver-transfer mapping silently does nothing rather than erroring.
 
+A third migration added a `platform_hidden` column to `user_settings` (self-service
+per-platform tab visibility — see feature history below). Check whether it's been run:
+
+```sql
+alter table public.user_settings add column if not exists platform_hidden jsonb not null default '{}'::jsonb;
+```
+
+Until it's applied, toggling a mobile/PC visibility switch in Account settings silently
+no-ops (same swallowed-upsert-error pattern as the other two above) rather than erroring.
+
 ## How to test changes (established pattern — use this, don't skip verification)
 
 This machine has **no `node`, `npm`, `gh`, or `supabase` CLI**. There's no way to syntax-check
@@ -202,10 +212,23 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
     generic/identical across every saver, so text can't tell them apart the way merchant
     rules do for normal spending.
 
+12. **Guessed-transaction exclude button**: guessed rows already had "?" (confirm) and "×"
+    (wrong guess — opens search) but no direct way to exclude one outright; added a third
+    "–" button wiring up the previously-dead `data-tx-exclude` click handler.
+13. **Auto-exclude covered transactions**: a reimbursed expense (matching "Cover from X"
+    transfer within 48h, same amount) now stays excluded even if it was already assigned
+    to an item — `autoApplyTxRules()` reverses the prior contribution and re-excludes it,
+    guarding against a real race where `refreshUpData()` can call this before `monthData`
+    exists yet (waits rather than excluding-without-reversing in that case).
+14. **Per-platform tab visibility**: each user can now hide a feature/tab they have access
+    to on just their phone or just their PC (`platformHidden`, self-service, layered on
+    top of — not instead of — the existing admin on/off grant) — see the `platform_hidden`
+    migration above and `isFeatureVisibleNow()`/`refreshAllFeatureVisibility()`.
+
 ## Known open items
 
-- **Verify both schema migrations were actually run** (see warning above): `period_mode`
-  on `user_settings`, and the newer `up_transfer_rules` table.
+- **Verify all three schema migrations were actually run** (see warning above):
+  `period_mode` and `platform_hidden` on `user_settings`, and the `up_transfer_rules` table.
 - The project-management **task list tool** (`TaskList`/`TaskCreate`) still has 18 stale
   entries from the original Supabase-migration project (all marked completed) — it hasn't
   been used for anything since. Fine to ignore, or worth clearing out and starting fresh
