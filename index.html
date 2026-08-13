@@ -837,7 +837,12 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-rule-target{color:var(--ink-faint); font-size:.78rem;}
 .tx-rule-del{flex-shrink:0; width:24px; height:24px; border-radius:50%; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-faint); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s, color .15s;}
 .tx-rule-del:hover{border-color:var(--debit); color:var(--debit);}
-.account-settings-box{max-width:380px;}
+.account-settings-box{max-width:380px; position:relative;}
+/* .panel-close-btn is display:none by default (only shown on the floating inline-source
+   panels at the mobile breakpoint - see that rule below) - this reuses its circular ×
+   styling but needs to always show here, not just under 680px, since the settings form
+   is long enough that the bottom "Close" button is often scrolled out of view. */
+.acct-exit-btn{display:flex !important;}
 .settings-form-content{max-width:420px;}
 .account-settings-box .auth-field{margin-top:14px; margin-bottom:0;}
 .acct-admin-subhdr{font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin:22px 0 8px;}
@@ -1782,7 +1787,9 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
   </div>
 </div>
 <div class="modal-overlay" id="accountSettingsOverlay">
-  <div class="modal-box account-settings-box" id="accountSettingsModalBox"></div>
+  <div class="modal-box account-settings-box" id="accountSettingsModalBox">
+    <button class="panel-close-btn acct-exit-btn" id="acctExitBtn" title="Close"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -8631,6 +8638,7 @@ function showAccountSettingsTab(){
   populateAccountSettingsFields();
 }
 document.getElementById('acctCloseBtn').addEventListener('click', closeAccountSettingsPopup);
+document.getElementById('acctExitBtn').addEventListener('click', closeAccountSettingsPopup);
 document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => { if(e.target.id === 'accountSettingsOverlay') closeAccountSettingsPopup(); });
 document.getElementById('acctLogoutBtn').addEventListener('click', performLogout);
 document.getElementById('acctResendVerifyBtn').addEventListener('click', async () => {
