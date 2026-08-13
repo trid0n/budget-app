@@ -442,11 +442,13 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .month-actions-panel{position:fixed; z-index:120; background:var(--surface); border:1px solid var(--rule); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.22); padding:8px; display:flex; flex-direction:column; align-items:stretch; gap:2px; min-width:200px; max-width:calc(100vw - 16px); max-height:min(420px, calc(100vh - 16px)); overflow-y:auto; opacity:0; pointer-events:none; transform:translateY(-6px); transition:opacity .15s ease, transform .15s ease; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
 .month-actions-panel.open{opacity:1; pointer-events:auto; transform:translateY(0);}
 .month-actions-panel .chip-btn, .month-actions-panel .timeframe-btn, .month-actions-panel .tf-toggle-btn{margin-left:0; width:100%; justify-content:flex-start; text-align:left; box-sizing:border-box;}
-/* #adminSearchPanel opens from inside the account/settings .modal-overlay (z-index:200),
-   but gets relocated to be a direct child of <body> (see the appendChild loop below) so
-   it isn't clipped by the modal's own layout - that makes it a sibling of .modal-overlay,
-   not a descendant, so it needs its own z-index above the modal or it paints underneath it. */
-#adminSearchPanel{z-index:210;}
+/* Unlike upTxSearchToggle/monthActionsToggle's dropdown panels, this search box expands
+   inline to the LEFT of its toggle button instead of dropping down below it - the "Manage
+   users" list sits directly underneath, and a dropdown there covered the first couple of
+   user rows. width:0->auto isn't transitionable, so animate to a fixed width instead. */
+.admin-search-inline{width:0; overflow:hidden; flex-shrink:0; transition:width .2s ease;}
+.admin-search-inline.open{width:220px;}
+.admin-search-inline .up-tx-search{margin-bottom:0; white-space:nowrap;}
 .tf-menu-sep{height:1px; background:var(--rule); margin:4px 0;}
 .tf-toggle-btn{background:var(--paper-dim); border:1px solid var(--rule); color:var(--ink-soft); font-family:'Inter',sans-serif; font-size:.8rem; font-weight:600; padding:7px 14px; border-radius:20px; cursor:pointer; transition:background-color .15s, color .15s, border-color .15s;}
 .tf-toggle-btn:hover{border-color:var(--gold); color:var(--gold);}
@@ -1721,10 +1723,10 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
           <div class="rec-body"><div class="rec-body-inner">
             <div class="up-tx-actions-row">
               <span style="flex:1;"></span>
+              <div class="admin-search-inline" id="adminSearchInline">
+                <input type="text" id="adminUserSearch" class="up-tx-search" placeholder="Search users by name or email...">
+              </div>
               <button class="mini-btn month-actions-gear" id="adminSearchToggle" title="Search"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></button>
-            </div>
-            <div class="month-actions-panel up-search-menu" id="adminSearchPanel">
-              <input type="text" id="adminUserSearch" class="up-tx-search" placeholder="Search users by name or email...">
             </div>
             <div id="adminUsersList"></div>
           </div></div>
@@ -3158,11 +3160,11 @@ document.getElementById('adminUserSearch').addEventListener('input', (e) => {
   renderAdminUsersList();
 });
 document.getElementById('adminSearchToggle').addEventListener('click', () => {
-  const panel = document.getElementById('adminSearchPanel');
+  const panel = document.getElementById('adminSearchInline');
   const btn = document.getElementById('adminSearchToggle');
   const open = !panel.classList.contains('open');
   closeFloatingMenus();
-  if(open){ positionFloatingMenu(panel, btn); panel.classList.add('open'); btn.classList.add('open'); document.getElementById('adminUserSearch').focus(); }
+  if(open){ panel.classList.add('open'); btn.classList.add('open'); document.getElementById('adminUserSearch').focus(); }
 });
 // Covers both #adminUsersList (everyone else, collapsible cards) and
 // #acctOwnAdminToggles (your own row, always expanded) - both live inside this shared
@@ -3800,7 +3802,7 @@ function positionFloatingMenu(panel, anchorEl){
 // the (currently slid-off-screen) track" instead. Relocating them to be direct children
 // of <body> once, up front, sidesteps that entirely - same fix already used elsewhere in
 // this file for #floatTip/#inlinePanelHost/.modal-overlay/.toast.
-['monthActionsPanel', 'upTxMorePanel', 'upTxSearchPanel', 'adminSearchPanel'].forEach(id => {
+['monthActionsPanel', 'upTxMorePanel', 'upTxSearchPanel'].forEach(id => {
   const el = document.getElementById(id);
   if(el) document.body.appendChild(el);
 });
@@ -5364,11 +5366,12 @@ document.querySelectorAll('.side-icon').forEach(btn => {
 });
 function closeFloatingMenus(){
   document.querySelectorAll('.month-actions-panel.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.admin-search-inline.open').forEach(p => p.classList.remove('open'));
   document.querySelectorAll('.month-actions-gear.open').forEach(b => b.classList.remove('open'));
 }
 window.addEventListener('resize', () => { updateSideHighlight(); updatePagerPosition(false); closeFloatingMenus(); });
 document.addEventListener('click', (e) => {
-  if(e.target.closest('.month-actions-panel, .month-actions-gear')) return;
+  if(e.target.closest('.month-actions-panel, .month-actions-gear, .admin-search-inline')) return;
   closeFloatingMenus();
 });
 // These are position:fixed and only ever positioned once, at the moment they're opened
@@ -5383,9 +5386,9 @@ document.addEventListener('click', (e) => {
 window.addEventListener('scroll', closeFloatingMenus, {passive:true, capture:true});
 // A phone keyboard's Done/checkmark/Go button on a plain text input dispatches this same
 // Enter keydown - covers every search box that lives inside one of these floating popups
-// (#upTxSearchPanel, #adminSearchPanel, any future one) without needing a listener per box.
+// (#upTxSearchPanel, #adminSearchInline, any future one) without needing a listener per box.
 document.addEventListener('keydown', (e) => {
-  if(e.key === 'Enter' && e.target.closest('.month-actions-panel')){
+  if(e.key === 'Enter' && e.target.closest('.month-actions-panel, .admin-search-inline')){
     e.target.blur();
     closeFloatingMenus();
   }
