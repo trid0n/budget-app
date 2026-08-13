@@ -137,9 +137,15 @@ header.mast.mast-empty{padding-bottom:0; margin-bottom:0; max-height:0; overflow
 .view.active{display:block;}
 
 /* month nav / picker (restyled, structure unchanged) */
-.month-nav{display:flex; align-items:center; gap:2px; background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:3px; box-shadow:var(--shadow);}
+/* Explicit height, box-sizing:border-box - same reasoning as the mobile override further
+   down (see its comment): letting this auto-size off the 34px .month-dropdown-btn plus
+   padding/border was fragile and left it a few px taller than #undoBtn/#jumpToCurrentMonthBtn
+   next to it in .top-right. Pinning it here is what keeps all three the same height. */
+.month-nav{display:flex; align-items:center; gap:2px; background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:3px; box-shadow:var(--shadow); height:42px; box-sizing:border-box;}
 .month-nav button.arrow{width:28px; height:28px; border:none; border-radius:7px; background:transparent; color:var(--ink); cursor:pointer; font-size:1rem; font-family:'Inter',sans-serif;}
 .month-nav button.arrow:hover{background:var(--paper-dim);}
+/* Matches .month-nav's own explicit height above exactly. */
+#undoBtn, #jumpToCurrentMonthBtn{height:42px; display:flex; align-items:center; justify-content:center; box-sizing:border-box;}
 .month-dropdown{position:relative;}
 /* height explicit, not left to auto - the button's only in-flow-relevant content is
    .month-label-track, which is itself position:absolute (needed so the three month slots
