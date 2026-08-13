@@ -2286,14 +2286,15 @@ function getTxsForItem(catId, itemId){
     const a = txAssignments[txId];
     if(a.excluded) continue;
     if(a.catId === catId && a.itemId === itemId && a.monthKey === settings.currentMonth){
-      // An assignment whose stored month disagrees with the transaction's own date is the
-      // signature of a bug that used to attribute every rule-matched transaction to
-      // whichever month was open (see autoApplyTxRules) - a year of monthly saver
-      // transfers all landing on one month's item. Those are filtered out here so the
-      // panel shows what genuinely belongs to this month, which also makes its "Set to
-      // $X" button offer the right corrected total. Assignments with no stored date at
-      // all are kept - there's nothing to judge them by.
-      if(a.date && dateToKey(new Date(a.date)) !== a.monthKey) continue;
+      // Deliberately NOT filtering on the transaction's own date matching monthKey. That
+      // check was here to hide the wreckage of a bug that attributed every rule-matched
+      // transaction to whichever month happened to be open (see autoApplyTxRules, which
+      // now refuses to do that at source, so no new mismatches get created). But an older
+      // transaction assigned to this month ON PURPOSE has exactly that shape too, and
+      // hiding it left the item in a state that contradicted itself: the amount counted
+      // the transaction while the panel, the paperclip badge and "Set to $X" all acted as
+      // though it didn't exist. Listing whatever actually contributes to the amount is
+      // both honest and fixable by hand; silently omitting it wasn't.
       results.push({txId, desc: a.desc || a.itemName, date: a.date, amt: a.txAmt});
     }
   }
@@ -6514,6 +6515,35 @@ function renderPayCycleRow(){
 // it, then finally on amount - the cleaned digits/decimal-point of the term against the
 // transaction's absolute value formatted to cents, so "45" or "$45.50" both find a $45.50
 // transaction without requiring an exact full-amount match.
+// The single definition of "which transactions are on screen right now" - the rendered
+// list AND the saver-batch detection both read it, so they can never disagree. They used
+// to: the batch was computed straight off raw upTransactions, so with the incoming-only
+// filter on (or a search, or a pay-cycle range) the banner still counted outgoing saver
+// transfers that weren't rendered, and offered to cross off rows you couldn't see. The
+// batch's adjacency rule is positional too, so it has to be measured over the same rows.
+function visibleUpTransactions(){
+  const term = upTxSearchTerm.trim().toLowerCase();
+  let filtered = term ? upTransactions.filter(t => txMatchesSearchTerm(t, term)) : upTransactions;
+  // Hide the incoming "Cover from X" transfer as its own row — the cost transaction
+  // it covers already shows a cover icon, so listing both was just the same money
+  // shown twice (once as -, once as +).
+  filtered = filtered.filter(t => !isCoverTransferTx(t));
+  if(upIncomeFilterActive) filtered = filtered.filter(t => parseFloat(t.attributes.amount.value) > 0);
+  if(upPayCycleFilter){
+    const occurrences = getIncomeSourceOccurrences();
+    if(upPayCycleFilter === 'since' && occurrences.length >= 1){
+      const sinceTime = occurrences[0];
+      filtered = filtered.filter(t => new Date(t.attributes.createdAt).getTime() >= sinceTime);
+    } else if(upPayCycleFilter === 'between' && occurrences.length >= 2){
+      const mostRecent = occurrences[0], secondMostRecent = occurrences[1];
+      filtered = filtered.filter(t => {
+        const time = new Date(t.attributes.createdAt).getTime();
+        return time >= secondMostRecent && time < mostRecent;
+      });
+    }
+  }
+  return filtered;
+}
 function txMatchesSearchTerm(t, term){
   const descLower = (t.attributes.description||'').toLowerCase();
   if(descLower.includes(term)) return true;
@@ -6541,25 +6571,7 @@ function renderUpTxList(){
   recomputeEffectivePeriod();
   if(todaysEffectiveMonthKey !== prevEffectiveMonthKey && monthData) updateSummary();
   const term = upTxSearchTerm.trim().toLowerCase();
-  let filtered = term ? upTransactions.filter(t => txMatchesSearchTerm(t, term)) : upTransactions;
-  // Hide the incoming "Cover from X" transfer as its own row — the cost transaction
-  // it covers already shows a cover icon, so listing both was just the same money
-  // shown twice (once as -, once as +).
-  filtered = filtered.filter(t => !isCoverTransferTx(t));
-  if(upIncomeFilterActive) filtered = filtered.filter(t => parseFloat(t.attributes.amount.value) > 0);
-  if(upPayCycleFilter){
-    const occurrences = getIncomeSourceOccurrences();
-    if(upPayCycleFilter === 'since' && occurrences.length >= 1){
-      const sinceTime = occurrences[0];
-      filtered = filtered.filter(t => new Date(t.attributes.createdAt).getTime() >= sinceTime);
-    } else if(upPayCycleFilter === 'between' && occurrences.length >= 2){
-      const mostRecent = occurrences[0], secondMostRecent = occurrences[1];
-      filtered = filtered.filter(t => {
-        const time = new Date(t.attributes.createdAt).getTime();
-        return time >= secondMostRecent && time < mostRecent;
-      });
-    }
-  }
+  const filtered = visibleUpTransactions();
   const listEl = document.getElementById('upTxList');
   // Assigning/excluding a transaction re-renders this whole list, and replacing innerHTML
   // resets scrollTop to 0 - which threw you back to the top every time you categorised
@@ -7521,10 +7533,11 @@ function isTransferAlreadySettled(txId, target, batchIds){
 // those, and says so rather than silently doing nothing.
 function transferBatchCandidates(){
   if(!monthData) return [];
-  // Positions are taken over the transactions that actually RENDER as rows, not raw
-  // upTransactions - a hidden "Cover from X" row (see isCoverTransferTx) would otherwise
-  // count as something sitting between two transfers that are visibly adjacent.
-  const visible = upTransactions.filter(t => !isCoverTransferTx(t));
+  // Positions are taken over the transactions that actually RENDER as rows (search and
+  // filters included - see visibleUpTransactions), not raw upTransactions: a hidden row
+  // would otherwise count as something sitting between two transfers that are visibly
+  // adjacent, and a filter that hides the batch entirely would still have it offered here.
+  const visible = visibleUpTransactions();
   const candidates = [];
   visible.forEach((t, idx) => {
     if(!canJoinTransferGroup(t)) return;
