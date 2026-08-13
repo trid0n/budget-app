@@ -64,16 +64,6 @@ html{scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper); overflow-y:
    LIGHT palette - even in dark mode, because the theme class lives on <body> (a
    descendant). That's why the page scrollbar stayed pale on a dark page. */
 html:has(body.dark){scrollbar-color:#2A2E38 #12141A;}
-/* scrollbar-width/scrollbar-color are the standard properties but Chromium only honoured
-   them from v121; before that (and this app had no ::-webkit-scrollbar rules at all) every
-   scrollable area fell back to the chunky default light OS scrollbar, which is what made
-   them look wrong on a dark page. These mirror the same intent for WebKit/Blink so both
-   engines land in the same place. */
-::-webkit-scrollbar{width:8px; height:8px;}
-::-webkit-scrollbar-track{background:var(--paper-dim);}
-::-webkit-scrollbar-thumb{background:var(--rule); border-radius:4px;}
-::-webkit-scrollbar-thumb:hover{background:var(--ink-faint);}
-::-webkit-scrollbar-corner{background:transparent;}
 /* Without this, scrolling past the top/bottom of the page hands off to the browser's own
    native rubber-band bounce - which on a page with a position:sticky sidebar can detach
    the sidebar and reveal blank background above/below it (the "darker blue" gap). Also a
@@ -792,9 +782,6 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
    all still work; only the chrome is gone. */
 .up-tx-list{border:1px solid var(--rule); border-radius:10px; overflow:hidden; max-height:420px; overflow-y:auto; scrollbar-width:none; -ms-overflow-style:none;}
 .up-tx-list::-webkit-scrollbar{width:0; height:0;}
-.up-tx-list::-webkit-scrollbar{width:8px;}
-.up-tx-list::-webkit-scrollbar-track{background:var(--paper-dim); border-radius:8px;}
-.up-tx-list::-webkit-scrollbar-thumb{background:var(--rule); border-radius:8px;}
 .up-tx-loadmore-row{display:flex; justify-content:center; margin-top:10px;}
 .up-tx-month-hdr{display:flex; align-items:baseline; justify-content:space-between; padding:12px 14px 6px; font-size:.78rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); background:var(--paper-dim);}
 .up-tx-date-hdr{padding:8px 14px 2px; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint);}
