@@ -436,6 +436,11 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .month-actions-panel{position:fixed; z-index:120; background:var(--surface); border:1px solid var(--rule); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.22); padding:8px; display:flex; flex-direction:column; align-items:stretch; gap:2px; min-width:200px; max-width:calc(100vw - 16px); max-height:min(420px, calc(100vh - 16px)); overflow-y:auto; opacity:0; pointer-events:none; transform:translateY(-6px); transition:opacity .15s ease, transform .15s ease; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
 .month-actions-panel.open{opacity:1; pointer-events:auto; transform:translateY(0);}
 .month-actions-panel .chip-btn, .month-actions-panel .timeframe-btn, .month-actions-panel .tf-toggle-btn{margin-left:0; width:100%; justify-content:flex-start; text-align:left; box-sizing:border-box;}
+/* #adminSearchPanel opens from inside the account/settings .modal-overlay (z-index:200),
+   but gets relocated to be a direct child of <body> (see the appendChild loop below) so
+   it isn't clipped by the modal's own layout - that makes it a sibling of .modal-overlay,
+   not a descendant, so it needs its own z-index above the modal or it paints underneath it. */
+#adminSearchPanel{z-index:210;}
 .tf-menu-sep{height:1px; background:var(--rule); margin:4px 0;}
 .tf-toggle-btn{background:var(--paper-dim); border:1px solid var(--rule); color:var(--ink-soft); font-family:'Inter',sans-serif; font-size:.8rem; font-weight:600; padding:7px 14px; border-radius:20px; cursor:pointer; transition:background-color .15s, color .15s, border-color .15s;}
 .tf-toggle-btn:hover{border-color:var(--gold); color:var(--gold);}
