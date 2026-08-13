@@ -1789,8 +1789,10 @@ try{
         <div id="platformVisRows"></div>
         <div class="auth-error" id="acctError"></div>
         <div class="acct-success" id="acctSuccess"></div>
+        <!-- No "Close" button here - the × in the modal's top corner (see .acct-exit-btn)
+             already closes it, and on the phone this same content is a real tab with
+             nothing to close at all. -->
         <div class="modal-actions">
-          <button class="mini-btn" id="acctCloseBtn">Close</button>
           <button class="mini-btn gold" id="acctSaveBtn">Save changes</button>
         </div>
         <!-- Admin-only: manage everyone else - what used to be the standalone Users tab,
@@ -7675,6 +7677,24 @@ function sizeUpTxList(){
   list.scrollTop = prevScrollTop;
 }
 window.addEventListener('resize', sizeUpTxList);
+// Everything below the list is what decides how much room the list may have, and those
+// pieces arrive/change at times this code doesn't control - the savers grid lands with an
+// async /accounts fetch and rewraps to more rows as savers are added, the status row and
+// income chip appear once a token resolves, the transfer banner comes and goes. Any
+// sizeUpTxList() call that ran before one of those grew leaves a list that's too tall and
+// a page that scrolls. Rather than trying to hook every one of those moments (the approach
+// that kept missing one), watch the elements themselves and re-cap whenever their height
+// actually changes. No feedback loop: sizeUpTxList only ever changes the LIST's height,
+// which moves these elements without resizing them, so it can't retrigger this.
+function observeUpLayoutShifts(){
+  if(!window.ResizeObserver) return;
+  const observer = new ResizeObserver(() => sizeUpTxList());
+  ['upStatusRow', 'upMeta', 'upAccounts', 'txGroupBanner'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) observer.observe(el);
+  });
+}
+observeUpLayoutShifts();
 // Draws one continuous draggable rail per contiguous run of eligible rows (walking every
 // rendered transaction row in order - a run breaks only where an INeligible row sits
 // between two eligible ones, not at date-group boundaries within the mobile view). Each
@@ -8986,7 +9006,6 @@ function populateAccountSettingsFields(){
 // opening it here reparents the one real content node into the modal box first.
 function openAccountSettingsPopup(){
   document.getElementById('accountSettingsModalBox').appendChild(document.getElementById('settingsFormContent'));
-  document.getElementById('acctCloseBtn').style.display = '';
   populateAccountSettingsFields();
   document.getElementById('accountSettingsOverlay').classList.add('show');
 }
@@ -8998,10 +9017,8 @@ function closeAccountSettingsPopup(){
 }
 function showAccountSettingsTab(){
   document.getElementById('view-settings').appendChild(document.getElementById('settingsFormContent'));
-  document.getElementById('acctCloseBtn').style.display = 'none';
   populateAccountSettingsFields();
 }
-document.getElementById('acctCloseBtn').addEventListener('click', closeAccountSettingsPopup);
 document.getElementById('acctExitBtn').addEventListener('click', closeAccountSettingsPopup);
 document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => { if(e.target.id === 'accountSettingsOverlay') closeAccountSettingsPopup(); });
 document.getElementById('acctLogoutBtn').addEventListener('click', performLogout);
