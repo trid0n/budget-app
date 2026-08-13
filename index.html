@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Household Ledger</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23161A22'/%3E%3Crect x='4.6' y='2.4' width='14.8' height='3.4' rx='1.6' fill='%237FA8F0'/%3E%3Cpath d='M4.6 6.6h14.8v11.9a3.2 3.2 0 0 1-3.2 3.2H7.8a3.2 3.2 0 0 1-3.2-3.2Z' fill='%234F7FE8'/%3E%3Ccircle cx='12' cy='14' r='5.6' fill='%23161A22'/%3E%3Ccircle cx='12' cy='14' r='4.6' fill='%23E8B44F'/%3E%3Cline x1='12' y1='10.5' x2='12' y2='17.5' stroke='%23161A22' stroke-width='1.9' stroke-linecap='round'/%3E%3Cpath d='M13.8 12.4c0-.8-.8-1.2-1.8-1.2s-1.8.4-1.8 1.2.8 1.1 1.8 1.4 1.8.6 1.8 1.4-.8 1.2-1.8 1.2-1.8-.4-1.8-1.2' fill='none' stroke='%23161A22' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<!-- Simple line-art jar with a dollar sign. Stroke-only on a transparent ground (no tile),
+     in the accent blue - light enough to hold up on a dark browser tab strip, dark enough
+     on a light one. Checked at 16px by rendering to a canvas and upscaling. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236F93E8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6.5h12v11.5a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3Z' stroke-width='2'/%3E%3Cline x1='6' y1='6.5' x2='18' y2='6.5' stroke-width='2'/%3E%3Cline x1='8.5' y1='3.5' x2='15.5' y2='3.5' stroke-width='2'/%3E%3Cline x1='12' y1='10' x2='12' y2='18.6' stroke-width='1.8'/%3E%3Cpath d='M14 12.2c0-.9-.9-1.5-2-1.5s-2 .6-2 1.5.9 1.3 2 1.7 2 .8 2 1.7-.9 1.5-2 1.5-2-.6-2-1.5' stroke-width='1.8'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -57,6 +60,20 @@ input[type=number]{-moz-appearance:textfield;}
    reserves the space unconditionally, so `auto` keeps the no-layout-shift-between-tabs
    behaviour that `scroll` was there for, without the dead track. */
 html{scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper); overflow-y:auto; overflow-x:hidden; scrollbar-gutter:stable; overscroll-behavior:none;}
+/* The rule above sits on <html>, so its var() lookups resolve against :root - i.e. the
+   LIGHT palette - even in dark mode, because the theme class lives on <body> (a
+   descendant). That's why the page scrollbar stayed pale on a dark page. */
+html:has(body.dark){scrollbar-color:#2A2E38 #12141A;}
+/* scrollbar-width/scrollbar-color are the standard properties but Chromium only honoured
+   them from v121; before that (and this app had no ::-webkit-scrollbar rules at all) every
+   scrollable area fell back to the chunky default light OS scrollbar, which is what made
+   them look wrong on a dark page. These mirror the same intent for WebKit/Blink so both
+   engines land in the same place. */
+::-webkit-scrollbar{width:8px; height:8px;}
+::-webkit-scrollbar-track{background:var(--paper-dim);}
+::-webkit-scrollbar-thumb{background:var(--rule); border-radius:4px;}
+::-webkit-scrollbar-thumb:hover{background:var(--ink-faint);}
+::-webkit-scrollbar-corner{background:transparent;}
 /* Without this, scrolling past the top/bottom of the page hands off to the browser's own
    native rubber-band bounce - which on a page with a position:sticky sidebar can detach
    the sidebar and reveal blank background above/below it (the "darker blue" gap). Also a
@@ -91,12 +108,11 @@ body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sa
    of this sidebar (see its own comment further down), just applied to desktop too now. */
 .sidebar{width:210px; background:#1C2230; flex-shrink:0; display:flex; flex-direction:column; padding:20px 14px; gap:4px; position:fixed; top:0; left:0; height:100vh; overscroll-behavior:none;}
 .sidebar .brand{display:flex; align-items:center; gap:10px; padding:0 8px 20px; color:#fff; font-weight:800; font-size:1.05rem;}
-/* No background/padding of its own - the mark IS the favicon artwork (which carries its
-   own dark rounded-square tile), drawn at the full 28px. An earlier version inset a
-   smaller monochrome jar into a solid --gold tile, which at 28px collapsed into an
-   unreadable white blob with the dollar sign invisible - verified by rendering both to a
-   canvas at true 28/20px and upscaling, the same check used to pick the favicon itself. */
-.sidebar .brand .mark{width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+/* Line art in the accent colour, no tile behind it - earlier versions packed a filled jar
+   (and then a filled jar inside a coloured tile) into 28px, where it collapsed into an
+   unreadable blob with the dollar sign invisible. Simple strokes survive that size, which
+   is why this and the favicon are now the same outline drawing. */
+.sidebar .brand .mark{width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--gold);}
 .sidebar .side-icon{display:flex; align-items:center; gap:12px; width:100%; padding:10px 12px; border-radius:9px; color:#8B93A5; font-size:.88rem; font-weight:600; cursor:pointer; background:none; border:none; text-align:left;}
 .sidebar .side-icon .ic{font-size:1rem; width:18px; text-align:center; flex-shrink:0;}
 .sidebar .side-icon{position:relative; z-index:1;}
@@ -770,7 +786,12 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .up-tx-search-clear{position:absolute; top:0; bottom:10px; right:2px; display:flex; align-items:center; justify-content:center; width:26px; border:none; background:none; color:var(--ink-faint); cursor:pointer; padding:0;}
 .up-tx-search-clear:hover{color:var(--ink);}
 .up-tx-search:focus{outline:none; border-color:var(--gold); background:var(--surface);}
-.up-tx-list{border:1px solid var(--rule); border-radius:10px; overflow:hidden; max-height:420px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
+/* Scrollbar deliberately hidden rather than themed - the list is sized to fill the tab
+   (see sizeUpTxList) so a visible scrollbar chrome on it is just noise, and the Up tab is
+   meant to read as having no scrollbars at all. Wheel/trackpad/touch/keyboard scrolling
+   all still work; only the chrome is gone. */
+.up-tx-list{border:1px solid var(--rule); border-radius:10px; overflow:hidden; max-height:420px; overflow-y:auto; scrollbar-width:none; -ms-overflow-style:none;}
+.up-tx-list::-webkit-scrollbar{width:0; height:0;}
 .up-tx-list::-webkit-scrollbar{width:8px;}
 .up-tx-list::-webkit-scrollbar-track{background:var(--paper-dim); border-radius:8px;}
 .up-tx-list::-webkit-scrollbar-thumb{background:var(--rule); border-radius:8px;}
@@ -1328,9 +1349,9 @@ try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('d
 </div>
 <div class="app-shell">
   <div class="sidebar">
-    <!-- Same artwork as the favicon, deliberately - one design, and it's already been
-         checked for legibility down to 16px. See .sidebar .brand .mark's CSS comment. -->
-    <div class="brand"><span class="mark"><svg width="28" height="28" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#161A22"/><rect x="4.6" y="2.4" width="14.8" height="3.4" rx="1.6" fill="#7FA8F0"/><path d="M4.6 6.6h14.8v11.9a3.2 3.2 0 0 1-3.2 3.2H7.8a3.2 3.2 0 0 1-3.2-3.2Z" fill="#4F7FE8"/><circle cx="12" cy="14" r="5.6" fill="#161A22"/><circle cx="12" cy="14" r="4.6" fill="#E8B44F"/><line x1="12" y1="10.5" x2="12" y2="17.5" stroke="#161A22" stroke-width="1.9" stroke-linecap="round"/><path d="M13.8 12.4c0-.8-.8-1.2-1.8-1.2s-1.8.4-1.8 1.2.8 1.1 1.8 1.4 1.8.6 1.8 1.4-.8 1.2-1.8 1.2-1.8-.4-1.8-1.2" fill="none" stroke="#161A22" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Budget</div>
+    <!-- Same line art as the favicon, deliberately - one design, already checked at 16px.
+         currentColor so it picks up the accent via .mark's own color. -->
+    <div class="brand"><span class="mark"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6.5h12v11.5a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3Z" stroke-width="2"/><line x1="6" y1="6.5" x2="18" y2="6.5" stroke-width="2"/><line x1="8.5" y1="3.5" x2="15.5" y2="3.5" stroke-width="2"/><line x1="12" y1="10" x2="12" y2="18.6" stroke-width="1.8"/><path d="M14 12.2c0-.9-.9-1.5-2-1.5s-2 .6-2 1.5.9 1.3 2 1.7 2 .8 2 1.7-.9 1.5-2 1.5-2-.6-2-1.5" stroke-width="1.8"/></svg></span>Budget</div>
     <div class="side-highlight" id="sideHighlight"></div>
     <button class="side-icon active" data-view="ledger" title="Budget"><span class="ic">◆</span>Budget</button>
     <button class="side-icon" data-view="up" id="upNavBtn" title="Up Bank"><span class="ic">▲</span>Up</button>
