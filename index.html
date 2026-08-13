@@ -493,6 +493,10 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tx-group-banner-text{font-weight:600;}
 .tx-group-banner .mini-btn:disabled{opacity:.45; cursor:not-allowed;}
 .up-tx-row.tx-group-highlight, .up-tx-row2.tx-group-highlight{background:color-mix(in srgb, var(--gold) 10%, var(--surface));}
+/* Ctrl/Cmd-click multi-selection - inset box-shadow instead of a real border so it doesn't
+   shift the row's own box/padding. Teal rather than gold specifically to avoid reading as
+   "part of this month's transfer batch" (the highlight directly above this one). */
+.up-tx-row.tx-selected, .up-tx-row2.tx-selected{background:var(--teal-bg); box-shadow:inset 3px 0 0 var(--teal);}
 /* A distinct badge for a transfer that WOULD be auto-excluded (no mapping existed yet)
    but resolves to a target via this month's group detection - showing the ordinary grey
    "Excluded" badge right next to a gold "part of this group" highlight read as
@@ -6143,6 +6147,15 @@ async function upFetch(path){
   return res.json();
 }
 let upTransactions = [];
+// Ctrl/Cmd-click a transaction row to build a multi-selection - the next assign/confirm/
+// exclude action performed on one of these applies the same outcome to all of them. See
+// applyBulkAssignIfSelected and the exclude handler in the #upTxList click listener.
+let selectedTxIds = new Set();
+function updateTxSelectionVisuals(){
+  document.querySelectorAll('[data-tx-row-id]').forEach(row => {
+    row.classList.toggle('tx-selected', selectedTxIds.has(row.dataset.txRowId));
+  });
+}
 // Up's API should always return attributes.amount on every transaction resource, but
 // this app has no control over what comes back over the wire - guarding the ingestion
 // points once here means every downstream t.attributes.amount.value read (there are
@@ -6464,6 +6477,7 @@ function renderUpTxList(){
   // inlinePanelPositionLoop's own requestAnimationFrame loop elsewhere in this file.
   // Sizing runs first so the rail measures rows against the list's final height.
   requestAnimationFrame(() => { sizeUpTxList(); renderTransferGroupRail(); });
+  updateTxSelectionVisuals();
 }
 // Small status button covering all four assignment states (excluded/assigned/guessed/
 // unassigned) - carries whichever data-tx-* attributes the existing delegated click
@@ -6918,22 +6932,58 @@ function applyTxAmountToItem(catId, item, txAmt){
   const existingTotal = getTxsForItem(catId, item.id).reduce((s,t) => s + (Number(t.amt)||0), 0);
   item.amount = Math.round((existingTotal + amt) * 100) / 100;
 }
-function completeTxAssignment(catId, itemId, itemName){
-  if(!txAssignCurrent || !monthData) return;
+// Core single-transaction exclude, shared by the plain exclude button and its bulk-select
+// caller below - reverses any prior contribution to an item before marking it excluded,
+// same as the assign-side helpers.
+function excludeTx(txId){
+  const wasAssigned = txAssignments[txId] && !txAssignments[txId].excluded;
+  if(wasAssigned) reverseTxAssignmentIfSameMonth(txId);
+  txAssignments[txId] = {monthKey: settings.currentMonth, excluded: true};
+}
+// Core single-transaction assignment, shared by completeTxAssignment (search modal) and
+// confirmTxGuess (tap-to-confirm) - factored out so both can also drive
+// applyBulkAssignIfSelected below without duplicating the reverse+apply+record sequence.
+function assignTxToItem(txId, amt, desc, date, catId, itemId, itemName){
+  reverseTxAssignmentIfSameMonth(txId);
   const cat = findCatById(catId);
   const item = cat && cat.items.find(i=>i.id===itemId);
-  if(!item) return;
+  if(!item) return false;
+  applyTxAmountToItem(catId, item, amt);
+  const merchantKey = extractMerchantKey(desc, amt);
+  txAssignments[txId] = {monthKey: settings.currentMonth, catId, itemId, itemName, categoryName: cat.name, merchantKey, txAmt: Math.abs(amt), desc, date};
+  return true;
+}
+// Ctrl/Cmd-click a transaction row to add it to selectedTxIds (see the #upTxList click
+// listener) - if the transaction being acted on right now is part of a multi-selection,
+// applies the exact same assignment to every OTHER selected transaction too, regardless
+// of what each one's own amount/description/guess is. Only fires for an actual multi-
+// selection (size > 1) so a single Ctrl-click by itself doesn't change normal behavior.
+function applyBulkAssignIfSelected(primaryTxId, catId, itemId, itemName){
+  if(!selectedTxIds.has(primaryTxId) || selectedTxIds.size <= 1) return 0;
+  let count = 0;
+  selectedTxIds.forEach(id => {
+    if(id === primaryTxId) return;
+    const t = upTransactions.find(tx => tx.id === id);
+    if(!t) return;
+    const amt = parseFloat(t.attributes.amount.value);
+    if(assignTxToItem(id, amt, t.attributes.description, t.attributes.createdAt, catId, itemId, itemName)) count++;
+  });
+  return count;
+}
+function completeTxAssignment(catId, itemId, itemName){
+  if(!txAssignCurrent || !monthData) return;
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
-  reverseTxAssignmentIfSameMonth(txAssignCurrent.id);
-  applyTxAmountToItem(catId, item, txAssignCurrent.amt);
+  if(!assignTxToItem(txAssignCurrent.id, txAssignCurrent.amt, txAssignCurrent.desc, txAssignCurrent.date, catId, itemId, itemName)) return;
+  const cat = findCatById(catId);
+  const bulkCount = applyBulkAssignIfSelected(txAssignCurrent.id, catId, itemId, itemName);
   const merchantKey = extractMerchantKey(txAssignCurrent.desc, txAssignCurrent.amt);
-  txAssignments[txAssignCurrent.id] = {monthKey: settings.currentMonth, catId, itemId, itemName, categoryName: cat.name, merchantKey, txAmt: Math.abs(txAssignCurrent.amt), desc: txAssignCurrent.desc, date: txAssignCurrent.date};
   saveTxAssignments();
   scheduleSave();
   renderGroups(); updateSummary(); renderUpTxList();
-  toast(`Added ${money(Math.abs(txAssignCurrent.amt))} to "${itemName}"`);
+  toast(bulkCount ? `Added "${itemName}" to ${bulkCount+1} transactions` : `Added ${money(Math.abs(txAssignCurrent.amt))} to "${itemName}"`);
   const txId = txAssignCurrent.id, desc = txAssignCurrent.desc, transferAccountId = txAssignCurrent.transferAccountId;
   closeTxAssignModal();
+  if(bulkCount) selectedTxIds.clear();
   if(transferAccountId) maybeShowTransferRememberPopup(txId, transferAccountId, cat.name, itemName);
   else maybeShowRememberPopup(txId, merchantKey, desc, cat.name, itemName);
 }
@@ -7204,17 +7254,18 @@ document.body.addEventListener('click', (e) => {
 document.getElementById('txAssignExcludeBtn').addEventListener('click', () => {
   if(!txAssignCurrent) return;
   const txId = txAssignCurrent.id;
-  const wasAssigned = txAssignments[txId] && !txAssignments[txId].excluded;
-  if(wasAssigned && monthData){
-    pushUndo('month', monthData, {monthKey: settings.currentMonth});
-    reverseTxAssignmentIfSameMonth(txId);
-    scheduleSave();
-    renderGroups(); updateSummary();
+  if(monthData) pushUndo('month', monthData, {monthKey: settings.currentMonth});
+  excludeTx(txId);
+  let bulkCount = 0;
+  if(selectedTxIds.has(txId) && selectedTxIds.size > 1){
+    selectedTxIds.forEach(id => { if(id !== txId){ excludeTx(id); bulkCount++; } });
+    selectedTxIds.clear();
   }
-  txAssignments[txId] = {monthKey: settings.currentMonth, excluded: true};
+  scheduleSave();
+  renderGroups(); updateSummary();
   saveTxAssignments();
   renderUpTxList();
-  toast('Transaction excluded');
+  toast(bulkCount ? `Excluded ${bulkCount+1} transactions` : 'Transaction excluded');
   closeTxAssignModal();
 });
 document.getElementById('txAssignOverlay').addEventListener('click', (e) => { if(e.target.id === 'txAssignOverlay') closeTxAssignModal(); });
@@ -7223,14 +7274,14 @@ function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date, t
   const found = findCatItemByName(categoryName, itemName);
   if(!found){ toast(`Couldn\u2019t find "${itemName}" in this month \u2014 assign manually instead`); openTxAssignModal(txId, amt, desc, date, transferAccountId); return; }
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
-  reverseTxAssignmentIfSameMonth(txId);
-  applyTxAmountToItem(found.cat.id, found.item, amt);
+  if(!assignTxToItem(txId, amt, desc, date, found.cat.id, found.item.id, found.item.name)) return;
+  const bulkCount = applyBulkAssignIfSelected(txId, found.cat.id, found.item.id, found.item.name);
   const merchantKey = extractMerchantKey(desc, amt);
-  txAssignments[txId] = {monthKey: settings.currentMonth, catId: found.cat.id, itemId: found.item.id, itemName: found.item.name, categoryName: found.cat.name, merchantKey, txAmt: Math.abs(Number(amt)), desc, date};
   saveTxAssignments();
   scheduleSave();
   renderGroups(); updateSummary(); renderUpTxList();
-  toast(`Confirmed — added ${money(Math.abs(Number(amt)))} to "${found.item.name}".`);
+  toast(bulkCount ? `Confirmed "${found.item.name}" for ${bulkCount+1} transactions` : `Confirmed — added ${money(Math.abs(Number(amt)))} to "${found.item.name}".`);
+  if(bulkCount) selectedTxIds.clear();
   if(transferAccountId){
     // A transfer's merchant key is generic/identical across every saver (see
     // up_transfer_rules) - remembering it as a merchant rule here would misapply to
@@ -7714,6 +7765,19 @@ document.getElementById('transferRulesList').addEventListener('click', (e) => {
   renderTransferRulesList();
 });
 document.getElementById('upTxList').addEventListener('click', (e) => {
+  // Ctrl/Cmd-click anywhere on a row toggles it into the multi-selection instead of
+  // performing whatever that spot would normally do (assign/exclude/view note/etc) -
+  // takes priority over every other handler below.
+  if(e.ctrlKey || e.metaKey){
+    const selRow = e.target.closest('[data-tx-row-id]');
+    if(selRow){
+      e.preventDefault();
+      const id = selRow.dataset.txRowId;
+      if(selectedTxIds.has(id)) selectedTxIds.delete(id); else selectedTxIds.add(id);
+      updateTxSelectionVisuals();
+      return;
+    }
+  }
   const groupToggle = e.target.closest('[data-tx-group-toggle]');
   if(groupToggle){
     transferGroupExcluded.add(groupToggle.dataset.txGroupToggle);
@@ -7750,16 +7814,18 @@ document.getElementById('upTxList').addEventListener('click', (e) => {
   const excludeBtn = e.target.closest('[data-tx-exclude]');
   if(excludeBtn){
     const txId = excludeBtn.dataset.txExclude;
-    const wasAssigned = txAssignments[txId] && !txAssignments[txId].excluded;
-    if(wasAssigned && monthData){
-      pushUndo('month', monthData, {monthKey: settings.currentMonth});
-      reverseTxAssignmentIfSameMonth(txId);
-      scheduleSave();
-      renderGroups(); updateSummary();
+    if(monthData) pushUndo('month', monthData, {monthKey: settings.currentMonth});
+    excludeTx(txId);
+    let bulkCount = 0;
+    if(selectedTxIds.has(txId) && selectedTxIds.size > 1){
+      selectedTxIds.forEach(id => { if(id !== txId){ excludeTx(id); bulkCount++; } });
+      selectedTxIds.clear();
     }
-    txAssignments[txId] = {monthKey: settings.currentMonth, excluded: true};
+    scheduleSave();
+    renderGroups(); updateSummary();
     saveTxAssignments();
     renderUpTxList();
+    if(bulkCount) toast(`Excluded ${bulkCount+1} transactions`);
     return;
   }
   const unexcludeBtn = e.target.closest('[data-tx-unexclude]');
