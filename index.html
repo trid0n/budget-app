@@ -288,7 +288,10 @@ input.name-input:hover, input.name-input:focus{outline:none;}
 .mover-amts{font-size:.74rem; color:var(--ink-faint); font-variant-numeric:tabular-nums;}
 .mover-empty{padding:20px 4px; color:var(--ink-faint); font-size:.85rem; text-align:center;}
 .price-change-ind{display:flex; flex-direction:column; align-items:center; gap:2px; cursor:default; font-weight:700; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:4; pointer-events:auto;}
-.tx-link-badge{position:absolute; right:135px; top:50%; transform:translateY(-50%); z-index:4; display:flex; align-items:center; color:var(--ink-faint); background:none; border:none; padding:2px; cursor:pointer; opacity:.6; transition:opacity .15s, color .15s;}
+/* Sits just clear of the amount column's left edge (56px buttons + 110px amount = 166px,
+   plus a little breathing room). Any change to those two column widths has to move this
+   with them - it's positioned from the row's right edge, not placed in the grid. */
+.tx-link-badge{position:absolute; right:186px; top:50%; transform:translateY(-50%); z-index:4; display:flex; align-items:center; color:var(--ink-faint); background:none; border:none; padding:2px; cursor:pointer; opacity:.6; transition:opacity .15s, color .15s;}
 .tx-link-badge:hover{opacity:1; color:var(--gold);}
 .tx-link-badge.open{opacity:1; color:var(--gold);}
 /* Small dot, not a loud badge - just enough to notice on a pass over the list that an
@@ -333,16 +336,22 @@ input.amt-input{width:100%; border:none; background:transparent; padding:5px 7px
 input.amt-input:focus{cursor:text;}
 .amt-wrap.plain input.amt-input{padding-left:7px;}
 input.amt-input:hover, input.amt-input:focus{outline:none;}
-.del-cell{text-align:center; flex-shrink:0; display:flex; align-items:center; justify-content:center; gap:2px;}
+/* flex-end, not centre: the restore arrow only appears on rows whose amount differs from
+   the template, and centring made the delete button slide sideways depending on whether
+   its neighbour was there. Anchoring to the right keeps delete in one place down the
+   column and lets the arrow appear to its left. */
+.del-cell{text-align:center; flex-shrink:0; display:flex; align-items:center; justify-content:flex-end; gap:6px;}
 .del-cell button{opacity:1; transition:color .1s;}
 .del-cell button{background:none; border:none; color:var(--ink-faint); cursor:pointer; border-radius:7px; width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; position:relative; overflow:hidden; z-index:0;}
 .del-cell button::before{content:''; position:absolute; inset:0; background:var(--debit); border-radius:50%; transform:scale(0); transition:transform .28s cubic-bezier(.4,0,.2,1); z-index:-1;}
-/* Not destructive like the delete button next to it - same hover-fill mechanic, gold
-   instead of the debit red so it doesn't read as "this deletes something too". */
-.item-menu-toggle::before{background:var(--gold);}
-.item-menu-toggle{font-size:1rem; font-weight:700;}
 .del-cell button:hover{color:#fff;}
 .del-cell button:hover::before{transform:scale(1.6);}
+/* Not destructive like the delete button beside it, so it deliberately skips that
+   button's expanding red fill and just turns blue - a filled circle here read as another
+   "this removes something" control. Overrides both of the .del-cell rules above. */
+.item-menu-toggle{font-size:1rem; font-weight:700;}
+.item-menu-toggle::before{display:none;}
+.del-cell button.item-menu-toggle:hover{color:var(--gold); background:var(--gold-bg);}
 .rtable-del{background:none; border:none; color:var(--ink-faint); cursor:pointer; border-radius:7px; width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; position:relative; overflow:hidden; z-index:0; margin:0 auto;}
 .grocery-name-cell{display:flex; align-items:center; gap:6px;}
 .breakdown-toggle{background:none; border:none; color:var(--ink-faint); cursor:pointer; padding:2px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:transform .18s ease, color .15s;}
@@ -375,7 +384,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .thead div{text-align:right;} .thead div:first-child{text-align:left;}
 .group{background:var(--surface); border:1px solid var(--rule); border-left:4px solid var(--cat-color, var(--gold)); border-radius:10px; margin-bottom:12px; overflow:hidden; box-shadow:var(--shadow);}
 .group:last-child{margin-bottom:0;}
-.grow{display:grid; grid-template-columns:24px 1fr 95px 56px; padding:0; align-items:center; background:var(--paper-dim); font-weight:700; font-size:.86rem; border-bottom:1px solid var(--rule); border-left:3px solid transparent; transition:background-color .15s, border-left-color .15s; cursor:pointer; user-select:none;}
+.grow{display:grid; grid-template-columns:24px 1fr 110px 66px; padding:0; align-items:center; background:var(--paper-dim); font-weight:700; font-size:.86rem; border-bottom:1px solid var(--rule); border-left:3px solid transparent; transition:background-color .15s, border-left-color .15s; cursor:pointer; user-select:none;}
 .grow .gcell{cursor:pointer;}
 .grow-name{display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer; min-width:0; position:relative;}
 .grip-handle{display:flex; align-items:center; justify-content:center; color:var(--ink-faint); cursor:grab; flex-shrink:0; padding:10px 2px 10px 10px; opacity:.5; transition:opacity .15s; touch-action:none;}
@@ -418,7 +427,10 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .income-card.collapsed .income-body{grid-template-rows:0fr;}
 .income-body-inner{overflow:hidden; min-height:0;}
 .group-body-inner{overflow:hidden; min-height:0;}
-.lrow.leaf{display:grid; grid-template-columns:18px 1fr 95px 56px; padding:0; align-items:center; cursor:pointer; position:relative; user-select:none;}
+/* The amount column is 110px to match .amt-wrap's own width - at the old 95px the amount
+   box overflowed its column and sat on top of the buttons in the next one, which is what
+   made the restore arrow look jammed against it. */
+.lrow.leaf{display:grid; grid-template-columns:18px 1fr 110px 66px; padding:0; align-items:center; cursor:pointer; position:relative; user-select:none;}
 .lrow.leaf .grip-handle{padding:8px 0 8px 10px; opacity:0;}
 .lrow.leaf:hover .grip-handle{opacity:.6;}
 .lrow.leaf.dragging{opacity:.4;}
@@ -473,7 +485,12 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .tf-toggle-btn{background:var(--paper-dim); border:1px solid var(--rule); color:var(--ink-soft); font-family:'Inter',sans-serif; font-size:.8rem; font-weight:600; padding:7px 14px; border-radius:20px; cursor:pointer; transition:background-color .15s, color .15s, border-color .15s;}
 .tf-toggle-btn:hover{border-color:var(--gold); color:var(--gold);}
 .tf-toggle-btn.active{background:var(--gold); border-color:var(--gold); color:#fff;}
-.period-mode-group{display:flex; align-items:center; gap:6px; flex-shrink:0;}
+/* position:relative so its [data-tip]::before anchors its top:100% to THIS element rather
+   than to whatever positioned ancestor it would otherwise find - inside Account settings
+   that was .account-settings-box, putting the (invisible) tooltip a full modal-height
+   below and giving the modal 65px of phantom scroll. Third instance of this in the file;
+   see .mini-btn and .tf-toggle-btn for the others. */
+.period-mode-group{display:flex; align-items:center; gap:6px; flex-shrink:0; position:relative;}
 .ledger-top-toggle-row{display:flex; justify-content:center; margin-bottom:14px;}
 .month-actions-gear{flex-shrink:0;}
 .up-refresh-btn{flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;}
@@ -623,14 +640,11 @@ html:has(.modal-overlay.show){overflow:hidden;}
   .assign-card .amt{font-size:1.8rem;}
   .progress-card, .summary-mini, .notes-box{height:170px;}
   .thead{grid-template-columns:1fr 140px 34px;}
-  .lrow.leaf{grid-template-columns:18px 1fr 140px 60px;}
-  .grow{grid-template-columns:24px 1fr 140px 60px;}
-  /* The amount+delete columns widen to 174px here (140+34), but .tx-link-badge's own
-     right offset is measured from the row's right edge - left at its narrow-screen 135px
-     it ended up INSIDE the amount cell, sitting on top of .tpl-source-link (which anchors
-     to that cell's left edge) whenever an item had both linked transactions and a template
-     source. Keep the same ~10px clearance past the cell that the default layout has. */
-  .tx-link-badge{right:184px;}
+  .lrow.leaf{grid-template-columns:18px 1fr 140px 70px;}
+  .grow{grid-template-columns:24px 1fr 140px 70px;}
+  /* Same reasoning as the base rule: clear of the amount column's left edge, which here is
+     200px in from the right (60px buttons + 140px amount). */
+  .tx-link-badge{right:220px;}
   .thead{padding:13px 22px;}
   .grow div.gcell, .grow-name{padding:13px 22px;}
   .grow .del-cell{padding:13px 6px;}
@@ -882,6 +896,20 @@ html:has(.modal-overlay.show){overflow:hidden;}
    to match the rest of the app (scrolling itself still works normally). */
 .account-settings-box{max-width:380px; position:relative; max-height:calc(100vh - 32px); overflow-y:auto; scrollbar-width:none; -ms-overflow-style:none;}
 .account-settings-box::-webkit-scrollbar{width:0; height:0;}
+.acct-cols{display:grid; grid-template-columns:1fr; gap:0;}
+/* Two columns, and a much wider box to hold them, once the viewport can spare the width.
+   Keyed off the VIEWPORT rather than the box because the box's own width is what's being
+   changed here. Everything below the columns (Manage users, Log out) stays full-width. */
+@media (min-width:1100px){
+  .account-settings-box{max-width:780px;}
+  /* .settings-form-content is capped at 420px so the phone TAB version doesn't stretch to
+     a silly line length - that cap has to come off here or the two columns just squeeze
+     into the same 420px and nothing is gained. */
+  .account-settings-box .settings-form-content{max-width:none;}
+  .account-settings-box .acct-cols{grid-template-columns:1fr 1fr; gap:0 30px; align-items:start;}
+  /* First heading in a column has no preceding field to space it away from. */
+  .account-settings-box .acct-subhdr-flush{margin-top:0;}
+}
 /* .panel-close-btn is display:none by default (only shown on the floating inline-source
    panels at the mobile breakpoint - see that rule below) - this reuses its circular ×
    styling but needs to always show here, not just under 680px, since the settings form
@@ -893,7 +921,7 @@ html:has(.modal-overlay.show){overflow:hidden;}
 /* Label on its own line, the 4-way segmented control gets the FULL row width on the
    line below - a single mutually-exclusive control (both/phone/pc/off) reads better
    wide and shallow than squeezed onto one line next to a variable-length feature name. */
-.platform-vis-row{display:flex; flex-direction:column; gap:6px; padding:10px 0; border-top:1px solid var(--rule); font-size:.85rem; color:var(--ink-soft);}
+.platform-vis-row{display:flex; flex-direction:column; gap:4px; padding:6px 0; border-top:1px solid var(--rule); font-size:.85rem; color:var(--ink-soft);}
 .platform-vis-seg{display:flex; gap:4px;}
 .pvs-btn{flex:1; border-radius:14px; border:1px solid var(--rule); background:var(--paper-dim); color:var(--ink-soft); font-family:'Inter',sans-serif; font-size:.72rem; font-weight:600; padding:6px 2px; cursor:pointer; text-align:center; transition:background-color .15s, color .15s, border-color .15s;}
 .pvs-btn.active{background:var(--gold); border-color:var(--gold); color:#fff;}
@@ -1766,49 +1794,62 @@ try{
     <div class="view" id="view-settings">
       <div class="settings-form-content" id="settingsFormContent">
         <h2>Account settings</h2>
-        <label class="auth-field">Your name<input type="text" id="acctNameInput" placeholder="Add your name" maxlength="60" autocomplete="name"></label>
-        <label class="auth-field">Email<input type="email" id="acctEmailInput" autocomplete="email"></label>
-        <div class="acct-verify-row" id="acctVerifyRow">
-          <span class="acct-verify-badge" id="acctVerifyBadge"></span>
-          <button type="button" class="mini-btn" id="acctResendVerifyBtn" style="display:none;">Resend verification email</button>
-        </div>
-        <label class="auth-field">New password<input type="password" id="acctNewPassword" autocomplete="new-password" minlength="6" placeholder="Leave blank to keep current password"></label>
-        <h3 class="acct-admin-subhdr">Budgeting period</h3>
-        <div class="ledger-top-toggle-row">
-          <div class="period-mode-group" id="periodModeGroup" data-tip="Calendar month resets on the 1st. Pay cycle rolls the current month over as soon as your linked Up Bank income lands, even mid-month.">
-            <button class="timeframe-btn period-mode-btn" data-period-mode="calendar">Calendar month</button>
-            <button class="timeframe-btn period-mode-btn" data-period-mode="paycycle">Pay cycle</button>
-          </div>
-        </div>
-        <!-- One control per feature covering both questions at once: whether it's on at
-             all, and which platforms it shows on. This replaced a pair of sections (an
-             on/off switch list and a separate per-platform list) that split one decision
-             across two places - see renderPlatformVisRows(). Rows stay listed when set to
-             Off, otherwise there'd be no way to turn one back on. -->
-        <h3 class="acct-admin-subhdr">Tabs &amp; features</h3>
-        <div id="platformVisRows"></div>
-        <div class="auth-error" id="acctError"></div>
-        <div class="acct-success" id="acctSuccess"></div>
-        <!-- No "Close" button here - the × in the modal's top corner (see .acct-exit-btn)
-             already closes it, and on the phone this same content is a real tab with
-             nothing to close at all. -->
-        <div class="modal-actions">
-          <button class="mini-btn gold" id="acctSaveBtn">Save changes</button>
-        </div>
-        <!-- Admin-only: manage everyone else - what used to be the standalone Users tab,
-             now a collapsible section here instead. -->
-        <div class="rec-card collapsible" id="manageUsersCard" style="display:none;">
-          <div class="rec-summary" data-rec-toggle><h2>Manage users</h2></div>
-          <div class="rec-body"><div class="rec-body-inner">
-            <div class="up-tx-actions-row">
-              <span style="flex:1;"></span>
-              <div class="admin-search-inline" id="adminSearchInline">
-                <input type="text" id="adminUserSearch" class="up-tx-search" placeholder="Search users by name or email...">
-              </div>
-              <button class="mini-btn month-actions-gear" id="adminSearchToggle" title="Search"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></button>
+        <!-- Two columns once there's room (see .acct-cols): the form is tall enough that
+             on a wide screen it was scrolling inside the modal despite acres of free
+             horizontal space either side of it. Single column on narrow screens and on
+             the phone tab, where they'd be far too cramped. -->
+        <div class="acct-cols">
+          <div class="acct-col">
+            <label class="auth-field">Your name<input type="text" id="acctNameInput" placeholder="Add your name" maxlength="60" autocomplete="name"></label>
+            <label class="auth-field">Email<input type="email" id="acctEmailInput" autocomplete="email"></label>
+            <div class="acct-verify-row" id="acctVerifyRow">
+              <span class="acct-verify-badge" id="acctVerifyBadge"></span>
+              <button type="button" class="mini-btn" id="acctResendVerifyBtn" style="display:none;">Resend verification email</button>
             </div>
-            <div id="adminUsersList"></div>
-          </div></div>
+            <label class="auth-field">New password<input type="password" id="acctNewPassword" autocomplete="new-password" minlength="6" placeholder="Leave blank to keep current password"></label>
+            <h3 class="acct-admin-subhdr">Budgeting period</h3>
+            <div class="ledger-top-toggle-row">
+              <div class="period-mode-group" id="periodModeGroup" data-tip="Calendar month resets on the 1st. Pay cycle rolls the current month over as soon as your linked Up Bank income lands, even mid-month.">
+                <button class="timeframe-btn period-mode-btn" data-period-mode="calendar">Calendar month</button>
+                <button class="timeframe-btn period-mode-btn" data-period-mode="paycycle">Pay cycle</button>
+              </div>
+            </div>
+            <div class="auth-error" id="acctError"></div>
+            <div class="acct-success" id="acctSuccess"></div>
+            <!-- Hidden unless the email or password field is actually dirty - see
+                 refreshAcctSaveBtnVisibility(). Your name saves itself as you type; these
+                 two can't, since each keystroke would mean emailing a confirmation to a
+                 half-typed address or setting the password to a partial string. -->
+            <div class="modal-actions" id="acctSaveRow" style="display:none;">
+              <button class="mini-btn gold" id="acctSaveBtn">Update email / password</button>
+            </div>
+            <!-- Admin-only: manage everyone else - what used to be the standalone Users tab,
+                 now a collapsible section here instead. Lives in this column rather than
+                 below both because the feature list opposite is much the taller of the two,
+                 and stacking this underneath them pushed the modal into scrolling again. -->
+            <div class="rec-card collapsible" id="manageUsersCard" style="display:none;">
+              <div class="rec-summary" data-rec-toggle><h2>Manage users</h2></div>
+              <div class="rec-body"><div class="rec-body-inner">
+                <div class="up-tx-actions-row">
+                  <span style="flex:1;"></span>
+                  <div class="admin-search-inline" id="adminSearchInline">
+                    <input type="text" id="adminUserSearch" class="up-tx-search" placeholder="Search users by name or email...">
+                  </div>
+                  <button class="mini-btn month-actions-gear" id="adminSearchToggle" title="Search"><span class="btn-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></button>
+                </div>
+                <div id="adminUsersList"></div>
+              </div></div>
+            </div>
+          </div>
+          <div class="acct-col">
+            <!-- One control per feature covering both questions at once: whether it's on at
+                 all, and which platforms it shows on. This replaced a pair of sections (an
+                 on/off switch list and a separate per-platform list) that split one decision
+                 across two places - see renderPlatformVisRows(). Rows stay listed when set to
+                 Off, otherwise there'd be no way to turn one back on. -->
+            <h3 class="acct-admin-subhdr acct-subhdr-flush">Tabs &amp; features</h3>
+            <div id="platformVisRows"></div>
+          </div>
         </div>
         <div class="acct-logout-row"><button type="button" id="acctLogoutBtn" class="mini-btn">Log out</button></div>
       </div>
@@ -3747,7 +3788,7 @@ function leafRowHtml(catId, item){
     ${txBadge}
     <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. rent" value="${escapeAttr(item.name)}" data-cat="${catId}" data-item="${item.id}" data-field="name"></div>
     <div class="gcell">${linkBtn}<div class="amt-wrap"><span class="sign"></span><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-cat="${catId}" data-item="${item.id}" data-field="amount" ${locked?'readonly':''}></div></div>
-    <div class="del-cell"><button data-item-menu-toggle="${catId}:${item.id}" class="item-menu-toggle month-actions-gear" title="More options">›</button><button data-cat="${catId}" data-item="${item.id}" class="item-del" title="Remove">${X_SVG}</button></div>
+    <div class="del-cell">${canRestoreItemToTemplate(catId, item) ? `<button data-item-menu-toggle="${catId}:${item.id}" class="item-menu-toggle month-actions-gear" title="More options">›</button>` : ''}<button data-cat="${catId}" data-item="${item.id}" class="item-del" title="Remove">${X_SVG}</button></div>
   </div>`;
 }
 // The item-level "..." menu currently has one action (restore-to-template) - shared
@@ -3782,27 +3823,40 @@ document.getElementById('itemRowMenuRestore').addEventListener('click', () => {
 // directly: that function silently no-ops on a past month (by design, so ambient source
 // edits don't retroactively rewrite history) but an explicit "restore" click here should
 // still work as a deliberate one-off correction even when viewing a past month.
+// What this item's amount WOULD be if taken fresh from the template, or null when the
+// template has nothing to say about it (no matching item, so nothing to restore to).
+// Deliberately side-effect free and cache-only - leafRowHtml calls it for every row on
+// every render to decide whether the restore control is worth showing at all, so it must
+// not write to the DOM or re-sync the template the way updateTechTotal() does.
+function templateAmountForItem(catId, item){
+  if(!monthData || !item) return null;
+  const source = tplSourceFor(item.name);
+  const totalDays = daysInMonth(settings.currentMonth);
+  const remaining = daysRemainingInMonth(settings.currentMonth);
+  const apportion = full => totalDays > 0 ? Math.round((full/totalDays)*remaining*100)/100 : Math.round(full*100)/100;
+  if(source === 'tech') return Math.round(cachedTechMonthlyTotal*100)/100;
+  if(source === 'grocery') return apportion(cachedGroceryMonthlyTotal);
+  if(source === 'ballet') return Math.round(cachedBalletMonthlyAmount*100)/100;
+  if(source === 'monthlycost') return apportion(getMonthlyCostFor(item.name));
+  const cat = catId === 'income' ? null : monthData.categories.find(c => c.id === catId);
+  const tplCat = monthTemplate && cat && monthTemplate.categories.find(c => (c.name||'').trim().toLowerCase() === (cat.name||'').trim().toLowerCase());
+  const tplItem = tplCat && tplCat.items.find(i => (i.name||'').trim().toLowerCase() === (item.name||'').trim().toLowerCase());
+  return tplItem ? Math.round((Number(tplItem.amount)||0)*100)/100 : null;
+}
+// True only when restoring would actually change something - the control is hidden
+// otherwise rather than offering a no-op (and then having to explain via a toast that
+// there was nothing to do).
+function canRestoreItemToTemplate(catId, item){
+  const tplAmount = templateAmountForItem(catId, item);
+  return tplAmount !== null && tplAmount !== (Number(item.amount)||0);
+}
 function restoreItemToTemplate(catId, itemId){
   if(!monthData) return;
   const list = findList(catId);
   const item = list && list.find(i => i.id === itemId);
   if(!item) return;
-  const source = tplSourceFor(item.name);
-  const totalDays = daysInMonth(settings.currentMonth);
-  const remaining = daysRemainingInMonth(settings.currentMonth);
-  const apportion = full => totalDays > 0 ? Math.round((full/totalDays)*remaining*100)/100 : Math.round(full*100)/100;
-  let newAmount;
-  if(source === 'tech') newAmount = Math.round(updateTechTotal()*100)/100;
-  else if(source === 'grocery') newAmount = apportion(cachedGroceryMonthlyTotal);
-  else if(source === 'ballet') newAmount = Math.round(cachedBalletMonthlyAmount*100)/100;
-  else if(source === 'monthlycost') newAmount = apportion(getMonthlyCostFor(item.name));
-  else {
-    const cat = monthData.categories.find(c => c.id === catId);
-    const tplCat = monthTemplate && cat && monthTemplate.categories.find(c => (c.name||'').trim().toLowerCase() === (cat.name||'').trim().toLowerCase());
-    const tplItem = tplCat && tplCat.items.find(i => (i.name||'').trim().toLowerCase() === (item.name||'').trim().toLowerCase());
-    if(!tplItem){ toast('This item isn’t in your template'); return; }
-    newAmount = Math.round((Number(tplItem.amount)||0)*100)/100;
-  }
+  const newAmount = templateAmountForItem(catId, item);
+  if(newAmount === null){ toast('This item isn’t in your template'); return; }
   if(newAmount === (Number(item.amount)||0)){ toast('Already matches the template'); return; }
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
   item.amount = newAmount;
@@ -8496,6 +8550,10 @@ function updateTechTotal(){
   });
   document.getElementById('techMonthlyTotal').textContent = money(total);
   syncTechToTemplate(total);
+  // Cached so templateAmountForItem() can read it without calling this - that function
+  // runs per row on every ledger render, and this one writes to the DOM and re-syncs the
+  // template on the way past.
+  cachedTechMonthlyTotal = total;
   return total;
 }
 function addTechRow(){ pushUndo('tech', techItems); techItems.push({id:uid('tech'), name:'', cost:0, lifespan:0}); renderTechRows(); saveTech(); focusLastInput('techRows'); }
@@ -8578,6 +8636,7 @@ function renderGroceryRows(){
   updateAllRtableNameWidths();
 }
 let cachedGroceryMonthlyTotal = 0;
+let cachedTechMonthlyTotal = 0;
 function renderOtherRecordsBudgetSummary(){
   const el = document.getElementById('orSummaryBar');
   if(!el || !settings.currentMonth) return;
@@ -9004,6 +9063,7 @@ function populateAccountSettingsFields(){
   document.getElementById('acctError').textContent = '';
   document.getElementById('acctSuccess').textContent = '';
   renderAccountVerifyBadge();
+  refreshAcctSaveBtnVisibility();
   renderPlatformVisRows();
   // Same "keep loaded, don't silently re-collapse an expanded card" idea as the Up tab's
   // own upTransactions.length check elsewhere - only fetch once per session, not on every
@@ -9045,22 +9105,44 @@ document.getElementById('acctResendVerifyBtn').addEventListener('click', async (
     successEl.textContent = 'Verification email sent — check your inbox.';
   }catch(err){ errEl.textContent = err.message || 'Couldn’t send that — try again shortly.'; }
 });
+// Your name is an ordinary setting, so it just saves itself shortly after you stop typing
+// - no button involved. Email and password deliberately don't work this way: each
+// keystroke would mean firing a confirmation email at a half-typed address, or setting the
+// account password to whatever prefix you'd reached. Those two keep an explicit action,
+// which stays hidden until one of them is actually dirty.
+let acctNameSaveTimer = null;
+document.getElementById('acctNameInput').addEventListener('input', () => {
+  clearTimeout(acctNameSaveTimer);
+  acctNameSaveTimer = setTimeout(async () => {
+    const newName = document.getElementById('acctNameInput').value.trim();
+    if(newName === displayName) return;
+    try{
+      await db.saveSettings({ display_name: newName || null });
+      displayName = newName;
+      document.getElementById('acctError').textContent = '';
+      document.getElementById('acctSuccess').textContent = 'Name saved.';
+    }catch(err){
+      document.getElementById('acctError').textContent = err.message || 'Couldn’t save your name.';
+    }
+  }, 700);
+});
+function refreshAcctSaveBtnVisibility(){
+  const emailDirty = document.getElementById('acctEmailInput').value.trim() !== (authUserEmail||'');
+  const passwordDirty = !!document.getElementById('acctNewPassword').value;
+  document.getElementById('acctSaveRow').style.display = (emailDirty || passwordDirty) ? '' : 'none';
+}
+document.getElementById('acctEmailInput').addEventListener('input', refreshAcctSaveBtnVisibility);
+document.getElementById('acctNewPassword').addEventListener('input', refreshAcctSaveBtnVisibility);
 document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   const errEl = document.getElementById('acctError');
   const successEl = document.getElementById('acctSuccess');
   errEl.textContent = ''; successEl.textContent = '';
-  const newName = document.getElementById('acctNameInput').value.trim();
   const newEmail = document.getElementById('acctEmailInput').value.trim();
   const newPassword = document.getElementById('acctNewPassword').value;
   const btn = document.getElementById('acctSaveBtn');
   btn.disabled = true;
   const messages = [];
   try{
-    if(newName !== displayName){
-      await db.saveSettings({ display_name: newName || null });
-      displayName = newName;
-      messages.push('Name updated.');
-    }
     if(newEmail && newEmail !== authUserEmail){
       const { error } = await sb.auth.updateUser({ email: newEmail });
       if(error) throw error;
@@ -9078,6 +9160,7 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
     errEl.textContent = err.message || 'Something went wrong.';
   }finally{
     btn.disabled = false;
+    refreshAcctSaveBtnVisibility();
   }
 });
 
