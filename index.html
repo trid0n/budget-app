@@ -4,10 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Household Ledger</title>
-<!-- Simple line-art jar with a dollar sign. Stroke-only on a transparent ground (no tile),
-     in the accent blue - light enough to hold up on a dark browser tab strip, dark enough
-     on a light one. Checked at 16px by rendering to a canvas and upscaling. -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236F93E8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6.5h12v11.5a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3Z' stroke-width='2'/%3E%3Cline x1='6' y1='6.5' x2='18' y2='6.5' stroke-width='2'/%3E%3Cline x1='8.5' y1='3.5' x2='15.5' y2='3.5' stroke-width='2'/%3E%3Cline x1='12' y1='10' x2='12' y2='18.6' stroke-width='1.8'/%3E%3Cpath d='M14 12.2c0-.9-.9-1.5-2-1.5s-2 .6-2 1.5.9 1.3 2 1.7 2 .8 2 1.7-.9 1.5-2 1.5-2-.6-2-1.5' stroke-width='1.8'/%3E%3C/svg%3E">
+<!-- A coin in thin strokes, on a transparent ground (no tile), in the accent blue - light
+     enough for a dark browser tab strip, dark enough for a light one. Same artwork as the
+     sidebar mark. Verified at 16px by rendering to a canvas and upscaling: the jar this
+     replaced had too many strokes to survive that size, and heavier ones to compensate. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236F93E8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.6' stroke-width='1.5'/%3E%3Cline x1='12' y1='7.4' x2='12' y2='16.6' stroke-width='1.4'/%3E%3Cpath d='M14.1 9.9c0-.95-.95-1.6-2.1-1.6s-2.1.65-2.1 1.6.95 1.45 2.1 1.9 2.1.95 2.1 1.9-.95 1.6-2.1 1.6-2.1-.65-2.1-1.6' stroke-width='1.4'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -1407,7 +1408,7 @@ try{
   <div class="sidebar">
     <!-- Same line art as the favicon, deliberately - one design, already checked at 16px.
          currentColor so it picks up the accent via .mark's own color. -->
-    <div class="brand"><span class="mark"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6.5h12v11.5a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3Z" stroke-width="2"/><line x1="6" y1="6.5" x2="18" y2="6.5" stroke-width="2"/><line x1="8.5" y1="3.5" x2="15.5" y2="3.5" stroke-width="2"/><line x1="12" y1="10" x2="12" y2="18.6" stroke-width="1.8"/><path d="M14 12.2c0-.9-.9-1.5-2-1.5s-2 .6-2 1.5.9 1.3 2 1.7 2 .8 2 1.7-.9 1.5-2 1.5-2-.6-2-1.5" stroke-width="1.8"/></svg></span>Budget</div>
+    <div class="brand"><span class="mark"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6" stroke-width="1.5"/><line x1="12" y1="7.4" x2="12" y2="16.6" stroke-width="1.4"/><path d="M14.1 9.9c0-.95-.95-1.6-2.1-1.6s-2.1.65-2.1 1.6.95 1.45 2.1 1.9 2.1.95 2.1 1.9-.95 1.6-2.1 1.6-2.1-.65-2.1-1.6" stroke-width="1.4"/></svg></span>Budget</div>
     <div class="side-highlight" id="sideHighlight"></div>
     <button class="side-icon active" data-view="ledger" title="Budget"><span class="ic">◆</span>Budget</button>
     <button class="side-icon" data-view="up" id="upNavBtn" title="Up Bank"><span class="ic">▲</span>Up</button>
@@ -5361,8 +5362,17 @@ document.getElementById('clearMonthBtn').addEventListener('click', async () => {
   const ok = await customConfirm(`Clear all data for ${monthLabel(settings.currentMonth)}? This removes every category, amount, and note you've entered for this month. You can undo this with Ctrl+Z right after.`);
   if(!ok) return;
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
+  // Back to the same "No entries yet" state an untouched month starts in, rather than a
+  // blank-but-present ledger of empty categories - clearing a month should leave it looking
+  // like a month you've never opened, with the same Start blank / template choices.
+  // monthData is nulled so isPastMonth/renderGroups callers treat it as absent, and the
+  // stored row is emptied so a reload doesn't bring the shell back.
   monthData = blankMonth();
-  renderLedger(); updateSummary(); scheduleSave();
+  scheduleSave();
+  monthData = null;
+  showEmptyState();
+  updateSummary();
+  refreshInsertDropdowns();
   toast('Month cleared');
 });
 document.getElementById('useAsTemplateBtn').addEventListener('click', async () => {
@@ -8372,8 +8382,16 @@ async function renderBiggestMovers(){
     </div>`;
   }).join('');
 }
+// Months that have actually happened. A future month exists as soon as you look at one and
+// give it a template, but its "savings" are a projection, not something saved - counting it
+// inflated the total, the average and the months-tracked figure, and drew a bar for a month
+// that hasn't been lived yet. Filtered BEFORE the timeframe slice, so "last 3 months" means
+// the last three real ones rather than three slots partly spent in the future.
+function historicMonthKeys(){
+  return existingMonths.slice().sort().filter(k => k <= todaysEffectiveMonthKey);
+}
 async function renderDashboard(){
-  let keys = existingMonths.slice().sort();
+  let keys = historicMonthKeys();
   if(dashboardTimeframe !== 'all'){
     const n = Number(dashboardTimeframe);
     keys = keys.slice(-n);
@@ -8597,7 +8615,7 @@ document.getElementById('insightGrid').addEventListener('mouseout', (e) => {
 });
 async function renderInsights(){
   const grid = document.getElementById('insightGrid');
-  let keys = existingMonths.slice().sort();
+  let keys = historicMonthKeys();   // same "no future months" rule as the dashboard
   if(insightsTimeframe !== 'all'){
     const n = Number(insightsTimeframe);
     keys = keys.slice(-n);
