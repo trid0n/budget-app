@@ -43,6 +43,7 @@ create table if not exists public.user_settings (
   feature_records      boolean not null default true,  -- Other Records tab — admin-toggleable per user from the Users tab, default on
   feature_template     boolean not null default true,  -- Template tab — admin-toggleable per user from the Users tab, default on
   platform_hidden      jsonb not null default '{}'::jsonb,  -- self-service, NOT admin-controlled — {featureKey: ['mobile'|'pc', ...]} — which platforms each user has personally hidden a feature/tab on, layered on top of (not instead of) the feature_* grant above. See index.html's isFeatureVisibleNow().
+  saver_order          jsonb not null default '[]'::jsonb,  -- Up Bank saver account ids in the order the user dragged their chips into on the Up tab. Anything absent sorts after these by balance (highest first), which is also the default for an empty array. See index.html's sortSaversForDisplay().
   updated_at     timestamptz not null default now()
 );
 
@@ -142,7 +143,8 @@ create table if not exists public.mtg_rows (
   item              text not null default '',
   date_bought       text,  -- free text, not a real date — source data is notes like "April 3-11*, some bought on 3rd..."
   cost              numeric not null default 0,
-  expected_revenue  numeric not null default 0,
+  expected_revenue  numeric not null default 0,  -- an estimate only; profit is NOT based on this
+  actual_revenue    numeric,  -- nullable on purpose: null means "not sold yet" (left out of revenue entirely), which is a different thing from a real 0. Profit and the totals run off this — see index.html's updateMtgTotals()
   sort_order        int not null default 0
 );
 

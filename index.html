@@ -789,6 +789,11 @@ html:has(.modal-overlay.show){overflow:hidden;}
 .up-account-chip{background:var(--paper-dim); border:1px solid var(--rule); border-radius:10px; padding:10px 12px; position:relative;}
 .up-account-chip.clickable{cursor:pointer; transition:border-color .15s;}
 .up-account-chip.clickable:hover{border-color:var(--gold);}
+/* grab only inside the savers grid - the spending hero isn't reorderable. No
+   touch-action:none here on purpose: see the pointerdown handler for why touch keeps its
+   normal scrolling gesture. */
+.up-savers-grid .up-account-chip{cursor:grab;}
+.up-account-chip.saver-dragging{opacity:.55; cursor:grabbing; border-color:var(--gold);}
 .up-acc-name{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .up-goal-flag{display:inline-block; background:rgba(255,255,255,.22); color:#fff; border-radius:20px; padding:2px 8px; font-size:.6rem; text-transform:none; letter-spacing:0; font-weight:700; margin-left:6px; vertical-align:middle;}
 .up-acc-bal{font-size:1rem; font-weight:800; color:var(--ink); font-variant-numeric:tabular-nums;}
@@ -1757,7 +1762,7 @@ try{
       <div class="rec-body"><div class="rec-body-inner">
         <div class="rec-table-wrap">
           <table class="rtable">
-            <thead><tr><th>Item</th><th>Date bought</th><th style="text-align:right;">Cost</th><th style="text-align:right;">Expected revenue</th><th style="text-align:right;">Profit</th><th></th></tr></thead>
+            <thead><tr><th>Item</th><th>Date bought</th><th style="text-align:right;">Cost</th><th style="text-align:right;">Expected revenue</th><th style="text-align:right;">Actual revenue</th><th style="text-align:right;">Profit</th><th></th></tr></thead>
             <tbody id="mtgRows"></tbody>
           </table>
         </div>
@@ -2151,13 +2156,15 @@ const db = {
   async loadMtg(){
     const { data, error } = await sb.from('mtg_rows').select('*').eq('user_id', authUserId).order('sort_order', { ascending: true });
     if(error) throw error;
-    return { rows: (data||[]).map(r => ({ id: r.id, item: r.item, dateBought: r.date_bought || '', cost: Number(r.cost)||0, expectedRevenue: Number(r.expected_revenue)||0 })) };
+    // actual_revenue stays null when unset - see updateMtgTotals for why that differs
+    // from 0. Also reads as null on an unmigrated database, which is the right default.
+    return { rows: (data||[]).map(r => ({ id: r.id, item: r.item, dateBought: r.date_bought || '', cost: Number(r.cost)||0, expectedRevenue: Number(r.expected_revenue)||0, actualRevenue: r.actual_revenue==null ? null : Number(r.actual_revenue) })) };
   },
   async saveMtg(m){
     const { error: delErr } = await sb.from('mtg_rows').delete().eq('user_id', authUserId);
     if(delErr) throw delErr;
     if(m.rows.length){
-      const rows = m.rows.map((r, idx) => ({ id: r.id, user_id: authUserId, item: r.item, date_bought: r.dateBought || null, cost: Number(r.cost)||0, expected_revenue: Number(r.expectedRevenue)||0, sort_order: idx }));
+      const rows = m.rows.map((r, idx) => ({ id: r.id, user_id: authUserId, item: r.item, date_bought: r.dateBought || null, cost: Number(r.cost)||0, expected_revenue: Number(r.expectedRevenue)||0, actual_revenue: (r.actualRevenue==null || r.actualRevenue==='') ? null : Number(r.actualRevenue), sort_order: idx }));
       const { error } = await sb.from('mtg_rows').insert(rows);
       if(error) throw error;
     }
@@ -2287,6 +2294,11 @@ let featureFlags = { tech: true, grocery: true, monthlycosts: true, ballet: fals
 // not an access grant). {featureKey: ['mobile'|'pc', ...]}. Falls back to {} until the
 // platform_hidden migration has been run - see schema.sql.
 let platformHidden = {};
+// Account ids in the order you've dragged the saver chips into. Anything not listed (a
+// saver opened since you last reordered) sorts after these by balance, so the default -
+// and the fallback for a brand new saver - is highest balance first. Falls back to [] until
+// the saver_order migration has been run, see schema.sql.
+let saverOrder = [];
 let displayName = '';
 // The calendar-month key "today" belongs to for budgeting purposes. Equal to the real
 // calendar month unless periodMode is 'paycycle', in which case it's the month after
@@ -2718,6 +2730,7 @@ async function loadEverything(){
       template: settingsRow.feature_template !== false,
     };
     platformHidden = settingsRow.platform_hidden || {};
+    saverOrder = Array.isArray(settingsRow.saver_order) ? settingsRow.saver_order : [];
     displayName = settingsRow.display_name || '';
   }
   // A name entered at sign-up can't be saved until authUserId exists, which only
@@ -8122,9 +8135,9 @@ async function refreshUpData(){
       html += `<div class="up-spending-hero"><div class="up-spending-hero-lbl">${escapeAttr(spendingAcc.attributes.displayName)} <span class="up-goal-flag">used for goal</span></div><div class="up-spending-hero-bal">${money(bal)}</div></div>`;
     }
     if(savers.length){
-      html += `<div class="up-savers-lbl">Savers</div><div class="up-savers-grid">${savers.map(a => {
+      html += `<div class="up-savers-lbl">Savers</div><div class="up-savers-grid">${sortSaversForDisplay(savers).map(a => {
         const bal = parseFloat(a.attributes.balance.value);
-        return `<div class="up-account-chip clickable" data-account-id="${escapeAttr(a.id)}" data-tip="${escapeAttr(a.attributes.displayName)} — click to view transactions"><div class="up-acc-name">${escapeAttr(a.attributes.displayName)}</div><div class="up-acc-bal">${money(bal)}</div></div>`;
+        return `<div class="up-account-chip clickable" data-account-id="${escapeAttr(a.id)}" data-tip="${escapeAttr(a.attributes.displayName)} — click to view transactions, drag to reorder"><div class="up-acc-name">${escapeAttr(a.attributes.displayName)}</div><div class="up-acc-bal">${money(bal)}</div></div>`;
       }).join('')}</div>`;
     }
     document.getElementById('upAccounts').innerHTML = html || '<div class="pc-faint">No accounts found.</div>';
@@ -8145,9 +8158,71 @@ async function refreshUpData(){
 // close), not a descendant — a view-scoped listener would never see clicks routed
 // into panels rendered there. See the tx-panel/inline-source-panel handlers above for
 // the same pattern.
+// Saved order first (in that order), then anything not in it by balance, highest first -
+// which is also what an empty saved order gives you, i.e. the default.
+function sortSaversForDisplay(savers){
+  const rank = new Map(saverOrder.map((id, i) => [id, i]));
+  const balanceOf = a => parseFloat(a.attributes.balance.value) || 0;
+  return [...savers].sort((a, b) => {
+    const ra = rank.has(a.id) ? rank.get(a.id) : Infinity;
+    const rb = rank.has(b.id) ? rank.get(b.id) : Infinity;
+    return ra !== rb ? ra - rb : balanceOf(b) - balanceOf(a);
+  });
+}
+async function saveSaverOrder(){ try{ await db.saveSettings({ saver_order: saverOrder }); }catch(e){} }
+// Drag a saver chip to reorder. Mouse/pen only, deliberately: the chips sit at the bottom
+// of the tab where a touch-drag is how you scroll the page, and claiming that gesture
+// (touch-action:none) would break scrolling to reach them. Same reasoning as the ledger
+// rows, which require their grip handle on touch for exactly this.
+let saverDrag = null;
+let suppressSaverClick = false;
+document.addEventListener('pointerdown', (e) => {
+  if(e.button !== 0 || e.pointerType === 'touch') return;
+  const chip = e.target.closest('.up-savers-grid .up-account-chip[data-account-id]');
+  if(!chip) return;
+  saverDrag = {chip, startX: e.clientX, startY: e.clientY, moved: false, pointerId: e.pointerId};
+});
+document.addEventListener('pointermove', (e) => {
+  if(!saverDrag) return;
+  if(!saverDrag.moved){
+    // Small threshold so an ordinary click (which always jitters a pixel or two) still
+    // opens the saver's transactions rather than counting as a drag.
+    if(Math.hypot(e.clientX - saverDrag.startX, e.clientY - saverDrag.startY) < 6) return;
+    saverDrag.moved = true;
+    saverDrag.chip.classList.add('saver-dragging');
+    try{ saverDrag.chip.setPointerCapture(saverDrag.pointerId); }catch(err){}
+  }
+  const grid = saverDrag.chip.parentElement;
+  if(!grid) return;
+  const over = [...grid.querySelectorAll('.up-account-chip')].find(c => {
+    if(c === saverDrag.chip) return false;
+    const r = c.getBoundingClientRect();
+    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  });
+  if(!over) return;
+  const r = over.getBoundingClientRect();
+  // Past the midpoint means "put it after this one" - without that check the chip would
+  // flip back and forth as soon as it overlapped its neighbour.
+  grid.insertBefore(saverDrag.chip, (e.clientX > r.left + r.width/2) ? over.nextSibling : over);
+});
+document.addEventListener('pointerup', () => {
+  if(!saverDrag) return;
+  const {chip, moved} = saverDrag;
+  saverDrag = null;
+  if(!moved) return;
+  chip.classList.remove('saver-dragging');
+  const grid = chip.parentElement;
+  if(grid) saverOrder = [...grid.querySelectorAll('.up-account-chip')].map(c => c.dataset.accountId);
+  saveSaverOrder();
+  // The click that follows this pointerup would otherwise open the panel for whichever
+  // chip was dragged. Cleared on the next task, once that click has been and gone.
+  suppressSaverClick = true;
+  setTimeout(() => { suppressSaverClick = false; }, 0);
+});
 document.addEventListener('click', (e) => {
   const chip = e.target.closest('.up-account-chip[data-account-id]');
   if(!chip) return;
+  if(suppressSaverClick) return;
   const id = chip.dataset.accountId;
   if(expandedSaverPanels.has(id)){
     expandedSaverPanels.delete(id);
@@ -8951,32 +9026,43 @@ function renderMtgRows(){
       <td><input value="${escapeAttr((r.dateBought||'').toString().replace(/\\n/g,' '))}" data-mtg="${r.id}" data-field="dateBought"></td>
       <td><input class="num-in" type="number" value="${r.cost==null?'':r.cost}" data-mtg="${r.id}" data-field="cost"></td>
       <td><input class="num-in" type="number" value="${(r.expectedRevenue==null||r.expectedRevenue==='N/A')?'':r.expectedRevenue}" data-mtg="${r.id}" data-field="expectedRevenue"></td>
+      <td><input class="num-in" type="number" value="${r.actualRevenue==null?'':r.actualRevenue}" data-mtg="${r.id}" data-field="actualRevenue" placeholder="—"></td>
       <td class="num" data-mtg-profit="${r.id}"></td>
       <td class="num"><button class="item-del rtable-del" data-mtg-del="${r.id}" title="Remove">${X_SVG}</button></td>
     </tr>`).join('');
   updateMtgTotals();
   updateAllRtableNameWidths();
 }
+// Profit and the totals run off ACTUAL revenue - expected is only ever an estimate, so
+// counting it as profit reported money that hasn't been made. A row with no actual figure
+// yet contributes nothing to revenue (its profit is just the cost back as a loss, which is
+// the true position until it sells), rather than falling back to the estimate.
 function updateMtgTotals(){
-  let cost=0, rev=0;
+  let cost=0, rev=0, expected=0;
   mtg.rows.forEach(r=>{
-    const c = Number(r.cost)||0, rv = (r.expectedRevenue==='N/A'||r.expectedRevenue==null)?0:(Number(r.expectedRevenue)||0);
-    const profit = rv - c;
-    cost += c; rev += (r.expectedRevenue==='N/A'?0:rv);
+    const c = Number(r.cost)||0;
+    const actual = (r.actualRevenue==null || r.actualRevenue==='') ? null : (Number(r.actualRevenue)||0);
+    const exp = (r.expectedRevenue==='N/A'||r.expectedRevenue==null)?0:(Number(r.expectedRevenue)||0);
+    const profit = (actual||0) - c;
+    cost += c; rev += (actual||0); expected += exp;
     const cell = document.querySelector(`[data-mtg-profit="${r.id}"]`);
     if(cell){ cell.textContent = money(profit); cell.className = 'num ' + (profit>=0?'pos':'neg'); }
   });
-  document.getElementById('mtgTotals').textContent = `Cost ${money(cost)} · Revenue ${money(rev)} · Profit ${money(rev-cost)}`;
+  document.getElementById('mtgTotals').textContent =
+    `Cost ${money(cost)} · Expected ${money(expected)} · Actual ${money(rev)} · Profit ${money(rev-cost)}`;
 }
-function addMtgRow(){ pushUndo('mtg', mtg); mtg.rows.push({id:uid('m'), item:'', dateBought:'', cost:0, expectedRevenue:0}); renderMtgRows(); saveMtg(); focusLastInput('mtgRows'); }
+function addMtgRow(){ pushUndo('mtg', mtg); mtg.rows.push({id:uid('m'), item:'', dateBought:'', cost:0, expectedRevenue:0, actualRevenue:null}); renderMtgRows(); saveMtg(); focusLastInput('mtgRows'); }
 document.getElementById('addMtgRowBtn').addEventListener('click', addMtgRow);
 document.getElementById('mtgRows').addEventListener('keydown', (e) => { if(e.key==='Enter' && e.target.matches('input')){ e.preventDefault(); addMtgRow(); } });
 document.getElementById('mtgRows').addEventListener('input', (e) => {
   const t = e.target; if(!t.dataset.mtg) return;
   const row = mtg.rows.find(i=>i.id===t.dataset.mtg); if(!row) return;
   const f = t.dataset.field;
-  row[f] = (f==='item'||f==='dateBought') ? t.value : (parseFloat(t.value)||0);
-  if(f==='item'||f==='dateBought') updateRtableNameWidth(t);
+  if(f==='item'||f==='dateBought'){ row[f] = t.value; updateRtableNameWidth(t); }
+  // Empty stays null rather than 0 - "not sold yet" and "sold for nothing" are different
+  // things, and only the former should be left out of the revenue total.
+  else if(f==='actualRevenue') row[f] = t.value === '' ? null : (parseFloat(t.value)||0);
+  else row[f] = parseFloat(t.value)||0;
   updateMtgTotals(); saveMtg();
 });
 document.getElementById('mtgRows').addEventListener('click', (e) => {

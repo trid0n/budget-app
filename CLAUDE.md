@@ -71,6 +71,29 @@ A third migration added a `platform_hidden` column to `user_settings` (self-serv
 per-platform tab visibility — see feature history below). **Confirmed run** by the user
 (2026-08-13) — no longer an open item.
 
+A fourth migration adds `saver_order` to `user_settings` (drag-to-reorder saver chips on
+the Up tab). Check whether it's been run:
+
+```sql
+alter table public.user_settings add column if not exists saver_order jsonb not null default '[]'::jsonb;
+```
+
+Until it's applied, dragging still reorders on screen but the order isn't remembered —
+`db.saveSettings` rejects the unknown column and the error is swallowed, so savers fall
+back to the default highest-balance-first order on the next load.
+
+A fifth migration adds `actual_revenue` to `mtg_rows` (MTG profit is now based on what a
+card actually sold for, with expected revenue kept as an estimate only):
+
+```sql
+alter table public.mtg_rows add column if not exists actual_revenue numeric;
+```
+
+Deliberately nullable — null means "not sold yet" and is left out of the revenue total
+entirely, which is not the same as a real 0. Until it's applied `db.saveMtg` throws on
+every save (caught and swallowed), so **MTG edits won't persist at all** — this one is
+more disruptive than the others if left unrun.
+
 ## How to test changes (established pattern — use this, don't skip verification)
 
 This machine has **no `node`, `npm`, `gh`, or `supabase` CLI**. There's no way to syntax-check
