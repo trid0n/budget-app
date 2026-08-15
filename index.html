@@ -699,6 +699,11 @@ html:has(.modal-overlay.show){overflow:hidden;}
 .grocery-total b{font-size:1rem; color:var(--ink); font-weight:800;}
 .sync-note{font-size:.72rem; color:var(--ink-faint); margin-top:12px; font-style:italic;}
 .ballet-desc{font-size:.82rem; color:var(--ink-soft); margin:0 0 14px; line-height:1.5;}
+/* Amount above, saver link below - side by side made the column far too wide for a table
+   that already carries six of them. */
+.rc-saved-cell{display:flex; flex-direction:column; gap:4px; align-items:flex-end;}
+.rc-saver-select{max-width:130px; font-family:'Inter',sans-serif; font-size:.7rem; color:var(--ink-faint); background:var(--paper-dim); border:1px solid var(--rule); border-radius:6px; padding:2px 4px; cursor:pointer;}
+.rc-saver-select:focus{outline:none; border-color:var(--gold);}
 .ballet-inputs{display:flex; gap:20px; flex-wrap:wrap; margin-bottom:16px;}
 .ballet-inputs input{border:1px solid var(--rule); border-radius:8px; background:var(--paper-dim); padding:8px 10px; font-family:'Inter',sans-serif; font-size:.9rem; font-weight:700; color:var(--ink);}
 .ballet-inputs input:hover{border-color:var(--ink-faint);}
@@ -2095,13 +2100,13 @@ const db = {
   async loadRecurringCosts(){
     const { data, error } = await sb.from('recurring_costs').select('*').eq('user_id', authUserId).order('sort_order', { ascending: true });
     if(error) throw error;
-    return (data||[]).map(r => ({ id: r.id, name: r.name, cost: Number(r.cost)||0, everyWeeks: Number(r.every_weeks)||6, dateCharged: r.date_charged || '', balance: Number(r.balance)||0 }));
+    return (data||[]).map(r => ({ id: r.id, name: r.name, cost: Number(r.cost)||0, everyWeeks: Number(r.every_weeks)||6, dateCharged: r.date_charged || '', balance: Number(r.balance)||0, saverAccountId: r.saver_account_id || null }));
   },
   async saveRecurringCosts(items){
     const { error: delErr } = await sb.from('recurring_costs').delete().eq('user_id', authUserId);
     if(delErr) throw delErr;
     if(items.length){
-      const rows = items.map((r, idx) => ({ id: r.id, user_id: authUserId, name: r.name, cost: Number(r.cost)||0, every_weeks: Number(r.everyWeeks)||6, date_charged: r.dateCharged || null, balance: Number(r.balance)||0, sort_order: idx }));
+      const rows = items.map((r, idx) => ({ id: r.id, user_id: authUserId, name: r.name, cost: Number(r.cost)||0, every_weeks: Number(r.everyWeeks)||6, date_charged: r.dateCharged || null, balance: Number(r.balance)||0, saver_account_id: r.saverAccountId || null, sort_order: idx }));
       const { error } = await sb.from('recurring_costs').insert(rows);
       if(error) throw error;
     }
@@ -8169,22 +8174,11 @@ async function refreshUpData(){
     accountsRes.data.forEach(a => { if(a.attributes.displayName) upAccountNameCache[a.id] = a.attributes.displayName; });
     const spendingAcc = findUpSpendingAccount(accountsRes.data);
     const savers = accountsRes.data.filter(a => !spendingAcc || a.id !== spendingAcc.id);
-    // Any recurring cost whose name matches a saver takes its "saved so far" straight from
-    // that account's real balance, so the set-aside maths works off the actual figure
-    // rather than one typed in and left to go stale. Matched by name because that's the
-    // only thing linking a budget row to an Up account here.
-    if(featureFlags.recurring && recurringCosts.items.length){
-      let touched = false;
-      recurringCosts.items.forEach(rc => {
-        const name = (rc.name||'').trim().toLowerCase();
-        if(!name) return;
-        const saver = savers.find(a => (a.attributes.displayName||'').trim().toLowerCase() === name);
-        if(!saver) return;
-        const bal = parseFloat(saver.attributes.balance.value);
-        if(!isNaN(bal) && bal !== rc.balance){ rc.balance = bal; touched = true; }
-      });
-      if(touched){ renderRecurringRows(); saveRecurringCosts(); }
-    }
+    // Remembered so the Recurring costs table can offer these as link targets without
+    // needing its own /accounts call - it lives on a different tab that may never have
+    // triggered one.
+    upSaverAccounts = savers.map(a => ({id: a.id, name: a.attributes.displayName || '', balance: parseFloat(a.attributes.balance.value)}));
+    syncRecurringBalancesFromSavers();
     let html = '';
     if(spendingAcc){
       const bal = parseFloat(spendingAcc.attributes.balance.value);
@@ -8994,6 +8988,25 @@ function getCustomDateFromSelects(prefix){
   return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 }
 /* ===================== Recurring costs ===================== */
+// Savers from the last /accounts fetch, so the Recurring costs table can list them as link
+// targets. Empty until the Up tab has loaded once - a row keeps whatever saver id it was
+// linked to regardless, so the link survives that.
+let upSaverAccounts = [];
+// A row linked to a saver takes its "saved so far" from that account's real balance, so the
+// set-aside maths uses the actual figure rather than one typed in months ago. An explicit
+// link beats the name match that used to be the only option: savers rarely share a name
+// with the budget line they fund, and renaming either one silently broke it.
+function syncRecurringBalancesFromSavers(){
+  if(!featureFlags.recurring || !recurringCosts.items.length || !upSaverAccounts.length) return;
+  let touched = false;
+  recurringCosts.items.forEach(rc => {
+    if(!rc.saverAccountId) return;
+    const saver = upSaverAccounts.find(s => s.id === rc.saverAccountId);
+    if(!saver || isNaN(saver.balance)) return;
+    if(saver.balance !== rc.balance){ rc.balance = saver.balance; touched = true; }
+  });
+  if(touched){ renderRecurringRows(); saveRecurringCosts(); }
+}
 const WEEKS_PER_MONTH = 52/12; // ≈4.333
 // How much to set aside per month for one recurring cost. The steady rate is just the
 // charge spread over its own cycle; if the next charge is closer than the saved balance
@@ -9027,7 +9040,14 @@ function recurringRowHtml(r){
       <td><input class="num-in" type="number" step="0.01" value="${r.cost||''}" data-recurring="${r.id}" data-field="cost"></td>
       <td><input class="num-in" type="number" min="1" step="1" value="${r.everyWeeks||6}" data-recurring="${r.id}" data-field="everyWeeks"></td>
       <td><input type="date" class="num-in" value="${escapeAttr(r.dateCharged||'')}" data-recurring="${r.id}" data-field="dateCharged"></td>
-      <td><input class="num-in" type="number" step="0.01" value="${r.balance||''}" data-recurring="${r.id}" data-field="balance"></td>
+      <td><div class="rc-saved-cell">
+        <input class="num-in" type="number" step="0.01" value="${r.balance||''}" data-recurring="${r.id}" data-field="balance"${r.saverAccountId?' readonly title="Taken from the linked saver — unlink to type your own"':''}>
+        <select class="rc-saver-select" data-recurring="${r.id}" data-field="saverAccountId" title="Link this to an Up saver so the balance keeps itself up to date">
+          <option value=""${!r.saverAccountId?' selected':''}>Not linked</option>
+          ${upSaverAccounts.map(s => `<option value="${escapeAttr(s.id)}"${r.saverAccountId===s.id?' selected':''}>${escapeAttr(s.name)}</option>`).join('')}
+          ${r.saverAccountId && !upSaverAccounts.some(s=>s.id===r.saverAccountId) ? `<option value="${escapeAttr(r.saverAccountId)}" selected>Linked saver (Up not loaded)</option>` : ''}
+        </select>
+      </div></td>
       <td class="num" data-recurring-monthly="${r.id}"></td>
       <td class="num"><button class="item-del rtable-del" data-recurring-del="${r.id}" title="Remove">${X_SVG}</button></td>
     </tr>`;
@@ -9072,7 +9092,7 @@ function syncRecurringToTemplate(){
 }
 function addRecurringRow(){
   pushUndo('recurringCosts', recurringCosts);
-  recurringCosts.items.push({id:uid('rc'), name:'', cost:0, everyWeeks:6, dateCharged:'', balance:0});
+  recurringCosts.items.push({id:uid('rc'), name:'', cost:0, everyWeeks:6, dateCharged:'', balance:0, saverAccountId:null});
   renderRecurringRows(); saveRecurringCosts(); focusLastInput('recurringRows');
 }
 document.getElementById('addRecurringRowBtn').addEventListener('click', addRecurringRow);
@@ -9087,6 +9107,19 @@ document.body.addEventListener('input', (e) => {
   else row[f] = parseFloat(t.value)||0;
   document.querySelectorAll(`[data-recurring="${row.id}"][data-field="${f}"]`).forEach(el => { if(el !== t) el.value = t.value; });
   updateRecurringTotals(); saveRecurringCosts();
+});
+// A <select> fires 'change', not 'input', so it needs its own handler rather than riding on
+// the one above with the text/number fields.
+document.body.addEventListener('change', (e) => {
+  const t = e.target;
+  if(!t.dataset.recurring || t.dataset.field !== 'saverAccountId') return;
+  const row = recurringCosts.items.find(i => i.id === t.dataset.recurring); if(!row) return;
+  row.saverAccountId = t.value || null;
+  if(row.saverAccountId){
+    const saver = upSaverAccounts.find(s => s.id === row.saverAccountId);
+    if(saver && !isNaN(saver.balance)) row.balance = saver.balance;
+  }
+  renderRecurringRows(); saveRecurringCosts();
 });
 document.body.addEventListener('click', (e) => {
   const del = e.target.closest('[data-recurring-del]'); if(!del) return;

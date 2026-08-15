@@ -169,7 +169,8 @@ create table if not exists public.recurring_costs (
   cost         numeric not null default 0,   -- charged each cycle
   every_weeks  int not null default 6,       -- cycle length in weeks
   date_charged date,                         -- last time it was charged; drives the next-charge date and the catch-up maths
-  balance      numeric not null default 0,   -- saved so far (auto-filled from a matching Up saver's balance when one exists)
+  balance      numeric not null default 0,   -- saved so far; kept in step with the linked saver's real balance when saver_account_id is set, otherwise typed in by hand
+  saver_account_id text,                     -- optional Up saver account id this row's balance tracks. An explicit link rather than matching on name, which broke whenever either side was renamed
   sort_order   int not null default 0
 );
 
