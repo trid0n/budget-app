@@ -1538,6 +1538,22 @@ try{
           <div class="tpl-goal-value"><span>$</span><input type="number" step="0.01" id="tplGoalInput" placeholder="0"></div>
         </div>
       </div>
+      <!-- The same two summary containers the Budget tab carries, but computed from the
+           template's own figures - so you can see what a month built from this template
+           would look like without having to create one. No spending-balance card here:
+           that's a live bank figure and has no meaning for a template. -->
+      <div class="topbar tpl-summary-row">
+        <div class="assign-card" id="tplAssignCard">
+          <div><div class="amt" id="tplRtaAmt">$0.00</div><div class="lbl" id="tplRtaLabel">Left over after your goal</div></div>
+        </div>
+        <div class="summary-mini">
+          <div class="mini-stat-row">
+            <div class="mini-stat"><span class="mini-dot mini-dot-income"></span><span class="mini-lbl">Income</span><span class="mini-val mini-val-income" id="tplMiniIncome"></span></div>
+            <div class="mini-divider"></div>
+            <div class="mini-stat"><span class="mini-dot mini-dot-cost"></span><span class="mini-lbl">Costs</span><span class="mini-val" id="tplMiniCost"></span></div>
+          </div>
+        </div>
+      </div>
       <div id="templateCard">
         <div class="template-income-card">
           <div class="income-hdr"><span id="tplIncomeHdrEmoji" class="cat-emoji" data-tpl-income-emoji-picker="income" title="Change emoji">💵</span><span class="sh-static">Income</span><span class="section-hdr-total" id="tplIncomeTotal"></span></div>
@@ -4503,13 +4519,33 @@ function renderTemplateEditor(){
   const goalEl = document.getElementById('tplGoalInput');
   if(goalEl && document.activeElement !== goalEl) goalEl.value = monthTemplate.goal ? monthTemplate.goal : '';
   updateTemplateStatus();
+  updateTemplateSummary(incTotal);
   updateAllTplItemNameWidths();
   updateAllCatNameWidths();
+}
+// Mirrors updateSummary()'s wording and states for the template's own numbers. No live
+// bank balance is folded in - that belongs to an actual month, not to a template.
+function updateTemplateSummary(incTotal){
+  const costTotal = monthTemplate.categories.reduce((s,c) => s + (c.items||[]).reduce((t,i)=>t+(Number(i.amount)||0),0), 0);
+  const goal = Number(monthTemplate.goal)||0;
+  const leftOver = incTotal - costTotal - goal;
+  document.getElementById('tplMiniIncome').textContent = money(incTotal);
+  document.getElementById('tplMiniCost').textContent = money(costTotal);
+  document.getElementById('tplRtaAmt').textContent = money(leftOver);
+  const card = document.getElementById('tplAssignCard');
+  const lbl = document.getElementById('tplRtaLabel');
+  card.classList.remove('over','zero');
+  if(Math.abs(leftOver) < 0.5){ card.classList.add('zero'); lbl.textContent = 'Breaks even, after your goal'; }
+  else if(leftOver < 0){ card.classList.add('over'); lbl.textContent = 'Over budget once your goal is set aside'; }
+  else lbl.textContent = goal > 0 ? 'Left over after your goal' : 'Left over each month';
 }
 document.getElementById('tplGoalInput').addEventListener('input', (e) => {
   ensureTemplateIds();
   monthTemplate.goal = parseFloat(e.target.value)||0;
   scheduleTemplateSave();
+  // Recomputed directly rather than via renderTemplateEditor(), which would rebuild the
+  // rows and blur the field you're typing in.
+  updateTemplateSummary(monthTemplate.income.reduce((s,i)=>s+(Number(i.amount)||0),0));
 });
 let draggedTplCategoryId = null;
 let lastTplCategorySwapTime = 0;
@@ -4691,6 +4727,7 @@ document.getElementById('templateCard').addEventListener('input', (e) => {
     const row = document.querySelector(`[data-tpl-group="${t.dataset.tplCat}"] .grow .gcell`);
     if(cat && row) row.textContent = money(cat.items.reduce((s,i)=>s+(Number(i.amount)||0),0));
   }
+  updateTemplateSummary(monthTemplate.income.reduce((s,i)=>s+(Number(i.amount)||0),0));
   scheduleTemplateSave();
 });
 document.getElementById('templateCard').addEventListener('click', async (e) => {
