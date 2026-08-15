@@ -56,15 +56,8 @@ the user the exact SQL. Say plainly which behaviour is dead until they run it �
 silently no-ops is the usual symptom, and `db.saveMtg`-style whole-row saves fail entirely
 rather than losing one field.
 
-**One outstanding**: `saver_account_id` on `recurring_costs`, for linking a recurring
-cost's "saved so far" to a specific Up saver:
-
-```sql
-alter table public.recurring_costs add column if not exists saver_account_id text;
-```
-
-Until it's run, `db.saveRecurringCosts` rejects the whole row, so **no recurring-cost edit
-persists** — not just the link.
+`saver_account_id` on `recurring_costs` (linking a recurring cost's "saved so far" to a
+specific Up saver) is included in that — confirmed run 2026-08-15.
 
 Two tables are deliberately left in place but unused: `public.ballet` and the
 `feature_ballet` column, orphaned when Recurring costs replaced the single Ballet
