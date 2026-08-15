@@ -5708,7 +5708,21 @@ document.addEventListener('click', (e) => {
 // element (not the page itself) never bubbles a 'scroll' event up to window, but capture-
 // phase listeners on an ancestor still see it on the way down. Same technique already
 // used for #inlinePanelHost's own reposition-on-scroll a bit further up this file.
-window.addEventListener('scroll', closeFloatingMenus, {passive:true, capture:true});
+// Only the position:fixed panels - #adminSearchInline is deliberately excluded because it
+// isn't one of them. It expands inline, in flow, anchored to nothing, so it has no drift
+// to avoid; closing it on scroll just made it vanish the moment anything moved. With
+// capture:true that included scrolls INSIDE the settings modal, so expanding Manage users
+// (whose open animation scrolls the modal) tore the search box shut right after it opened.
+function closeFixedFloatingPanelsOnScroll(){
+  document.querySelectorAll('.month-actions-panel.open').forEach(p => p.classList.remove('open'));
+  // #adminSearchToggle's own .open has to survive too, or it would fall out of step with
+  // the inline box it controls and the next click would read as "close" on something
+  // that's still open.
+  document.querySelectorAll('.month-actions-gear.open').forEach(b => {
+    if(b.id !== 'adminSearchToggle') b.classList.remove('open');
+  });
+}
+window.addEventListener('scroll', closeFixedFloatingPanelsOnScroll, {passive:true, capture:true});
 // A phone keyboard's Done/checkmark/Go button on a plain text input dispatches this same
 // Enter keydown - covers every search box that lives inside one of these floating popups
 // (#upTxSearchPanel, #adminSearchInline, any future one) without needing a listener per box.
@@ -9064,6 +9078,13 @@ function populateAccountSettingsFields(){
   document.getElementById('acctSuccess').textContent = '';
   renderAccountVerifyBadge();
   refreshAcctSaveBtnVisibility();
+  // The inline user search keeps its open/closed state in classes, and nothing was
+  // resetting them - so it stayed "open" behind a collapsed Manage users card or a closed
+  // modal, and the next click on the toggle read as a close and appeared to do nothing.
+  document.getElementById('adminSearchInline').classList.remove('open');
+  document.getElementById('adminSearchToggle').classList.remove('open', 'has-active-filter');
+  document.getElementById('adminUserSearch').value = '';
+  adminUserSearchTerm = '';
   renderPlatformVisRows();
   // Same "keep loaded, don't silently re-collapse an expanded card" idea as the Up tab's
   // own upTransactions.length check elsewhere - only fetch once per session, not on every
