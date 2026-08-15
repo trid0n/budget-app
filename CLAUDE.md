@@ -40,86 +40,25 @@ Repo: `github.com/trid0n/budget-app`, deployed via Vercel from `main` (auto-depl
   new persisted field, this is where to wire it up, alongside a matching column in
   `supabase/schema.sql`.
 
-## ⚠️ Outstanding: a schema migration may not be applied yet
+## Schema migrations — all applied
 
-A `period_mode` column was added to `user_settings` (commit `0375941`) for the
-calendar/pay-cycle budgeting toggle. Unlike `index.html`, **schema changes can't be
-applied by Claude** — there's no `psql`/`supabase` CLI in this environment, only the
-Supabase SQL Editor (a human has to run it). Check whether this was actually run:
+Every migration this app has needed is **confirmed run** by the user as of 2026-08-15:
+`period_mode`, `platform_hidden`, `saver_order` and `feature_recurring` on `user_settings`;
+the `up_transfer_rules` table; `actual_revenue` on `mtg_rows`; and the `recurring_costs`
+table (plus its RLS policy). `supabase/schema.sql` is the source of truth and matches the
+live database.
 
-```sql
-alter table public.user_settings add column if not exists period_mode text not null default 'calendar';
-```
+**Schema changes still cannot be applied by Claude** — there is no `psql`/`supabase` CLI
+here, only the Supabase SQL Editor, which a human has to run. So if you add a column or
+table: update `schema.sql`, write the code to fail soft without it (every `db.*` call is
+already wrapped so a rejected column is swallowed rather than breaking the page), and give
+the user the exact SQL. Say plainly which behaviour is dead until they run it — a save that
+silently no-ops is the usual symptom, and `db.saveMtg`-style whole-row saves fail entirely
+rather than losing one field.
 
-If unsure, ask the user, or just try it — `add column if not exists` is safe to
-re-run. Until it's applied, saving `settings.periodMode` silently no-ops (the `db.saveSettings`
-upsert would error on an unknown column, but errors are swallowed — see testing note below
-about this pattern).
-
-A second migration (commit `fa98dda`) added a whole new table, `public.up_transfer_rules`,
-for saver-transfer auto-mapping (see feature history below). Check whether it's been run:
-
-```sql
-select 1 from information_schema.tables where table_schema='public' and table_name='up_transfer_rules';
-```
-
-The full migration (table + RLS policy) is in `supabase/schema.sql`. Until it's applied,
-`db.loadTransferRules()` fails and is caught (falls back to `{}` — see `loadEverything()`),
-so saver-transfer mapping silently does nothing rather than erroring.
-
-A third migration added a `platform_hidden` column to `user_settings` (self-service
-per-platform tab visibility — see feature history below). **Confirmed run** by the user
-(2026-08-13) — no longer an open item.
-
-A fourth migration adds `saver_order` to `user_settings` (drag-to-reorder saver chips on
-the Up tab). Check whether it's been run:
-
-```sql
-alter table public.user_settings add column if not exists saver_order jsonb not null default '[]'::jsonb;
-```
-
-Until it's applied, dragging still reorders on screen but the order isn't remembered —
-`db.saveSettings` rejects the unknown column and the error is swallowed, so savers fall
-back to the default highest-balance-first order on the next load.
-
-A fifth migration adds `actual_revenue` to `mtg_rows` (MTG profit is now based on what a
-card actually sold for, with expected revenue kept as an estimate only):
-
-```sql
-alter table public.mtg_rows add column if not exists actual_revenue numeric;
-```
-
-Deliberately nullable — null means "not sold yet" and is left out of the revenue total
-entirely, which is not the same as a real 0. Until it's applied `db.saveMtg` throws on
-every save (caught and swallowed), so **MTG edits won't persist at all** — this one is
-more disruptive than the others if left unrun.
-
-A sixth migration replaces the single-row `ballet` table with `recurring_costs`, and adds
-`feature_recurring`. Ballet was one hardcoded cost on a 6-week cycle; recurring costs are
-an arbitrary list, each with its own cycle length:
-
-```sql
-create table if not exists public.recurring_costs (
-  id           text primary key,
-  user_id      uuid references auth.users(id) on delete cascade default auth.uid(),
-  name         text not null default '',
-  cost         numeric not null default 0,
-  every_weeks  int not null default 6,
-  date_charged date,
-  balance      numeric not null default 0,
-  sort_order   int not null default 0
-);
-alter table public.recurring_costs enable row level security;
-drop policy if exists own_rows on public.recurring_costs;
-create policy own_rows on public.recurring_costs for all using (user_id = auth.uid()) with check (user_id = auth.uid());
-alter table public.user_settings add column if not exists feature_recurring boolean not null default true;
-```
-
-Until it's applied the Recurring costs card renders but nothing saves. `public.ballet` and
-`feature_ballet` are now unused — the old Ballet row was deliberately NOT migrated (the
-user chose to start fresh), and the admin-granted "Flexible Tracker" alias is gone: this
-is an ordinary self-service feature now. Both are left in place rather than dropped, so
-nothing breaks if an old client is still open somewhere.
+Two tables are deliberately left in place but unused: `public.ballet` and the
+`feature_ballet` column, orphaned when Recurring costs replaced the single Ballet
+calculator. Safe to drop once no old client is running.
 
 ## How to test changes (established pattern — use this, don't skip verification)
 
@@ -294,16 +233,47 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
     favicon was chosen**: rendered each candidate to a canvas at true 16/20/32px and
     upscaled 8x with `image-rendering:pixelated`. Judging a favicon from a large preview
     tells you nothing about what survives at tab size — worth repeating for any future
-    icon work.
+    icon work. **Superseded** — both are now plain line art (a stroke-only jar with a
+    dollar sign, same drawing for favicon and sidebar). The filled versions turned to mush
+    at 28px; strokes survive it. Same canvas-upscale method picked the replacement.
+19. **Undo now covers transaction assignments.** `pushUndo('month', …)` snapshots
+    `txAssignments` alongside `monthData`, because they change together but only the latter
+    was captured — so undoing an unassign restored the item's amount while leaving the
+    transaction detached. Fixes undo for assign/exclude too.
+20. **Account settings reworked**: one "Tabs & features" section (a 4-way Both/Phone/PC/Off
+    control per feature, replacing a separate on/off list plus a per-platform list), two
+    columns on wide screens, name auto-saves as you type, and no Close button (the corner
+    × does it). Email/password deliberately still need an explicit press — per keystroke
+    they'd email a confirmation to a half-typed address or set the password to a prefix.
+    Hidden tabs no longer flash on load: the hidden set is cached in `localStorage` and
+    applied as a `<style>` before first paint, the same trick the theme already used.
+21. **Up tab**: no page scroll and no visible scrollbars. Three separate causes, in order —
+    a tooltip with no positioned ancestor hanging below the fold, a `UP_TX_LIST_MIN_HEIGHT`
+    floor too high to shrink past once the savers grid wrapped, and stale
+    `.up-tx-list::-webkit-scrollbar` rules *below* the hide rule that re-widened it. The
+    list is re-capped by a `ResizeObserver` on the elements beneath it, since they settle
+    after the initial sizing runs (async `/accounts` fetch, income chip, transfer banner).
+22. **Savers drag to reorder**, default highest balance first (`saver_order`). Mouse/pen
+    only — on touch that gesture is how you scroll down to reach them.
+23. **Recurring costs replaces Ballet**: an arbitrary list, each row with its own cycle
+    length in weeks, syncing to the template item sharing its name (the Monthly Costs
+    contract) instead of one hardcoded name. The admin grant and the "Flexible Tracker"
+    alias are both gone; it's an ordinary self-service feature. Set-aside maths unchanged.
+24. **MTG actual revenue**: profit and totals now come off what a card actually sold for,
+    with expected kept as an estimate. `actual_revenue` is nullable on purpose — blank
+    means "not sold yet" and stays out of the revenue total, unlike a real 0.
 
 ## Known open items
 
-- **Verify the remaining schema migrations were actually run** (see warning above):
-  `period_mode` on `user_settings`, and the `up_transfer_rules` table. (`platform_hidden`
-  is confirmed applied as of 2026-08-13.)
-- The project-management **task list tool** (`TaskList`/`TaskCreate`) was cleared and
-  reused for the 2026-08-13 six-feature batch (all completed). Safe to clear again for a
-  fresh batch — nothing depends on its history.
+- No outstanding schema migrations — see "Schema migrations" above.
+- **Ballet was not carried into Recurring costs.** The user chose to start fresh, so
+  `recurring_costs` began empty while their old values still sit in the untouched
+  `public.ballet` row. They were given both options (re-add it by hand, or an `insert …
+  select from public.ballet` to copy it across) — worth checking which they did before
+  assuming the row exists.
+- The project-management **task list tool** (`TaskList`/`TaskCreate`) holds the 2026-08-13
+  six-feature batch (all completed). Safe to clear for a fresh batch — nothing depends on
+  its history.
 - `README.md` step 7 still tells a new setter-upper to add `SUPABASE_URL`/
   `SUPABASE_ANON_KEY` as GitHub repo secrets for the keep-alive workflow — this is now
   **stale/wrong** per the fix in point 6 above (values are hardcoded in the workflow
