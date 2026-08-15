@@ -37,7 +37,8 @@ create table if not exists public.user_settings (
   feature_tech         boolean not null default true,  -- Tech Replacement calculator — optional per user, default on
   feature_grocery       boolean not null default true,  -- Groceries calculator — optional per user, default on
   feature_monthlycosts boolean not null default true,  -- Monthly Costs calculator — optional per user, default on
-  feature_ballet        boolean not null default false, -- non-admin users only see this if an admin grants it (relabelled "Flexible Tracker") — see index.html's balletFeatureAvailable()
+  feature_ballet        boolean not null default false, -- LEGACY, unused since Recurring costs replaced the single Ballet calculator. Kept so old rows/RPC signatures stay valid; nothing reads it.
+  feature_recurring     boolean not null default true,  -- Recurring costs card (Other Records) — ordinary self-service feature, no admin grant
   feature_up           boolean not null default true,  -- Up Bank tab — self-toggled from Account settings, AND admin-toggleable from the Users tab, default on
   feature_dashboard    boolean not null default true,  -- Dashboard tab — admin-toggleable per user from the Users tab, default on
   feature_records      boolean not null default true,  -- Other Records tab — admin-toggleable per user from the Users tab, default on
@@ -157,6 +158,21 @@ create table if not exists public.monthly_costs (
   sort_order  int not null default 0
 );
 
+-- Costs charged on a repeating cycle that isn't monthly (every N weeks). Replaces the
+-- old single-row public.ballet table, which only ever held one such cost on a hardcoded
+-- 6-week cycle. Each row syncs to the template item sharing its name, the same way
+-- monthly_costs rows do — see index.html's syncRecurringToTemplate().
+create table if not exists public.recurring_costs (
+  id           text primary key,
+  user_id      uuid references auth.users(id) on delete cascade default auth.uid(),
+  name         text not null default '',
+  cost         numeric not null default 0,   -- charged each cycle
+  every_weeks  int not null default 6,       -- cycle length in weeks
+  date_charged date,                         -- last time it was charged; drives the next-charge date and the catch-up maths
+  balance      numeric not null default 0,   -- saved so far (auto-filled from a matching Up saver's balance when one exists)
+  sort_order   int not null default 0
+);
+
 -- ===================== transaction assignment / rule tables =====================
 
 create table if not exists public.tx_assignments (
@@ -234,7 +250,7 @@ begin
   foreach t in array array[
     'user_settings','month_template','ballet','up_income_source','grocery_settings',
     'months','price_change_notes','tech_items','grocery_items','grocery_item_breakdown',
-    'mtg_rows','monthly_costs','tx_assignments','tx_rules','up_transfer_rules'
+    'mtg_rows','monthly_costs','tx_assignments','tx_rules','up_transfer_rules','recurring_costs'
   ]
   loop
     execute format('alter table public.%I enable row level security', t);
@@ -289,7 +305,7 @@ begin
   if not exists (select 1 from public.user_settings where user_id = auth.uid() and is_admin) then
     raise exception 'not authorized';
   end if;
-  if feature_name not in ('feature_tech','feature_grocery','feature_monthlycosts','feature_ballet','feature_up','feature_dashboard','feature_records','feature_template') then
+  if feature_name not in ('feature_tech','feature_grocery','feature_monthlycosts','feature_ballet','feature_recurring','feature_up','feature_dashboard','feature_records','feature_template') then
     raise exception 'unknown feature';
   end if;
   insert into public.user_settings(user_id) values (target_user_id) on conflict (user_id) do nothing;
@@ -297,6 +313,7 @@ begin
   elsif feature_name = 'feature_grocery' then update public.user_settings set feature_grocery = enabled where user_id = target_user_id;
   elsif feature_name = 'feature_monthlycosts' then update public.user_settings set feature_monthlycosts = enabled where user_id = target_user_id;
   elsif feature_name = 'feature_ballet' then update public.user_settings set feature_ballet = enabled where user_id = target_user_id;
+  elsif feature_name = 'feature_recurring' then update public.user_settings set feature_recurring = enabled where user_id = target_user_id;
   elsif feature_name = 'feature_up' then update public.user_settings set feature_up = enabled where user_id = target_user_id;
   elsif feature_name = 'feature_dashboard' then update public.user_settings set feature_dashboard = enabled where user_id = target_user_id;
   elsif feature_name = 'feature_records' then update public.user_settings set feature_records = enabled where user_id = target_user_id;

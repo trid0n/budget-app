@@ -94,6 +94,33 @@ entirely, which is not the same as a real 0. Until it's applied `db.saveMtg` thr
 every save (caught and swallowed), so **MTG edits won't persist at all** — this one is
 more disruptive than the others if left unrun.
 
+A sixth migration replaces the single-row `ballet` table with `recurring_costs`, and adds
+`feature_recurring`. Ballet was one hardcoded cost on a 6-week cycle; recurring costs are
+an arbitrary list, each with its own cycle length:
+
+```sql
+create table if not exists public.recurring_costs (
+  id           text primary key,
+  user_id      uuid references auth.users(id) on delete cascade default auth.uid(),
+  name         text not null default '',
+  cost         numeric not null default 0,
+  every_weeks  int not null default 6,
+  date_charged date,
+  balance      numeric not null default 0,
+  sort_order   int not null default 0
+);
+alter table public.recurring_costs enable row level security;
+drop policy if exists own_rows on public.recurring_costs;
+create policy own_rows on public.recurring_costs for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+alter table public.user_settings add column if not exists feature_recurring boolean not null default true;
+```
+
+Until it's applied the Recurring costs card renders but nothing saves. `public.ballet` and
+`feature_ballet` are now unused — the old Ballet row was deliberately NOT migrated (the
+user chose to start fresh), and the admin-granted "Flexible Tracker" alias is gone: this
+is an ordinary self-service feature now. Both are left in place rather than dropped, so
+nothing breaks if an old client is still open somewhere.
+
 ## How to test changes (established pattern — use this, don't skip verification)
 
 This machine has **no `node`, `npm`, `gh`, or `supabase` CLI**. There's no way to syntax-check

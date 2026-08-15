@@ -1723,37 +1723,25 @@ try{
       </div></div>
     </div>
 
-    <div class="rec-card collapsible" id="balletRecordCard">
-      <div class="rec-summary" data-rec-toggle><h2>Ballet <span class="rc-sub">monthly transfer calculator</span></h2></div>
+    <!-- Replaced a single hardcoded "Ballet, every 6 weeks" calculator with a list of
+         arbitrary recurring costs, each with its own charge interval - same set-aside
+         maths per row (see recurringMonthlyAmount), just no longer limited to one. -->
+    <div class="rec-card collapsible" id="recurringRecordCard">
+      <div class="rec-summary" data-rec-toggle><h2>Recurring costs <span class="rc-sub">set-aside calculator</span></h2></div>
       <div class="rec-body"><div class="rec-body-inner">
-        <p class="ballet-desc">Charged every 6 weeks. Set the cost, the date you were last charged, and what's currently sitting in savings — this works out how much to move across each month so it never runs short.</p>
-        <div class="ballet-inputs">
-          <label class="grocery-field">Cost per charge<input type="number" step="0.01" id="balletCost"></label>
-          <label class="grocery-field">Currently saved<input type="number" step="0.01" id="balletBalance"></label>
-          <div class="grocery-field">Date last charged
-            <div class="date-select-row">
-              <div class="custom-select" id="balletDateDayWrap" data-part="day">
-                <button type="button" class="custom-select-btn date-select" id="balletDateDayBtn">Day</button>
-                <div class="custom-select-list" id="balletDateDayList"></div>
-              </div>
-              <div class="custom-select" id="balletDateMonthWrap" data-part="month">
-                <button type="button" class="custom-select-btn date-select date-select-month" id="balletDateMonthBtn">Month</button>
-                <div class="custom-select-list" id="balletDateMonthList"></div>
-              </div>
-              <div class="custom-select" id="balletDateYearWrap" data-part="year">
-                <button type="button" class="custom-select-btn date-select" id="balletDateYearBtn">Year</button>
-                <div class="custom-select-list" id="balletDateYearList"></div>
-              </div>
-            </div>
-          </div>
+        <p class="ballet-desc">Anything charged on a repeating cycle rather than monthly. Set what it costs, how often it's charged, when it was last charged and what's currently saved for it — each row works out how much to put aside per month so it never runs short.</p>
+        <div class="rec-table-wrap">
+          <table class="rtable">
+            <thead><tr><th>Item</th><th style="text-align:right;">Cost per charge</th><th style="text-align:right;">Every (weeks)</th><th>Last charged</th><th style="text-align:right;">Saved so far</th><th style="text-align:right;">Per month</th><th></th></tr></thead>
+            <tbody id="recurringRows"></tbody>
+          </table>
         </div>
-        <div class="ballet-result">
-          <div class="ballet-result-amt" id="balletWeeklyAmt">$0.00</div>
-          <div class="ballet-result-lbl">to move across each month</div>
+        <div class="rec-actions">
+          <button class="mini-btn" id="addRecurringRowBtn">+ Add item</button>
+          <span style="margin-left:auto; font-weight:700;">Monthly total: <span id="recurringMonthlyTotal"></span></span>
         </div>
-        <div class="ballet-sub" id="balletNextDate"></div>
-        <div class="ballet-sub" id="balletBalanceNote"></div>
-        <div class="sync-note">Automatically kept in sync with "Ballet" in your template.</div>
+        <div class="ballet-sub" id="recurringNotes"></div>
+        <div class="sync-note">Each row is automatically kept in sync with the template item of the same name.</div>
       </div></div>
     </div>
 
@@ -2079,14 +2067,19 @@ const db = {
     const { error } = await sb.from('month_template').upsert({ user_id: authUserId, income_emoji: emoji }, { onConflict: 'user_id' });
     if(error) throw error;
   },
-  async loadBallet(){
-    const { data, error } = await sb.from('ballet').select('*').eq('user_id', authUserId).maybeSingle();
+  async loadRecurringCosts(){
+    const { data, error } = await sb.from('recurring_costs').select('*').eq('user_id', authUserId).order('sort_order', { ascending: true });
     if(error) throw error;
-    return data;
+    return (data||[]).map(r => ({ id: r.id, name: r.name, cost: Number(r.cost)||0, everyWeeks: Number(r.every_weeks)||6, dateCharged: r.date_charged || '', balance: Number(r.balance)||0 }));
   },
-  async saveBallet(b){
-    const { error } = await sb.from('ballet').upsert({ user_id: authUserId, cost: Number(b.cost)||0, date_charged: b.dateCharged || null, balance: Number(b.balance)||0 }, { onConflict: 'user_id' });
-    if(error) throw error;
+  async saveRecurringCosts(items){
+    const { error: delErr } = await sb.from('recurring_costs').delete().eq('user_id', authUserId);
+    if(delErr) throw delErr;
+    if(items.length){
+      const rows = items.map((r, idx) => ({ id: r.id, user_id: authUserId, name: r.name, cost: Number(r.cost)||0, every_weeks: Number(r.everyWeeks)||6, date_charged: r.dateCharged || null, balance: Number(r.balance)||0, sort_order: idx }));
+      const { error } = await sb.from('recurring_costs').insert(rows);
+      if(error) throw error;
+    }
   },
   async loadIncomeSource(){
     const { data, error } = await sb.from('up_income_source').select('*').eq('user_id', authUserId).maybeSingle();
@@ -2287,7 +2280,7 @@ let settings = { currentMonth: DEFAULT_MONTH, theme: 'light', lastGoal: 0, balan
 // applied — settingsRow's feature_*/is_admin columns come back undefined rather than
 // erroring, so an unmigrated database preserves exactly today's behavior for everyone.
 let isAdmin = false;
-let featureFlags = { tech: true, grocery: true, monthlycosts: true, ballet: false, up: true, dashboard: true, records: true, template: true };
+let featureFlags = { tech: true, grocery: true, monthlycosts: true, recurring: true, up: true, dashboard: true, records: true, template: true };
 // Self-service, layered on top of featureFlags above rather than replacing it - an admin
 // still controls whether a feature is granted at all, but each user can additionally hide
 // a feature/tab they DO have on just their phone or just their PC (a display preference,
@@ -2583,7 +2576,7 @@ async function saveTxAssignments(){ try{ await db.saveTxAssignments(txAssignment
 let priceChangeNotes = {};
 async function savePriceChangeNotes(){ try{ await db.savePriceChangeNotes(priceChangeNotes); }catch(e){} }
 let grocery = { items: [], days: 30, eatOut: 5 };
-let ballet = {cost:0, dateCharged:'', balance:0};
+let recurringCosts = {items: []};
 let mtg = { rows: [] };
 let monthTemplate = null;
 
@@ -2647,7 +2640,7 @@ async function saveMonthIncomeEmoji(){ if(!monthData) return; try{ await db.save
 async function saveTemplateIncomeEmoji(){ if(!monthTemplate) return; try{ await db.saveTemplateIncomeEmoji(monthTemplate.incomeEmoji); }catch(e){} }
 async function saveTech(){ try{ await db.saveTechItems(techItems); }catch(e){} }
 async function saveGrocery(){ try{ await db.saveGrocery(grocery); }catch(e){} }
-async function saveBallet(){ try{ await db.saveBallet(ballet); }catch(e){} }
+async function saveRecurringCosts(){ try{ await db.saveRecurringCosts(recurringCosts.items); }catch(e){} }
 async function saveMtg(){ try{ await db.saveMtg(mtg); }catch(e){} }
 
 function monthRowToData(row){
@@ -2696,14 +2689,14 @@ async function loadEverything(){
   // next) turned every login/app-load into a 12-deep chain of Supabase round-trips.
   // Same root cause as the month-switch delay: run them concurrently instead.
   const [
-    settingsRow, monthKeys, techItemsRes, groceryRes, balletRow, mtgRes,
+    settingsRow, monthKeys, techItemsRes, groceryRes, recurringRes, mtgRes,
     monthlyCostItems, templateRow, txAssignmentsRes, txRulesRes, transferRulesRes, incomeSourceRow, priceChangeNotesRes
   ] = await Promise.all([
     db.loadSettings().catch(() => null),
     db.listMonthKeys().catch(() => []),
     db.loadTechItems().catch(() => []),
     db.loadGrocery().catch(() => ({items:[], days:30, eatOut:5})),
-    db.loadBallet().catch(() => null),
+    db.loadRecurringCosts().catch(() => []),
     db.loadMtg().catch(() => ({rows:[]})),
     db.loadMonthlyCosts().catch(() => []),
     db.loadMonthTemplate().catch(() => null),
@@ -2723,7 +2716,7 @@ async function loadEverything(){
       tech: settingsRow.feature_tech !== false,
       grocery: settingsRow.feature_grocery !== false,
       monthlycosts: settingsRow.feature_monthlycosts !== false,
-      ballet: !!settingsRow.feature_ballet,
+      recurring: settingsRow.feature_recurring !== false,
       up: settingsRow.feature_up !== false,
       dashboard: settingsRow.feature_dashboard !== false,
       records: settingsRow.feature_records !== false,
@@ -2746,7 +2739,7 @@ async function loadEverything(){
   existingMonths = (monthKeys || []).sort();
   techItems = techItemsRes || [];
   grocery = groceryRes || {items:[], days:30, eatOut:5};
-  ballet = balletRow ? { cost: Number(balletRow.cost)||0, dateCharged: balletRow.date_charged || '', balance: Number(balletRow.balance)||0 } : {cost:0, dateCharged:'', balance:0};
+  recurringCosts = { items: recurringRes || [] };
   mtg = mtgRes || {rows:[]};
   monthlyCosts = { items: (monthlyCostItems && monthlyCostItems.length) ? monthlyCostItems : [{id:uid('mc'), name:'Public Transport', cost:20}] };
   monthTemplate = templateRow ? { income: templateRow.income, categories: templateRow.categories, goal: Number(templateRow.goal)||0, ...(templateRow.income_emoji!=null?{incomeEmoji:templateRow.income_emoji}:{}) } : null;
@@ -3147,28 +3140,26 @@ const CHECK_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" s
 const DOLLAR_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
 const INFO_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.5" r="0.9" fill="currentColor" stroke="none"/></svg>';
 const LINK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
-// Admins always see/use the literal Ballet calculator, unchanged. A non-admin only
-// gets it if an admin has granted feature_ballet from the Users tab, and sees it
-// relabelled "Flexible Tracker" (see renderBalletCardChrome/sourceDisplayLabel) — same
-// underlying table/logic either way, just different chrome. MTG has no grant path at
-// all, per spec: admin-only, full stop.
-function balletFeatureAvailable(){ return isAdmin || featureFlags.ballet; }
+// Recurring costs is an ordinary feature now - no admin grant, no alias. It used to be a
+// single admin-only "Ballet" calculator that a granted non-admin saw as "Flexible
+// Tracker"; both of those concepts are gone.
+// MTG has no grant path at all, per spec: admin-only, full stop.
+function recurringFeatureAvailable(){ return !!featureFlags.recurring; }
 function mtgFeatureAvailable(){ return isAdmin; }
-function balletIsGenericForCurrentUser(){ return balletFeatureAvailable() && !isAdmin; }
+
 function sourceDisplayLabel(source){
   if(source === 'tech') return 'Tech Replacement';
   if(source === 'grocery') return 'Groceries';
-  if(source === 'ballet') return balletIsGenericForCurrentUser() ? 'Flexible Tracker' : 'Ballet';
+  if(source === 'recurring') return 'Recurring costs';
   return 'Monthly Costs';
 }
 function tplSourceFor(name){
   const n = (name||'').trim().toLowerCase();
   if(n.includes('tech replacement')) return featureFlags.tech ? 'tech' : null;
   if(n.includes('groceries')) return featureFlags.grocery ? 'grocery' : null;
-  // Grantees are told to name their template item "Flexible Tracker" (they aren't
-  // shown the word "ballet" anywhere in their UI) - accept either so the link actually
-  // works regardless of which label the current viewer sees.
-  if((n.includes('ballet') || n.includes('flexible tracker')) && balletFeatureAvailable()) return 'ballet';
+  // Matched on the row's own name, like Monthly Costs below - there's no fixed name to
+  // look for now that recurring costs are an arbitrary list.
+  if(n && recurringCosts && recurringCosts.items.some(rc => (rc.name||'').trim().toLowerCase() === n)) return featureFlags.recurring ? 'recurring' : null;
   if(n && monthlyCosts && monthlyCosts.items.some(mc => mc.name.trim().toLowerCase() === n)) return featureFlags.monthlycosts ? 'monthlycost' : null;
   return null;
 }
@@ -3203,7 +3194,7 @@ const FEATURE_NAV_VIEWS = { up:'up', dashboard:'dashboard', records:'other', tem
 // Whether an admin has granted this feature at all - separate from whether the CURRENT
 // user has additionally hidden it on this platform (see isFeatureVisibleNow below).
 function isFeatureGrantedNow(feature){
-  return feature === 'ballet' ? balletFeatureAvailable() : !!featureFlags[feature];
+  return !!featureFlags[feature];
 }
 // The actual "should this be on screen right now" check - a feature must be both granted
 // (admin toggle, or self-toggle for tech/grocery/monthlycosts) AND not personally hidden
@@ -3233,8 +3224,8 @@ function renderFeatureToggle(feature){
 // platform-hidden state depends on that, not just on featureFlags.
 function refreshAllFeatureVisibility(){
   Object.keys(FEATURE_COLUMNS).forEach(renderFeatureToggle);
-  const balletCard = document.getElementById('balletRecordCard');
-  if(balletCard) balletCard.style.display = isFeatureVisibleNow('ballet') ? '' : 'none';
+  const recurringCard = document.getElementById('recurringRecordCard');
+  if(recurringCard) recurringCard.style.display = isFeatureVisibleNow('recurring') ? '' : 'none';
   setupPagerViewPositions();
   updatePagerPosition(false);
   cacheHiddenNavViews();
@@ -3249,7 +3240,7 @@ function cacheHiddenNavViews(){
   const early = document.getElementById('earlyHiddenNavStyle');
   if(early) early.remove();
 }
-const FEATURE_LABELS = { tech:'Tech Replacement', grocery:'Groceries', monthlycosts:'Monthly Costs', ballet:'Flexible Tracker', up:'Up Bank', dashboard:'Dashboard', records:'Other Records', template:'Template' };
+const FEATURE_LABELS = { tech:'Tech Replacement', grocery:'Groceries', monthlycosts:'Monthly Costs', recurring:'Recurring costs', up:'Up Bank', dashboard:'Dashboard', records:'Other Records', template:'Template' };
 // One mutually-exclusive state per feature rather than two independent switches - "hidden
 // on both" and "shown on both" are just as valid a choice as either single-platform option,
 // and a 4-way segmented control makes all four equally reachable in one tap instead of
@@ -3284,7 +3275,7 @@ function hiddenPlatformsForState(state){
 // control that could switch it back. Ballet is the one real access grant: a non-admin only
 // sees it when an admin has granted it (see balletFeatureAvailable).
 function controllableFeatures(){
-  return Object.keys(FEATURE_LABELS).filter(f => f === 'ballet' ? balletFeatureAvailable() : true);
+  return Object.keys(FEATURE_LABELS);
 }
 function renderPlatformVisRows(){
   const container = document.getElementById('platformVisRows');
@@ -3359,7 +3350,6 @@ function adminFlagRowsHtml(u){
       <div class="admin-user-flag-row"><span>Tech Replacement</span><button class="dm-switch admin-flag-switch ${u.feature_tech?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_tech"></button></div>
       <div class="admin-user-flag-row"><span>Groceries</span><button class="dm-switch admin-flag-switch ${u.feature_grocery?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_grocery"></button></div>
       <div class="admin-user-flag-row"><span>Monthly Costs</span><button class="dm-switch admin-flag-switch ${u.feature_monthlycosts?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_monthlycosts"></button></div>
-      <div class="admin-user-flag-row"><span>Flexible Tracker grant</span><button class="dm-switch admin-flag-switch ${u.feature_ballet?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_ballet" ${u.is_admin?'disabled title="Admins already see the real Ballet feature"':''}></button></div>
       <div class="admin-user-flag-row"><span>Dashboard tab</span><button class="dm-switch admin-flag-switch ${u.feature_dashboard?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_dashboard"></button></div>
       <div class="admin-user-flag-row"><span>Records tab</span><button class="dm-switch admin-flag-switch ${u.feature_records?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_records"></button></div>
       <div class="admin-user-flag-row"><span>Template tab</span><button class="dm-switch admin-flag-switch ${u.feature_template?'on':''}" data-admin-user="${escapeAttr(u.user_id)}" data-admin-flag="feature_template"></button></div>
@@ -3490,7 +3480,7 @@ document.getElementById('view-dashboard').addEventListener('click', handleRecTog
   });
 })();
 function jumpToRecordCard(source){
-  const map = {tech:'techRecordCard', grocery:'groceryRecordCard', ballet:'balletRecordCard', monthlycost:'monthlyCostsRecordCard'};
+  const map = {tech:'techRecordCard', grocery:'groceryRecordCard', recurring:'recurringRecordCard', monthlycost:'monthlyCostsRecordCard'};
   const cardId = map[source];
   if(!cardId) return;
   activateTab('other');
@@ -3706,7 +3696,7 @@ document.addEventListener('click', (e) => {
   expandedSaverPanels.clear();
   renderOpenInlinePanels();
 });
-const INLINE_CAPABLE = ['grocery','monthlycost','ballet','tech'];
+const INLINE_CAPABLE = ['grocery','monthlycost','recurring','tech'];
 function levenshteinDist(a, b){
   const m = a.length, n = b.length;
   if(m === 0) return n;
@@ -3849,7 +3839,7 @@ function templateAmountForItem(catId, item){
   const apportion = full => totalDays > 0 ? Math.round((full/totalDays)*remaining*100)/100 : Math.round(full*100)/100;
   if(source === 'tech') return Math.round(cachedTechMonthlyTotal*100)/100;
   if(source === 'grocery') return apportion(cachedGroceryMonthlyTotal);
-  if(source === 'ballet') return Math.round(cachedBalletMonthlyAmount*100)/100;
+  if(source === 'recurring'){ const rc = recurringCosts.items.find(i => (i.name||'').trim().toLowerCase() === (item.name||'').trim().toLowerCase()); return rc ? Math.round(recurringMonthlyAmount(rc).monthly*100)/100 : null; }
   if(source === 'monthlycost') return apportion(getMonthlyCostFor(item.name));
   const cat = catId === 'income' ? null : monthData.categories.find(c => c.id === catId);
   const tplCat = monthTemplate && cat && monthTemplate.categories.find(c => (c.name||'').trim().toLowerCase() === (cat.name||'').trim().toLowerCase());
@@ -3905,12 +3895,14 @@ function renderInlineSourceTable(source){
     </div>
     <div class="rec-actions"><button class="mini-btn" data-inline-add-tech="1">+ Add item</button></div>`;
   }
-  if(source === 'ballet'){
-    return `<div class="ballet-inline">
-      <label class="grocery-field">Cost per charge<input type="number" step="0.01" value="${ballet.cost||''}" data-inline-ballet-field="cost"></label>
-      <label class="grocery-field">Currently saved<input type="number" step="0.01" value="${ballet.balance||''}" data-inline-ballet-field="balance"></label>
-      <div class="ballet-result-mini" data-inline-ballet-result>${money(cachedBalletMonthlyAmount)} to move across each month</div>
-    </div>`;
+  if(source === 'recurring'){
+    return `<div class="rec-table-wrap">
+      <table class="rtable">
+        <thead><tr><th>Item</th><th style="text-align:right;">Cost</th><th style="text-align:right;">Every (wks)</th><th>Last charged</th><th style="text-align:right;">Saved</th><th style="text-align:right;">Per month</th><th></th></tr></thead>
+        <tbody data-inline-recurring-tbody="1">${recurringCosts.items.map(recurringRowHtml).join('')}</tbody>
+      </table>
+    </div>
+    <div class="rec-actions"><button class="mini-btn" data-inline-add-recurring="1">+ Add item</button></div>`;
   }
   return '';
 }
@@ -4772,7 +4764,7 @@ async function switchToMonth(key){
   else { monthData = null; showEmptyState(); refreshInsertDropdowns(); }
   updateGroceryTotal();
   updateTechTotal();
-  renderBalletCalc();
+  renderRecurringRows();
   syncMonthlyCostsToTemplate();
   renderOtherRecordsBudgetSummary();
 }
@@ -4812,7 +4804,7 @@ function undo(){
     if(upTransactions.length) renderUpTxList();
   } else if(action.type==='tech'){ techItems = action.snapshot; renderTechRows(); saveTech(); }
   else if(action.type==='grocery'){ grocery = action.snapshot; renderGroceryRows(); updateGroceryTotal(); saveGrocery(); const ge=document.getElementById('groceryEatOut'); if(ge) ge.value=grocery.eatOut; }
-  else if(action.type==='ballet'){ ballet = action.snapshot; renderBalletCalc(); saveBallet(); }
+  else if(action.type==='recurringCosts'){ recurringCosts = action.snapshot; renderRecurringRows(); saveRecurringCosts(); }
   else if(action.type==='mtg'){ mtg = action.snapshot; renderMtgRows(); saveMtg(); }
   else if(action.type==='monthlyCosts'){ monthlyCosts = action.snapshot; renderMonthlyCostRows(); saveMonthlyCosts(); renderOtherRecordsBudgetSummary(); syncMonthlyCostsToTemplate(); }
   else if(action.type==='template'){
@@ -4888,7 +4880,7 @@ let pendingOtherType = null;
 function otherFieldType(target){
   if(target.closest('#techRows')) return {type:'tech', ref:techItems};
   if(target.closest('#groceryRows') || target.id==='groceryEatOut') return {type:'grocery', ref:grocery};
-  if(target.id==='balletCost' || target.id==='balletBalance' || target.id==='balletDateDayBtn' || target.id==='balletDateMonthBtn' || target.id==='balletDateYearBtn') return {type:'ballet', ref:ballet};
+  if(target.dataset && target.dataset.recurring) return {type:"recurringCosts", ref:recurringCosts};
   if(target.closest('#mtgRows')) return {type:'mtg', ref:mtg};
   if(target.closest('#monthlyCostRows')) return {type:'monthlyCosts', ref:monthlyCosts};
   return null;
@@ -5378,7 +5370,7 @@ document.getElementById('useAsTemplateBtn').addEventListener('click', async () =
     saveTemplateIncomeEmoji();
     updateTechTotal();
     updateGroceryTotal();
-    renderBalletCalc();
+    renderRecurringRows();
     toast('This month is now your template');
   }catch(e){ toast('Couldn\u2019t save the template'); }
 });
@@ -7453,6 +7445,7 @@ document.body.addEventListener('click', (e) => {
   if(e.target.closest('[data-inline-add-grocery]')){ addGroceryRow(); return; }
   if(e.target.closest('[data-inline-add-mc]')){ addMonthlyCostRow(); return; }
   if(e.target.closest('[data-inline-add-tech]')){ addTechRow(); return; }
+  if(e.target.closest('[data-inline-add-recurring]')){ addRecurringRow(); return; }
 });
 document.getElementById('txAssignExcludeBtn').addEventListener('click', () => {
   if(!txAssignCurrent) return;
@@ -8121,13 +8114,21 @@ async function refreshUpData(){
     accountsRes.data.forEach(a => { if(a.attributes.displayName) upAccountNameCache[a.id] = a.attributes.displayName; });
     const spendingAcc = findUpSpendingAccount(accountsRes.data);
     const savers = accountsRes.data.filter(a => !spendingAcc || a.id !== spendingAcc.id);
-    const balletSaver = balletFeatureAvailable() ? savers.find(a => (a.attributes.displayName||'').toLowerCase().includes('ballet')) : null;
-    if(balletSaver){
-      const balletBal = parseFloat(balletSaver.attributes.balance.value);
-      if(!isNaN(balletBal) && balletBal !== ballet.balance){
-        ballet.balance = balletBal;
-        renderBalletCalc(); saveBallet();
-      }
+    // Any recurring cost whose name matches a saver takes its "saved so far" straight from
+    // that account's real balance, so the set-aside maths works off the actual figure
+    // rather than one typed in and left to go stale. Matched by name because that's the
+    // only thing linking a budget row to an Up account here.
+    if(featureFlags.recurring && recurringCosts.items.length){
+      let touched = false;
+      recurringCosts.items.forEach(rc => {
+        const name = (rc.name||'').trim().toLowerCase();
+        if(!name) return;
+        const saver = savers.find(a => (a.attributes.displayName||'').trim().toLowerCase() === name);
+        if(!saver) return;
+        const bal = parseFloat(saver.attributes.balance.value);
+        if(!isNaN(bal) && bal !== rc.balance){ rc.balance = bal; touched = true; }
+      });
+      if(touched){ renderRecurringRows(); saveRecurringCosts(); }
     }
     let html = '';
     if(spendingAcc){
@@ -8736,7 +8737,7 @@ function renderOtherRecordsBudgetSummary(){
   document.getElementById('orGroceriesAmt').textContent = money(groceryApportioned);
   document.getElementById('orGroceriesSub').textContent = `${remaining} of ${totalDays} days left \u00b7 ${money(cachedGroceryMonthlyTotal)} full month`;
 
-  document.getElementById('orBalletAmt').textContent = money(cachedBalletMonthlyAmount);
+  // (the summary bar no longer carries a recurring-costs figure - the card has its own total)
 
   const ptMonthly = getMonthlyCostFor('public transport');
   const ptApportioned = totalDays > 0 ? (ptMonthly / totalDays) * remaining : 0;
@@ -8835,7 +8836,7 @@ function syncGroceriesToTemplate(total){
 }
 function refreshInsertDropdowns(){}
 
-/* ===================== Ballet (monthly transfer calculator) ===================== */
+/* ===================== date-select helpers ===================== */
 function populateCustomDateSelects(prefix){
   document.getElementById(prefix+'DayList').innerHTML = Array.from({length:31}, (_,i)=>`<div class="custom-select-opt" data-value="${i+1}">${i+1}</div>`).join('');
   document.getElementById(prefix+'MonthList').innerHTML = MONTH_ABBR.map((m,i)=>`<div class="custom-select-opt" data-value="${i+1}">${m}</div>`).join('');
@@ -8876,98 +8877,108 @@ function getCustomDateFromSelects(prefix){
   if(!d || !m || !y) return '';
   return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 }
-function populateBalletDateSelects(){ populateCustomDateSelects('balletDate'); }
-function setBalletDateSelects(isoStr){ setCustomDateSelects('balletDate', isoStr); }
-function getBalletDateFromSelects(){ return getCustomDateFromSelects('balletDate'); }
-let cachedBalletMonthlyAmount = 0;
-// Swaps the Ballet card between its literal admin-only chrome and the generic
-// "Flexible Tracker" chrome a grantee sees — same underlying ballet table/fields either
-// way (see saveBallet/renderBalletCalc below), this only changes what's displayed.
-function renderBalletCardChrome(){
-  const card = document.getElementById('balletRecordCard');
-  const mtgCard = document.getElementById('mtgRecordCard');
-  if(mtgCard) mtgCard.style.display = mtgFeatureAvailable() ? '' : 'none';
-  if(!card) return;
-  card.style.display = isFeatureVisibleNow('ballet') ? '' : 'none';
-  if(!balletFeatureAvailable()) return;
-  const generic = balletIsGenericForCurrentUser();
-  card.querySelector('h2').innerHTML = generic
-    ? 'Flexible Tracker <span class="rc-sub">recurring transfer calculator</span>'
-    : 'Ballet <span class="rc-sub">monthly transfer calculator</span>';
-  const desc = card.querySelector('.ballet-desc');
-  if(desc) desc.textContent = generic
-    ? 'A recurring-cost transfer calculator: set the amount, how often you’re charged, and what’s already saved, and it works out how much to move across each month so it never runs short. Use it for any regular cost, not just one specific thing — name a template item "Flexible Tracker" to link it here automatically.'
-    : 'Charged every 6 weeks. Set the cost, the date you were last charged, and what’s currently sitting in savings — this works out how much to move across each month so it never runs short.';
-  const syncNote = card.querySelector('.sync-note');
-  if(syncNote) syncNote.textContent = generic
-    ? 'Automatically kept in sync with "Flexible Tracker" in your template.'
-    : 'Automatically kept in sync with "Ballet" in your template.';
-}
-function renderBalletCalc(){
-  const costEl = document.getElementById('balletCost');
-  const balEl = document.getElementById('balletBalance');
-  if(document.activeElement !== costEl) costEl.value = ballet.cost || '';
-  if(document.activeElement !== balEl) balEl.value = ballet.balance || '';
-  setBalletDateSelects(ballet.dateCharged);
-
-  const cost = Number(ballet.cost)||0;
-  const balance = Number(ballet.balance)||0;
-  const WEEKS_PER_MONTH = 52/12; // ≈4.333
-  const baseline = (cost / 6) * WEEKS_PER_MONTH; // monthly equivalent of the weekly rate
-  let monthly = baseline;
-  const nextEl = document.getElementById('balletNextDate');
-  const noteEl = document.getElementById('balletBalanceNote');
-  nextEl.textContent = ''; noteEl.textContent = '';
-
-  if(ballet.dateCharged){
-    const d = new Date(ballet.dateCharged + 'T00:00:00');
-    if(!isNaN(d)){
-      const next = new Date(d); next.setDate(next.getDate() + 42);
-      nextEl.textContent = 'Next charge expected ' + next.toLocaleDateString('en-AU', {day:'numeric', month:'long', year:'numeric'});
-      const today = new Date(); today.setHours(0,0,0,0);
-      const weeksRemaining = Math.max(1, Math.ceil((next - today) / (7*24*60*60*1000)));
-      const monthsRemaining = Math.max(1, Math.ceil(weeksRemaining / WEEKS_PER_MONTH));
-      const shortfall = Math.max(0, cost - balance);
-      if(shortfall > 0){
-        monthly = Math.max(baseline, shortfall / monthsRemaining);
-        noteEl.textContent = `$${shortfall.toFixed(2)} short of the next charge — this catches up over ${monthsRemaining} month${monthsRemaining===1?'':'s'} so it never goes negative.`;
-      } else {
-        const ahead = balance - cost;
-        noteEl.textContent = ahead > 0.5 ? `Already $${ahead.toFixed(2)} ahead of the next charge — this is the steady ongoing rate.` : 'Right on track — this is the steady ongoing rate.';
-      }
-    }
-  } else if(cost > 0){
-    noteEl.textContent = 'Add the date you were last charged to fine-tune this around your current balance.';
+/* ===================== Recurring costs ===================== */
+const WEEKS_PER_MONTH = 52/12; // ≈4.333
+// How much to set aside per month for one recurring cost. The steady rate is just the
+// charge spread over its own cycle; if the next charge is closer than the saved balance
+// covers, it rises to whatever clears the shortfall in the months remaining, so the
+// balance never goes negative. Unchanged from the single-item version this replaced,
+// except the cycle length is per item instead of a hardcoded 6 weeks.
+function recurringMonthlyAmount(item){
+  const cost = Number(item.cost)||0;
+  const balance = Number(item.balance)||0;
+  const everyWeeks = Math.max(1, Number(item.everyWeeks)||6);
+  const baseline = (cost / everyWeeks) * WEEKS_PER_MONTH;
+  const out = {monthly: baseline, nextDate: null, note: ''};
+  if(!item.dateCharged) return out;
+  const d = new Date(item.dateCharged + 'T00:00:00');
+  if(isNaN(d)) return out;
+  const next = new Date(d); next.setDate(next.getDate() + everyWeeks*7);
+  out.nextDate = next;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const weeksRemaining = Math.max(1, Math.ceil((next - today) / (7*24*60*60*1000)));
+  const monthsRemaining = Math.max(1, Math.ceil(weeksRemaining / WEEKS_PER_MONTH));
+  const shortfall = Math.max(0, cost - balance);
+  if(shortfall > 0){
+    out.monthly = Math.max(baseline, shortfall / monthsRemaining);
+    out.note = `${item.name||'This'}: ${money(shortfall)} short of the next charge — catching up over ${monthsRemaining} month${monthsRemaining===1?'':'s'}.`;
   }
-
-  document.getElementById('balletWeeklyAmt').textContent = money(monthly);
-  syncBalletToTemplate(monthly);
-  cachedBalletMonthlyAmount = monthly;
+  return out;
+}
+function recurringRowHtml(r){
+  return `<tr data-recurring-row="${r.id}">
+      <td><input value="${escapeAttr(r.name||'')}" data-recurring="${r.id}" data-field="name" placeholder="e.g. Ballet"></td>
+      <td><input class="num-in" type="number" step="0.01" value="${r.cost||''}" data-recurring="${r.id}" data-field="cost"></td>
+      <td><input class="num-in" type="number" min="1" step="1" value="${r.everyWeeks||6}" data-recurring="${r.id}" data-field="everyWeeks"></td>
+      <td><input type="date" class="num-in" value="${escapeAttr(r.dateCharged||'')}" data-recurring="${r.id}" data-field="dateCharged"></td>
+      <td><input class="num-in" type="number" step="0.01" value="${r.balance||''}" data-recurring="${r.id}" data-field="balance"></td>
+      <td class="num" data-recurring-monthly="${r.id}"></td>
+      <td class="num"><button class="item-del rtable-del" data-recurring-del="${r.id}" title="Remove">${X_SVG}</button></td>
+    </tr>`;
+}
+function renderRecurringRows(){
+  document.getElementById('recurringRows').innerHTML = recurringCosts.items.map(recurringRowHtml).join('');
+  document.querySelectorAll('[data-inline-recurring-tbody]').forEach(tb => { tb.innerHTML = recurringCosts.items.map(recurringRowHtml).join(''); });
+  updateRecurringTotals();
+  updateAllRtableNameWidths();
+}
+let cachedRecurringMonthlyTotal = 0;
+function updateRecurringTotals(){
+  let total = 0;
+  const notes = [];
+  recurringCosts.items.forEach(r => {
+    const calc = recurringMonthlyAmount(r);
+    total += calc.monthly;
+    if(calc.note) notes.push(calc.note);
+    document.querySelectorAll(`[data-recurring-monthly="${r.id}"]`).forEach(cell => {
+      cell.textContent = money(calc.monthly);
+      cell.title = calc.nextDate ? 'Next charge expected ' + calc.nextDate.toLocaleDateString('en-AU', {day:'numeric', month:'long', year:'numeric'}) : '';
+    });
+  });
+  const totalEl = document.getElementById('recurringMonthlyTotal');
+  if(totalEl) totalEl.textContent = money(total);
+  const notesEl = document.getElementById('recurringNotes');
+  if(notesEl) notesEl.textContent = notes.join('  ');
+  cachedRecurringMonthlyTotal = total;
+  syncRecurringToTemplate();
   renderOtherRecordsBudgetSummary();
-  document.querySelectorAll('[data-inline-ballet-field="cost"]').forEach(el => { if(document.activeElement !== el) el.value = ballet.cost || ''; });
-  document.querySelectorAll('[data-inline-ballet-field="balance"]').forEach(el => { if(document.activeElement !== el) el.value = ballet.balance || ''; });
-  document.querySelectorAll('[data-inline-ballet-result]').forEach(el => { el.textContent = `${money(monthly)} to move across each month`; });
 }
-function syncBalletToTemplate(monthly){
-  if(!balletFeatureAvailable()) return;
-  syncAmountEverywhere(n => (n.trim().toLowerCase().includes('ballet') || n.trim().toLowerCase().includes('flexible tracker')), monthly, false);
+// One template item per row, matched on name - the same "keep a named template item in
+// step with its source table" contract Monthly Costs uses, rather than the old single
+// hardcoded name. apportion:false because these are already a monthly figure.
+function syncRecurringToTemplate(){
+  if(!featureFlags.recurring) return;
+  recurringCosts.items.forEach(r => {
+    const name = (r.name||'').trim().toLowerCase();
+    if(!name) return;
+    syncAmountEverywhere(n => n.trim().toLowerCase() === name, recurringMonthlyAmount(r).monthly, false);
+  });
 }
-document.getElementById('balletCost').addEventListener('input', (e) => {
-  ballet.cost = parseFloat(e.target.value)||0;
-  renderBalletCalc(); saveBallet();
-});
-document.getElementById('balletBalance').addEventListener('input', (e) => {
-  ballet.balance = parseFloat(e.target.value)||0;
-  renderBalletCalc(); saveBallet();
-});
+function addRecurringRow(){
+  pushUndo('recurringCosts', recurringCosts);
+  recurringCosts.items.push({id:uid('rc'), name:'', cost:0, everyWeeks:6, dateCharged:'', balance:0});
+  renderRecurringRows(); saveRecurringCosts(); focusLastInput('recurringRows');
+}
+document.getElementById('addRecurringRowBtn').addEventListener('click', addRecurringRow);
+document.body.addEventListener('keydown', (e) => { if(e.key==='Enter' && e.target.matches('input') && e.target.dataset.recurring){ e.preventDefault(); addRecurringRow(); } });
 document.body.addEventListener('input', (e) => {
-  const t = e.target;
-  if(!t.dataset.inlineBalletField) return;
-  if(t.dataset.inlineBalletField === 'cost') ballet.cost = parseFloat(t.value)||0;
-  else if(t.dataset.inlineBalletField === 'balance') ballet.balance = parseFloat(t.value)||0;
-  renderBalletCalc(); saveBallet();
+  const t = e.target; if(!t.dataset.recurring) return;
+  const row = recurringCosts.items.find(i => i.id === t.dataset.recurring); if(!row) return;
+  const f = t.dataset.field;
+  if(f === 'name'){ row.name = t.value; updateRtableNameWidth(t); }
+  else if(f === 'dateCharged') row.dateCharged = t.value;
+  else if(f === 'everyWeeks') row.everyWeeks = Math.max(1, parseInt(t.value, 10)||1);
+  else row[f] = parseFloat(t.value)||0;
+  document.querySelectorAll(`[data-recurring="${row.id}"][data-field="${f}"]`).forEach(el => { if(el !== t) el.value = t.value; });
+  updateRecurringTotals(); saveRecurringCosts();
 });
-const CUSTOM_DATE_PREFIXES = ['balletDate','upTxFrom','upTxTo'];
+document.body.addEventListener('click', (e) => {
+  const del = e.target.closest('[data-recurring-del]'); if(!del) return;
+  pushUndo('recurringCosts', recurringCosts);
+  recurringCosts.items = recurringCosts.items.filter(i => i.id !== del.dataset.recurringDel);
+  renderRecurringRows(); saveRecurringCosts();
+});
+const CUSTOM_DATE_PREFIXES = ['upTxFrom','upTxTo'];
 function getCustomDatePrefixFromWrapId(wrapId){
   for(const p of CUSTOM_DATE_PREFIXES){
     if(wrapId === p+'DayWrap' || wrapId === p+'MonthWrap' || wrapId === p+'YearWrap') return p;
@@ -9000,10 +9011,6 @@ document.addEventListener('click', (e) => {
     if(CUSTOM_DATE_WRAP_IDS.includes(optWrapId)){
       const prefix = getCustomDatePrefixFromWrapId(optWrapId);
       updateCustomDateSelectSelected(prefix);
-      if(prefix === 'balletDate'){
-        ballet.dateCharged = getBalletDateFromSelects();
-        renderBalletCalc(); saveBallet();
-      }
     }
     if(optWrapId === 'txAssignNewCatWrap'){
       const catId = opt.dataset.value;
@@ -9315,10 +9322,10 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   renderTechRows();
   document.getElementById('groceryEatOut').value = grocery.eatOut || 0;
   renderGroceryRows(); updateGroceryTotal();
-  populateBalletDateSelects();
+
   populateCustomDateSelects('upTxFrom');
   populateCustomDateSelects('upTxTo');
-  renderBalletCalc();
+  renderRecurringRows();
   renderMtgRows();
   renderMonthlyCostRows();
   syncMonthlyCostsToTemplate();
@@ -9326,7 +9333,7 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   // Covers all seven of the individual renderFeatureToggle() calls this replaced, and also
   // refreshes the pre-paint hidden-tab cache now that real settings are in.
   refreshAllFeatureVisibility();
-  renderBalletCardChrome();
+  
   updateSideHighlight();
   setupPagerViewPositions();
   updatePagerPosition(false);
