@@ -793,7 +793,15 @@ html:has(.modal-overlay.show){overflow:hidden;}
    touch-action:none here on purpose: see the pointerdown handler for why touch keeps its
    normal scrolling gesture. */
 .up-savers-grid .up-account-chip{cursor:grab;}
-.up-account-chip.saver-dragging{opacity:.55; cursor:grabbing; border-color:var(--gold);}
+/* Lifted out of the grid and following the cursor (its transform is set per pointermove).
+   pointer-events:none so it can't be its own hover target while under the cursor, and the
+   tooltip is suppressed because a "click to view transactions" hint hovering over a chip
+   you're mid-drag is just noise. */
+.up-account-chip.saver-dragging{cursor:grabbing; border-color:var(--gold); position:relative; z-index:6; box-shadow:0 10px 24px rgba(0,0,0,.35); pointer-events:none; opacity:.9;}
+.up-account-chip.saver-dragging[data-tip]::before{display:none !important;}
+/* Suppresses the text selection a drag across labels would otherwise paint, for the
+   duration of the drag only - the chips stay selectable normally. */
+body.saver-dragging-active{user-select:none; -webkit-user-select:none;}
 .up-acc-name{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .up-goal-flag{display:inline-block; background:rgba(255,255,255,.22); color:#fff; border-radius:20px; padding:2px 8px; font-size:.6rem; text-transform:none; letter-spacing:0; font-weight:700; margin-left:6px; vertical-align:middle;}
 .up-acc-bal{font-size:1rem; font-weight:800; color:var(--ink); font-variant-numeric:tabular-nums;}
@@ -8181,7 +8189,10 @@ document.addEventListener('pointerdown', (e) => {
   if(e.button !== 0 || e.pointerType === 'touch') return;
   const chip = e.target.closest('.up-savers-grid .up-account-chip[data-account-id]');
   if(!chip) return;
-  saverDrag = {chip, startX: e.clientX, startY: e.clientY, moved: false, pointerId: e.pointerId};
+  const rect = chip.getBoundingClientRect();
+  // Where within the chip you grabbed it, so it stays under that same point rather than
+  // snapping its corner or centre to the cursor.
+  saverDrag = {chip, startX: e.clientX, startY: e.clientY, grabX: e.clientX - rect.left, grabY: e.clientY - rect.top, moved: false, pointerId: e.pointerId};
 });
 document.addEventListener('pointermove', (e) => {
   if(!saverDrag) return;
@@ -8191,20 +8202,31 @@ document.addEventListener('pointermove', (e) => {
     if(Math.hypot(e.clientX - saverDrag.startX, e.clientY - saverDrag.startY) < 6) return;
     saverDrag.moved = true;
     saverDrag.chip.classList.add('saver-dragging');
+    document.body.classList.add('saver-dragging-active');
     try{ saverDrag.chip.setPointerCapture(saverDrag.pointerId); }catch(err){}
   }
-  const grid = saverDrag.chip.parentElement;
+  const chip = saverDrag.chip;
+  const grid = chip.parentElement;
   if(!grid) return;
+  // Reorder first, against the chips' real layout boxes - the dragged one is excluded and
+  // is pointer-events:none anyway, so its floating position can't interfere.
   const over = [...grid.querySelectorAll('.up-account-chip')].find(c => {
-    if(c === saverDrag.chip) return false;
+    if(c === chip) return false;
     const r = c.getBoundingClientRect();
     return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
   });
-  if(!over) return;
-  const r = over.getBoundingClientRect();
-  // Past the midpoint means "put it after this one" - without that check the chip would
-  // flip back and forth as soon as it overlapped its neighbour.
-  grid.insertBefore(saverDrag.chip, (e.clientX > r.left + r.width/2) ? over.nextSibling : over);
+  if(over){
+    const r = over.getBoundingClientRect();
+    // Past the midpoint means "put it after this one" - without that check the chip would
+    // flip back and forth as soon as it overlapped its neighbour.
+    grid.insertBefore(chip, (e.clientX > r.left + r.width/2) ? over.nextSibling : over);
+  }
+  // Then offset it to the cursor. Measured with the transform cleared so this reads the
+  // chip's CURRENT layout slot, which the reorder above may have just changed - otherwise
+  // each move would compound on the last one's offset and the chip would fly off.
+  chip.style.transform = '';
+  const layout = chip.getBoundingClientRect();
+  chip.style.transform = `translate(${e.clientX - saverDrag.grabX - layout.left}px, ${e.clientY - saverDrag.grabY - layout.top}px)`;
 });
 document.addEventListener('pointerup', () => {
   if(!saverDrag) return;
@@ -8212,6 +8234,8 @@ document.addEventListener('pointerup', () => {
   saverDrag = null;
   if(!moved) return;
   chip.classList.remove('saver-dragging');
+  document.body.classList.remove('saver-dragging-active');
+  chip.style.transform = '';   // drop back into its (now reordered) slot
   const grid = chip.parentElement;
   if(grid) saverOrder = [...grid.querySelectorAll('.up-account-chip')].map(c => c.dataset.accountId);
   saveSaverOrder();
