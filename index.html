@@ -8185,6 +8185,38 @@ async function saveSaverOrder(){ try{ await db.saveSettings({ saver_order: saver
 // rows, which require their grip handle on touch for exactly this.
 let saverDrag = null;
 let suppressSaverClick = false;
+// Slides the chips a reorder displaced, instead of letting them teleport. Standard FLIP:
+// note where each one is now, let `mutate` move it in the DOM, then jump it back to where
+// it was with a transform and release that over a transition.
+// "Where it is now" is read WITH any transform still applied, so a chip nudged again
+// mid-slide carries on from where it visually is rather than snapping to the position it
+// was heading for. The dragged chip is excluded throughout - it's following the cursor and
+// owns its own transform.
+function animateSaverReflow(grid, movingChip, mutate){
+  const others = [...grid.querySelectorAll('.up-account-chip')].filter(c => c !== movingChip);
+  const before = new Map(others.map(c => [c, c.getBoundingClientRect()]));
+  mutate();
+  others.forEach(c => {
+    const first = before.get(c);
+    c.style.transition = 'none';
+    c.style.transform = '';
+    const last = c.getBoundingClientRect();
+    const dx = first.left - last.left, dy = first.top - last.top;
+    if(!dx && !dy){ c.style.transition = ''; return; }  // didn't move; don't leave it pinned to none
+    c.style.transform = `translate(${dx}px, ${dy}px)`;
+    // Forced reflow rather than a requestAnimationFrame hop, so the inverted position is
+    // committed as the transition's starting point synchronously. rAF would leave the chip
+    // parked at that offset for as long as frames are throttled - and it never fires at all
+    // in the test harness, so the release step couldn't be verified through one either.
+    void c.offsetWidth;
+    c.style.transition = 'transform .18s cubic-bezier(.2,.6,.35,1)';
+    c.style.transform = '';
+  });
+}
+function clearSaverReflowStyles(grid){
+  if(!grid) return;
+  grid.querySelectorAll('.up-account-chip').forEach(c => { c.style.transition = ''; c.style.transform = ''; });
+}
 document.addEventListener('pointerdown', (e) => {
   if(e.button !== 0 || e.pointerType === 'touch') return;
   const chip = e.target.closest('.up-savers-grid .up-account-chip[data-account-id]');
@@ -8219,7 +8251,9 @@ document.addEventListener('pointermove', (e) => {
     const r = over.getBoundingClientRect();
     // Past the midpoint means "put it after this one" - without that check the chip would
     // flip back and forth as soon as it overlapped its neighbour.
-    grid.insertBefore(chip, (e.clientX > r.left + r.width/2) ? over.nextSibling : over);
+    animateSaverReflow(grid, chip, () => {
+      grid.insertBefore(chip, (e.clientX > r.left + r.width/2) ? over.nextSibling : over);
+    });
   }
   // Then offset it to the cursor. Measured with the transform cleared so this reads the
   // chip's CURRENT layout slot, which the reorder above may have just changed - otherwise
@@ -8237,6 +8271,9 @@ document.addEventListener('pointerup', () => {
   document.body.classList.remove('saver-dragging-active');
   chip.style.transform = '';   // drop back into its (now reordered) slot
   const grid = chip.parentElement;
+  // Any slide still in flight is finished with, and leaving the inline transition on would
+  // make the next drag's first reorder animate from a stale starting point.
+  clearSaverReflowStyles(grid);
   if(grid) saverOrder = [...grid.querySelectorAll('.up-account-chip')].map(c => c.dataset.accountId);
   saveSaverOrder();
   // The click that follows this pointerup would otherwise open the panel for whichever
