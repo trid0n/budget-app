@@ -349,3 +349,25 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
   Generalise: when "the page is taller than it should be," don't compute what the height
   *ought* to be — hide things until it changes. And if a `[data-tip]` element ever seems
   involved, check its nearest positioned ancestor first; this is now the third instance.
+
+## Data repairs (a fix to the code is not a fix to the data)
+
+- **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
+  "entering the app sets Groceries to a number in the thousands" ($4,442.09). Cause was
+  the cross-month auto-attribution bug fixed in `b4dbfaf` — but that commit only stopped
+  *new* mis-attributions and, in the same change, hid the existing ones by having
+  `getTxsForItem` skip assignments whose `monthKey` disagreed with the transaction's own
+  date. `6efee66` removed that skip a day later (correctly — it left an item's amount
+  counting transactions its own panel refused to list), which un-hid ~$63k of never-cleaned
+  data: 229 assignments going back to 2025-06, all stamped with the then-open month.
+  `applyTxAmountToItem` *sets* an item to the sum of its linked transactions, so every new
+  Coles transaction re-summed the whole pile onto Groceries. Repaired in the browser console
+  against live data (no `psql` here) by re-stamping each assignment's `monthKey` to
+  `dateToKey(new Date(a.date))` and re-saving via `db.saveTxAssignments` — re-stamping, not
+  deleting, so the Up tab's assigned badges survive and `autoApplyTxRules` still skips them.
+  Re-stamped rows point at the *open* month's `itemId`s, so they read as inert in the months
+  they moved to rather than showing up as stray linked transactions there.
+  **The lesson worth keeping**: when a bug has been writing bad rows, guarding the write path
+  fixes the future and nothing else. Ask separately what is already in the database, and
+  repair it in the same change — a masking read filter is not a repair, and whoever removes
+  the mask later (for good reasons) gets the original bug back with no idea why.
