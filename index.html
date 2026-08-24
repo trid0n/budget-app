@@ -6720,17 +6720,24 @@ function updatePeriodToggleVisibility(){
 // Which already-filed transactions would land in a different period under the mode that's now
 // selected. Only ones currently loaded in the Up tab can be judged - periodKeyForTx needs the
 // transaction's date, and an assignment on its own doesn't carry enough to place it in a cycle.
+// Judged from each assignment's own stored date rather than from the Up tab's loaded list, so a
+// whole period gets re-filed whether or not its transactions happen to be on screen. Returns
+// `undatable` too - assignments that can't be placed, either because they predate the earliest
+// pay we know about or because no date was ever stored - so the caller can say so rather than
+// quietly moving them somewhere plausible.
 function findMisfiledAssignments(){
-  const out = [];
+  const starts = payCycleStarts();
+  const out = [], undatable = [];
   for(const txId in txAssignments){
     const a = txAssignments[txId];
     if(a.excluded || !a.catId) continue;
-    const t = upTransactions.find(x => x.id === txId);
-    if(!t) continue;
-    const should = periodKeyForTx(t);
+    if(!a.date){ undatable.push(txId); continue; }
+    const should = periodKeyForDate(a.date, starts, true);
+    if(!should){ undatable.push(txId); continue; }
     if(should === a.monthKey) continue;
     out.push({txId, a, from: a.monthKey, to: should});
   }
+  out.undatable = undatable;
   return out;
 }
 // Moves them, adjusting BOTH months' item amounts - re-stamping alone would leave the old
@@ -6819,8 +6826,12 @@ document.getElementById('periodModeGroup').addEventListener('click', async (e) =
   // amounts across several months at once, and doing that without asking is how a bad rule
   // once buried a year of transactions in the wrong month.
   const moves = findMisfiledAssignments();
+  const undatable = moves.undatable ? moves.undatable.length : 0;
   if(moves.length){
-    const ok = await customConfirm(`${moves.length} transaction${moves.length>1?'s':''} now belong${moves.length>1?'':'s'} to a different period. Move ${moves.length>1?'them':'it'} and update both periods' totals?`);
+    const ok = await customConfirm(
+      `${moves.length} transaction${moves.length>1?'s':''} now belong${moves.length>1?'':'s'} to a different period. `
+      + `Move ${moves.length>1?'them':'it'} and update both periods' totals?`
+      + (undatable ? `\n\n${undatable} older one${undatable>1?'s are':' is'} from before your earliest loaded pay, so ${undatable>1?'they':'it'} can’t be placed in a cycle — ${undatable>1?'they’ll':'it’ll'} be left alone. Load a wider timeframe on the Up tab first if you want ${undatable>1?'them':'it'} included.` : ''));
     if(ok){
       const {moved, skipped, created} = await refileAssignmentsToCurrentMode(moves);
       toast(`Re-filed ${moved} transaction${moved!==1?'s':''}.`
@@ -7056,12 +7067,25 @@ function payCycleForTime(ts, starts){
 // paycycle mode AND an income source are both set, so calendar mode keeps its old behaviour
 // exactly. A transaction older than the earliest pay loaded falls back to its calendar month
 // rather than being guessed into a cycle we have no evidence for.
+// Works off a bare date, so it can judge an assignment whose transaction isn't loaded in the Up
+// tab - tx_date is a real column, so every stored assignment carries its own date.
+// `starts` may be passed in when looping over many, since payCycleStarts() re-scans and re-sorts
+// upTransactions on every call.
+// strict matters only in paycycle mode: a date older than the earliest pay we've loaded can't be
+// placed in a cycle at all. Falling back to its calendar month would quietly file it into a
+// period that may be wrong, so callers that are about to MOVE something ask for null instead and
+// leave it alone. Calendar mode always has an answer, so strict never bites there.
+function periodKeyForDate(dateish, starts, strict){
+  const d = new Date(dateish);
+  if(isNaN(d)) return null;
+  const s = starts || payCycleStarts();
+  if(!s.length) return dateToKey(d);
+  const cycle = payCycleForTime(d.getTime(), s);
+  if(!cycle) return strict ? null : dateToKey(d);
+  return addMonths(dateToKey(new Date(cycle.startTs)), 1);
+}
 function periodKeyForTx(t){
-  const d = new Date(t.attributes.createdAt);
-  const starts = payCycleStarts();
-  if(!starts.length) return dateToKey(d);
-  const cycle = payCycleForTime(d.getTime(), starts);
-  return cycle ? addMonths(dateToKey(new Date(cycle.startTs)), 1) : dateToKey(d);
+  return periodKeyForDate(t.attributes.createdAt);
 }
 function payCycleLabel(cycle){
   if(!cycle) return { name: 'Before your earliest loaded pay', range: '' };

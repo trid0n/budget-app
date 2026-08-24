@@ -641,9 +641,18 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     month (see Data repairs). Declining still switches the mode, it just skips the re-file.
     Verified reversible: calendar→paycycle moved $200 from July to August, back again restored
     it exactly, and a pre-payday transaction stayed put in both directions.
-    **Limit worth knowing**: only transactions currently loaded in the Up tab can be judged,
-    since `periodKeyForTx` needs the transaction's own date and an assignment alone doesn't
-    carry enough to place it in a cycle. Widen the timeframe first to re-file further back.
+    **That "only what's loaded" limit is gone (2026-08-24).** It was never real: `tx_date` IS a
+    column, so every stored assignment carries its own date. `periodKeyForDate(date, starts,
+    strict)` judges from that, `periodKeyForTx` is now a one-line wrapper over it, and
+    `findMisfiledAssignments` no longer looks in `upTransactions` at all — a whole period
+    re-files whether or not its transactions are on screen. `starts` is hoisted out of the loop
+    because `payCycleStarts()` re-scans and re-sorts `upTransactions` on every call.
+    What genuinely still needs the Up tab is the pay dates themselves: in paycycle mode a
+    transaction older than the earliest loaded pay can't be placed in a cycle. `strict` makes
+    that return null instead of silently falling back to its calendar month, and those are
+    reported in the confirm dialog ("N older ones are from before your earliest loaded pay…")
+    rather than moved somewhere plausible. Assignments with no stored date at all get the same
+    treatment. Calendar mode always has an answer, so strict never bites there.
     **Follow-up, reported as "it warns me but changes nothing":** the first version skipped any
     transaction whose item didn't already exist in the destination month, which is the common
     case — a line that only ever existed in one month has no counterpart in the other. Measured
