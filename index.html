@@ -272,6 +272,17 @@ input.name-input:focus{cursor:text;}
 input.name-input:hover, input.name-input:focus{outline:none;}
 .amt-wrap{position:relative; flex-shrink:0; width:110px;}
 .lrow.leaf .gcell{position:relative;}
+/* The spent-so-far figure on a day-apportioned row. Absolutely positioned so a row that has
+   one stays exactly as tall as one that doesn't - the grid columns are fixed and every leaf
+   row has to line up. */
+.lrow.leaf .gcell.has-spent{padding-top:2px; padding-bottom:14px;}
+/* right:-12px, not 0 - the amount input is 110px wide inside an 86px cell and so already
+   sits 12px proud of it; matching that puts the two figures on the same right edge. */
+.amt-spent{position:absolute; left:12px; right:-12px; bottom:1px; text-align:right; font-size:.66rem; font-weight:700; letter-spacing:.03em; color:var(--ink-faint); font-variant-numeric:tabular-nums; pointer-events:auto; cursor:default;}
+.amt-spent::after{content:' spent'; font-weight:600; opacity:.75;}
+/* Right-anchored like the other right-hand-edge tooltips - left:0 on an 86px-wide element
+   would push a 280px tooltip out past the ledger's right edge. */
+.amt-spent[data-tip]::before{left:auto; right:0;}
 .biggest-movers-list{display:flex; flex-direction:column;}
 .mover-row{display:flex; align-items:center; gap:12px; padding:12px 4px; border-bottom:1px solid var(--rule);}
 .mover-row:last-child{border-bottom:none;}
@@ -3193,6 +3204,17 @@ function tplSourceFor(name){
   if(n && monthlyCosts && monthlyCosts.items.some(mc => mc.name.trim().toLowerCase() === n)) return featureFlags.monthlycosts ? 'monthlycost' : null;
   return null;
 }
+// Groceries and Monthly Costs items are day-apportioned: the month amount is a GOAL for the
+// days still to come, which is a genuinely different quantity from what's already been spent
+// on them - so the row carries both and transactions never overwrite the goal. Tech and
+// Recurring sync a flat monthly figure instead, so they stay out of this.
+function isApportionedItem(name){
+  const source = tplSourceFor(name);
+  return source === 'grocery' || source === 'monthlycost';
+}
+function spentOnItem(catId, itemId){
+  return Math.round(getTxsForItem(catId, itemId).reduce((s,t)=>s+(Number(t.amt)||0), 0) * 100) / 100;
+}
 function toggleRecCard(card){
   const body = card.querySelector('.rec-body');
   const inner = card.querySelector('.rec-body-inner');
@@ -3562,7 +3584,9 @@ function renderTxPanelHtml(catId, itemId){
   // up manually as a buffer) - surface that gap here rather than leaving it silently
   // unexplained, since the transaction list alone won't show where the rest went.
   const diff = Math.round(((Number(item.amount)||0) - total) * 100) / 100;
-  const diffHtml = diff > 0.01 ? `<div class="tx-assign-sub tx-view-diff">${money(diff)} more than these transactions add up to</div><button type="button" class="tx-view-fix-btn" data-tx-fix-total="${escapeAttr(catId)}:${escapeAttr(itemId)}">Set to ${money(total)}</button>` : '';
+  // An apportioned item's amount is a goal for the remaining days, deliberately unrelated to
+  // this total - so neither the gap nor a "set it to match" button means anything there.
+  const diffHtml = (diff > 0.01 && !isApportionedItem(item.name)) ? `<div class="tx-assign-sub tx-view-diff">${money(diff)} more than these transactions add up to</div><button type="button" class="tx-view-fix-btn" data-tx-fix-total="${escapeAttr(catId)}:${escapeAttr(itemId)}">Set to ${money(total)}</button>` : '';
   return `<button class="panel-close-btn" data-close-tx-panel="${escapeAttr(catId)}:${escapeAttr(itemId)}" title="Close">${X_SVG}</button><div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(item.name)}"</span></div>
     <div class="tx-assign-sub">${txs.length} transaction${txs.length!==1?'s':''} — <span class="tx-view-sub-total">${money(total)} total</span></div>
     ${diffHtml}
@@ -3813,14 +3837,21 @@ function leafRowHtml(catId, item){
   ) : '';
   const linkedTxCount = getTxsForItem(catId, item.id).length;
   const txPanelOpen = expandedTxPanels.has(`${catId}:${item.id}`);
-  const txOver = linkedTxCount > 0 && itemAmountExceedsTxTotal(catId, item.id, item.amount);
+  const apportioned = isApportionedItem(item.name);
+  // "amount is higher than its transactions" is a staleness hint for an item whose amount is
+  // supposed to track them. For an apportioned goal that gap is the normal state, not a hint.
+  const txOver = linkedTxCount > 0 && !apportioned && itemAmountExceedsTxTotal(catId, item.id, item.amount);
+  const spent = apportioned && linkedTxCount > 0 ? spentOnItem(catId, item.id) : null;
+  const spentHtml = spent !== null
+    ? `<span class="amt-spent" data-tip="${money(spent)} spent so far this month across ${linkedTxCount} transaction${linkedTxCount>1?'s':''} — separate from the goal, which covers the days still to come">${money(spent)}</span>`
+    : '';
   const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}${txOver?' over':''}" data-tx-view-item="${item.id}" data-tx-view-cat="${catId}" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked${txOver?' \u2014 amount is higher than they add up to':''} \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg></button>` : '';
   return `<div class="lrow leaf ${charged?'charged':''}" data-leaf-row="${item.id}" data-cat="${catId}" data-item="${item.id}">
     <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
     ${priceChangeHtml(item)}
     ${txBadge}
     <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. rent" value="${escapeAttr(item.name)}" data-cat="${catId}" data-item="${item.id}" data-field="name"></div>
-    <div class="gcell">${linkBtn}<div class="amt-wrap"><span class="sign"></span><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-cat="${catId}" data-item="${item.id}" data-field="amount" ${locked?'readonly':''}></div></div>
+    <div class="gcell${spentHtml?' has-spent':''}">${linkBtn}${spentHtml}<div class="amt-wrap"><span class="sign"></span><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-cat="${catId}" data-item="${item.id}" data-field="amount" ${locked?'readonly':''}></div></div>
     <div class="del-cell">${canRestoreItemToTemplate(catId, item) ? `<button data-item-menu-toggle="${catId}:${item.id}" class="item-menu-toggle month-actions-gear" title="More options">›</button>` : ''}<button data-cat="${catId}" data-item="${item.id}" class="item-del" title="Remove">${X_SVG}</button></div>
   </div>`;
 }
@@ -5048,6 +5079,10 @@ document.getElementById('view-ledger').addEventListener('focusout', async (e) =>
     if(linkedTotal > 0){
       const list = findList(t.dataset.cat);
       const item = list && list.find(i=>i.id===t.dataset.item);
+      // The floor exists so an item can't claim to cost less than the transactions on it.
+      // A day-apportioned goal isn't making that claim - it's a target for the days left,
+      // which is legitimately below (or above) what's already been spent.
+      if(item && isApportionedItem(item.name)) return;
       if(item && Number(item.amount) < linkedTotal - 0.001){
         item.amount = Math.round(linkedTotal*100)/100;
         t.value = item.amount;
@@ -7144,7 +7179,9 @@ function reverseTxAssignmentIfSameMonth(txId){
   if(!prev || prev.monthKey !== settings.currentMonth || !monthData) return;
   const prevCat = findCatById(prev.catId);
   const prevItem = prevCat && prevCat.items.find(i=>i.id===prev.itemId);
-  if(prevItem && prev.txAmt){
+  // Mirror of applyTxAmountToItem's guard - a goal that was never added to must not be
+  // subtracted from when the transaction moves away or gets excluded.
+  if(prevItem && prev.txAmt && !isApportionedItem(prevItem.name)){
     prevItem.amount = Math.round(((Number(prevItem.amount)||0) - prev.txAmt) * 100) / 100;
   }
 }
@@ -7179,6 +7216,11 @@ function resolveAssignmentCatEmoji(assignment){
 // own separate first-pay-replaces-the-estimate rule below, since the same reasoning
 // applies to income before it's ever had a real transaction linked.
 function applyTxAmountToItem(catId, item, txAmt){
+  // A day-apportioned item's amount is owned by its source table, not by its transactions -
+  // the two are separate figures shown side by side on the row (see isApportionedItem).
+  // Without this the goal got overwritten with the month's actual spend every time a
+  // transaction landed, then re-synced back on the next load, flip-flopping all month.
+  if(isApportionedItem(item.name)) return;
   const amt = Math.abs(Number(txAmt)) || 0;
   if(catId === 'income' && getTxsForItem(catId, item.id).length === 0){
     item.amount = Math.round(amt * 100) / 100;

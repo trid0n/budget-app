@@ -350,6 +350,20 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
   *ought* to be — hide things until it changes. And if a `[data-tip]` element ever seems
   involved, check its nearest positioned ancestor first; this is now the third instance.
 
+25. **Day-apportioned items carry a goal AND a spent figure.** Groceries and every Monthly
+    Costs item (Public Transport, rent, internet) are apportioned over the days *remaining*
+    in the month, so their amount is a target for what's left — a different quantity from
+    what has already been spent on them. Two writers used to fight over that one number:
+    `syncAmountEverywhere()` set it to the apportioned goal on load, then
+    `applyTxAmountToItem()` overwrote it with the month's actual spend the moment a
+    transaction landed, and the next load put it back. The row now shows both — the goal in
+    the input, spend beneath it (`.amt-spent`, computed live from `getTxsForItem`, never
+    stored) — and `isApportionedItem()` keeps transactions off the goal in
+    `applyTxAmountToItem`, `reverseTxAssignmentIfSameMonth`, the focusout floor, the
+    paperclip's "stale" state and the panel's "Set to $X". Plain items are untouched and
+    still follow their transactions. **Totals still run off the goal**, not the spend.
+    Tech and Recurring sync flat monthly figures, so they're deliberately out of scope.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
