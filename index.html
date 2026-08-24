@@ -3082,10 +3082,32 @@ function toggleItemCharged(catId, itemId, row){
   }
   scheduleSave();
   updateSummary();
+  scheduleChargedResort(catId);
+}
+// Re-orders the row into place AFTER the strike-through has finished drawing (.38s, see
+// .leaf-name::after) - re-rendering immediately would swap the row out from under its own
+// animation. Debounced per category so crossing several off in a row settles once.
+const chargedResortTimers = {};
+function scheduleChargedResort(catId){
+  clearTimeout(chargedResortTimers[catId]);
+  chargedResortTimers[catId] = setTimeout(() => {
+    delete chargedResortTimers[catId];
+    rerenderCategoryRows(catId);
+  }, 420);
+}
+function rerenderCategoryRows(catId){
+  if(!monthData) return;
+  if(catId === 'income'){ renderIncome(); return; }
+  const cat = monthData.categories.find(c => c.id === catId);
+  const container = document.querySelector(`[data-cat-rows="${catId}"]`);
+  if(!cat || !container) return;
+  container.innerHTML = itemsForDisplay(cat.items).map(i => leafRowHtml(catId, i)).join('');
+  updateAllItemNameWidths();
+  updateAllStrikeWidths();
 }
 function renderIncome(){
   updateIncomeEmojiSpan(document.getElementById('incomeHdrEmoji'), monthData);
-  document.getElementById('incomeRows').innerHTML = monthData.income.map(i => {
+  document.getElementById('incomeRows').innerHTML = itemsForDisplay(monthData.income).map(i => {
     const charged = !!i.charged;
     const linkedTxCount = getTxsForItem('income', i.id).length;
     const txPanelOpen = expandedTxPanels.has(`income:${i.id}`);
@@ -4136,6 +4158,14 @@ function priceChangeHtml(item){
   const tip = `${ind.isUp?'Up':'Down'} ${pctStr}% from ${money(ind.prevAmt)} (${avgLabel})`;
   return `<span class="price-change-ind ${cls}" data-tip="${escapeAttr(tip)}">${arrowSvg.repeat(ind.arrowCount)}</span>`;
 }
+// Crossed-off rows sink to the bottom so what's still outstanding stays at the top, where the
+// work is. Display order only - the stored order is untouched, and Array.sort is stable so
+// everything keeps its relative position within the two groups. Dragging still reorders freely
+// (syncItemOrderFromDOM writes the DOM order back); dragging a crossed-off row above an
+// outstanding one just settles back down on the next render, which is the intent.
+function itemsForDisplay(items){
+  return [...(items||[])].sort((a, b) => (a.charged ? 1 : 0) - (b.charged ? 1 : 0));
+}
 function leafRowHtml(catId, item){
   const charged = !!item.charged;
   const source = tplSourceFor(item.name);
@@ -4587,7 +4617,7 @@ function groupHtml(cat){
       <div class="del-cell"><button class="sh-del" data-del-cat="${cat.id}" title="Delete category">${X_SVG}</button></div>
     </div>
     <div class="group-body"><div class="group-body-inner">
-      <div class="leaf-wrap" data-cat-rows="${cat.id}">${cat.items.map(i=>leafRowHtml(cat.id, i)).join('')}</div>
+      <div class="leaf-wrap" data-cat-rows="${cat.id}">${itemsForDisplay(cat.items).map(i=>leafRowHtml(cat.id, i)).join('')}</div>
       <div class="add-line-row"><button class="add-line-btn" data-add="${cat.id}">+ add line</button></div>
     </div></div>
   </div>`;
@@ -5310,7 +5340,7 @@ function addLine(catId){
     list.push(newItem);
     const container = document.querySelector(`[data-cat-rows="${catId}"]`);
     const cat = monthData.categories.find(c=>c.id===catId);
-    if(container) container.innerHTML = cat.items.map(i=>leafRowHtml(catId,i)).join('');
+    if(container) container.innerHTML = itemsForDisplay(cat.items).map(i=>leafRowHtml(catId,i)).join('');
   }
   updateSummary(); scheduleSave(); updateAllNameTooltips(); updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths();
   const rows = document.querySelectorAll(catId==='income' ? '#incomeRows .name-input' : `[data-cat-rows="${catId}"] .name-input`);
@@ -5745,7 +5775,7 @@ document.getElementById('view-ledger').addEventListener('click', async (e) => {
     if(catId==='income') renderIncome(); else {
       const container = document.querySelector(`[data-cat-rows="${catId}"]`);
       const cat = monthData.categories.find(c=>c.id===catId);
-      if(container) container.innerHTML = cat.items.map(i=>leafRowHtml(catId,i)).join('');
+      if(container) container.innerHTML = itemsForDisplay(cat.items).map(i=>leafRowHtml(catId,i)).join('');
     }
     updateSummary(); scheduleSave(); updateAllNameTooltips(); updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths();
     if(released){ renderUpTxList(); toast(`${released} transaction${released>1?'s':''} back in the Up tab to re-assign`); }

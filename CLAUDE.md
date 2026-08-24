@@ -655,6 +655,20 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     symmetric: paycycle→calendar creates `mtg deck` + `Work` in July and empties August's,
     toggling back restores exactly, and the created lines stay at 0 rather than vanishing.
 
+40. **Crossed-off rows sink to the bottom.** `itemsForDisplay()` sorts charged rows last at every
+    render site (the group render, both partial category re-renders, and income). **Display
+    only** — the stored order is untouched, and `Array.sort` is stable so everything keeps its
+    relative position within the outstanding and crossed groups.
+    `toggleItemCharged` deliberately does NOT re-render inline: it toggles the class so the
+    strike-through animates in place, then `scheduleChargedResort()` re-renders that category
+    420ms later (just past the `.38s` `.leaf-name::after` transition). Re-rendering immediately
+    swaps the row out from under its own animation. Debounced per category so crossing several
+    off in a row settles once.
+    Dragging still works: `syncItemOrderFromDOM` writes the DOM order back, so after a drag the
+    stored order simply becomes the displayed one — verified nothing is lost and re-rendering is
+    idempotent. Dragging a crossed-off row above an outstanding one settles back down on the
+    next render, which is the intent rather than a bug.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
