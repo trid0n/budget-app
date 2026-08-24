@@ -427,6 +427,24 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     without that the capped item's own spend stays under the cap and the next transaction gets
     guessed straight back onto it.
 
+29. **Covers that still count.** A "Cover from X" transfer normally means an expense was
+    reimbursed and shouldn't count (see item 13). That's wrong when the covering saver IS the
+    budget for that item — money out of a Going Out saver to pay for dinner is the dining
+    budget being spent, not somebody paying you back. `coverCountsFrom: [source names]` on the
+    TEMPLATE item exempts it; `coverIsExemptForTx()` gates the auto-exclude branch in
+    `autoApplyTxRules`. Per item and per source on purpose: Groceries covered from the same
+    saver still excludes. Stored on the template item because it's a fact about that item AND
+    because `month_template.categories` is JSONB — `user_settings` has fixed columns, so a
+    global preference would have needed a migration for no gain.
+    The toggle is the shield icon on the covered transaction itself (`coverIconHtml`, now a
+    button — filled = counts, hollow = excluded), since that's where you notice the problem.
+    It resolves the item via `intendedTargetForTx()`, which reads `existing.catId` through
+    `findCatById` rather than `existing.categoryName` — categoryName is NOT a column on
+    `tx_assignments` and is gone after a reload. Toggling deletes the assignment so
+    `autoApplyTxRules` re-decides from scratch; an excluded entry otherwise reads as settled
+    and outlives the change meant to undo it. The incoming cover transfer stays excluded either
+    way — it still isn't income.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as

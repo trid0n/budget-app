@@ -1014,7 +1014,11 @@ body.saver-dragging-active{user-select:none; -webkit-user-select:none;}
 .tx-assign-suggestion-name{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .tx-assign-suggestion-meta{color:var(--ink-faint); font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; flex-shrink:0;}
 .tx-assign-select-btn{min-width:110px;}
-.up-tx-cover-icon{flex-shrink:0; color:var(--gold); display:flex; align-items:center; cursor:default; position:relative;}
+.up-tx-cover-icon{flex-shrink:0; color:var(--gold); display:flex; align-items:center; cursor:pointer; position:relative; background:none; border:none; padding:0; margin:0; line-height:0;}
+.up-tx-cover-icon:hover{opacity:.7;}
+/* Filled shield = this cover still counts against the budget, hollow = excluded as a
+   reimbursement. The fill is set on the svg itself so it survives currentColor theming. */
+.up-tx-cover-icon.counts{color:var(--gold);}
 .up-tx-cover-icon[data-tip]::before{left:auto; right:0; transform:translateY(-4px);}
 .up-tx-cover-icon[data-tip]:hover::before{transform:translateY(0);}
 .up-tx-row2-amt{font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0; text-align:right;}
@@ -2556,6 +2560,20 @@ function findGuessForTx(desc, amt, tx){
   if(!dest.overflowFrom) return guess;
   return { categoryName: dest.cat.name, itemName: dest.item.name, reason: guess.reason,
            overflowFrom: { categoryName: dest.overflowFrom.cat.name, itemName: dest.overflowFrom.item.name } };
+}
+// The shield on a covered transaction, now a toggle rather than a label: this is where you
+// actually notice the problem, so it's where the fix lives.
+function coverIconHtml(t, amt, coverSource, size){
+  const existing = txAssignments[t.id];
+  const target = intendedTargetForTx(t, amt, existing);
+  const itemLbl = target && target.itemName ? target.itemName : null;
+  const counts = coverIsExemptForTx(t, amt, coverSource, existing);
+  const tip = counts
+    ? `Covered from “${coverSource}” but still counted against “${itemLbl}” — tap to go back to excluding it`
+    : itemLbl
+      ? `Covered from “${coverSource}”, so it isn’t counted — tap to count it against “${itemLbl}” instead`
+      : `Covered from “${coverSource}”, so it isn’t counted. Assign it to an item first if it should be.`;
+  return `<button class="up-tx-cover-icon${counts?' counts':''}" data-tx-cover-toggle="${escapeAttr(t.id)}" data-tip="${escapeAttr(tip)}"><svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${counts?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg></button>`;
 }
 function guessOverflowAttrs(guess){
   return guess.overflowFrom
@@ -6790,7 +6808,8 @@ function autoApplyTxRules(){
     // manual assignment (not just the usual "first time seen" guard), since the whole
     // point is the expense shouldn't be counted no matter how it got assigned before the
     // cover transfer showed up.
-    if(findCoverSourceForTx(t)){
+    const coverSrc = findCoverSourceForTx(t);
+    if(coverSrc && !coverIsExemptForTx(t, amt, coverSrc, existing)){
       if(existing && existing.catId){
         // refreshUpData() can call this before monthData exists yet (see the "re-render
         // now that it definitely does" comment elsewhere in this file) - reversing needs
@@ -6877,6 +6896,33 @@ function findCoverSourceForTx(tx){
   if(!match) return null;
   const m = match.attributes.description.trim().match(/^cover from\s+(.+)$/i);
   return m ? m[1] : null;
+}
+// A cover transfer normally means "this expense was reimbursed, don't count it". That's wrong
+// when the covering saver IS the budget for that item - money moved out of a Going Out saver to
+// pay for dinner is the dining budget being spent, not somebody paying you back. Exempting is
+// recorded per template item (coverCountsFrom: [source names]) because it's a fact about that
+// item, and because month_template.categories is JSONB so it needs no migration.
+function coverExemptSources(categoryName, itemName){
+  const tpl = templateItemByName(categoryName, itemName);
+  return (tpl && Array.isArray(tpl.coverCountsFrom)) ? tpl.coverCountsFrom : [];
+}
+// Which item a transaction's spending really belongs to. The RAW guess deliberately - overflow
+// can send it somewhere else, but the exemption belongs to the item the spending is against.
+function intendedTargetForTx(t, amt, existing){
+  if(existing && existing.catId){
+    const cat = findCatById(existing.catId);
+    // categoryName isn't a column on tx_assignments, so it's gone after a reload - resolve the
+    // category from the id that IS stored rather than trusting the in-memory field.
+    if(cat) return {categoryName: cat.name, itemName: existing.itemName};
+  }
+  return getRuleTargetForTx(t.attributes.description, amt)
+      || findRawGuessForTx(t.attributes.description, amt, t);
+}
+function coverIsExemptForTx(t, amt, coverSource, existing){
+  const target = intendedTargetForTx(t, amt, existing);
+  if(!target || !target.itemName) return false;
+  const src = (coverSource||'').trim().toLowerCase();
+  return coverExemptSources(target.categoryName, target.itemName).some(n => (n||'').trim().toLowerCase() === src);
 }
 // The other side of findCoverSourceForTx: true when tx IS the incoming "Cover from X"
 // transfer for some other tracked expense (not the expense itself). Used to hide the
@@ -7055,7 +7101,7 @@ function buildUpTxRowHtml(t){
   const transferAttr = transferAccountId ? ` data-tx-transfer-account="${escapeAttr(transferAccountId)}"` : '';
   const statusHtml = buildUpTxStatusHtml(t, amt, transferAttr);
   const coverSource = findCoverSourceForTx(t);
-  const coverIcon = coverSource ? `<span class="up-tx-cover-icon" data-tip="Covered from &quot;${escapeAttr(coverSource)}&quot;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg></span>` : '';
+  const coverIcon = coverSource ? coverIconHtml(t, amt, coverSource, 12) : '';
   const merchantKeyHere = extractMerchantKey(t.attributes.description, amt);
   const isIncomeSource = upIncomeSourceKey && merchantKeyHere === upIncomeSourceKey;
   const isGroupHighlighted = transferGroupHighlightIds.has(t.id);
@@ -7106,7 +7152,7 @@ function buildUpTxRowHtmlDesktop(t){
   const wrongGuessBtn = showWrongGuessBtn ? `<button class="up-tx-exclude-btn" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Wrong guess — search for the right one">×</button>` : '';
   const excludeGuessBtn = showWrongGuessBtn ? `<button class="up-tx-exclude-btn" data-tx-exclude="${t.id}" data-tip="Exclude this transaction from the budget">–</button>` : '';
   const coverSource = findCoverSourceForTx(t);
-  const coverIcon = coverSource ? `<span class="up-tx-cover-icon" data-tip="Covered from &quot;${escapeAttr(coverSource)}&quot;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg></span>` : '';
+  const coverIcon = coverSource ? coverIconHtml(t, amt, coverSource, 13) : '';
   const merchantKeyHere = extractMerchantKey(t.attributes.description, amt);
   const isIncomeSource = upIncomeSourceKey && merchantKeyHere === upIncomeSourceKey;
   const isGroupHighlighted = transferGroupHighlightIds.has(t.id);
@@ -8481,6 +8527,32 @@ document.getElementById('upTxList').addEventListener('click', (e) => {
     txAssignments[unexcludeBtn.dataset.txUnexclude] = {monthKey: settings.currentMonth, excluded: false};
     saveTxAssignments();
     renderUpTxList();
+    return;
+  }
+  const coverBtn = e.target.closest('[data-tx-cover-toggle]');
+  if(coverBtn){
+    const txId = coverBtn.dataset.txCoverToggle;
+    const t = upTransactions.find(x => x.id === txId);
+    if(!t) return;
+    const amt = parseFloat(t.attributes.amount.value);
+    const src = findCoverSourceForTx(t);
+    if(!src) return;
+    const target = intendedTargetForTx(t, amt, txAssignments[txId]);
+    if(!target || !target.itemName){ toast('Assign this to an item first, then covers like it can count'); return; }
+    const tpl = templateItemByName(target.categoryName, target.itemName);
+    if(!tpl){ toast(`“${target.itemName}” isn’t in your template — add it there first`); return; }
+    const list = Array.isArray(tpl.coverCountsFrom) ? tpl.coverCountsFrom : [];
+    const key = src.trim().toLowerCase();
+    const wasOn = list.some(n => (n||'').trim().toLowerCase() === key);
+    const next = wasOn ? list.filter(n => (n||'').trim().toLowerCase() !== key) : [...list, src];
+    if(next.length) tpl.coverCountsFrom = next; else delete tpl.coverCountsFrom;
+    scheduleTemplateSave();
+    // Drop the assignment so autoApplyTxRules decides again from scratch. An excluded entry
+    // reads as settled and would otherwise outlive the change that was meant to undo it.
+    delete txAssignments[txId];
+    saveTxAssignments();
+    renderUpTxList(); renderGroups(); updateSummary();
+    toast(wasOn ? `Covers from “${src}” are excluded again` : `Covers from “${src}” now count against “${target.itemName}”`);
     return;
   }
   const guessBtn = e.target.closest('[data-tx-guess]');
