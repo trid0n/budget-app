@@ -446,6 +446,10 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .lrow.leaf .grip-handle{padding:8px 0 8px 10px; opacity:0;}
 .lrow.leaf:hover .grip-handle{opacity:.6;}
 .lrow.leaf.dragging{opacity:.4;}
+/* A row whose amount just moved between periods. No transition of its own - .lrow already fades
+   background-color over .15s, which covers both appearing and clearing; adding a slower one on
+   top only made the highlight creep in when the point is to catch the eye immediately. */
+.lrow.just-changed{background:var(--gold-bg); box-shadow:inset 3px 0 0 var(--gold);}
 .lrow.leaf > *{padding:8px 12px;}
 .lrow.leaf .del-cell{padding:8px 4px;}
 .lrow:hover{background:var(--paper-dim); background:color-mix(in srgb, var(--cat-color, var(--gold)) 8%, var(--surface)); border-left-color:var(--cat-color, var(--gold));}
@@ -6729,6 +6733,34 @@ function updatePeriodToggleVisibility(){
 // `undatable` too - assignments that can't be placed, either because they predate the earliest
 // pay we know about or because no date was ever stored - so the caller can say so rather than
 // quietly moving them somewhere plausible.
+// Marks the rows a re-file just changed, so the effect of toggling is visible instead of having
+// to be hunted for. Each row clears itself the moment the pointer reaches it - you've found it,
+// the highlight has done its job - and anything still unvisited clears after 5s.
+// Per row rather than all-or-nothing: hovering one shouldn't wipe the marks on the others.
+let changedFlashTimer = null;
+function flashChangedItems(keys){
+  clearTimeout(changedFlashTimer);
+  document.querySelectorAll('.lrow.just-changed').forEach(el => el.classList.remove('just-changed'));
+  if(!keys || !keys.length) return;
+  const rows = [];
+  keys.forEach(k => {
+    const sep = k.indexOf(':');
+    const catId = k.slice(0, sep), itemId = k.slice(sep + 1);
+    const el = catId === 'income'
+      ? document.querySelector(`#incomeRows .lrow[data-item="${CSS.escape(itemId)}"]`)
+      : document.querySelector(`[data-cat-rows="${CSS.escape(catId)}"] .lrow.leaf[data-item="${CSS.escape(itemId)}"]`);
+    if(el) rows.push(el);
+  });
+  if(!rows.length) return;
+  rows.forEach(el => {
+    el.classList.add('just-changed');
+    el.addEventListener('pointerenter', () => el.classList.remove('just-changed'), {once: true});
+  });
+  changedFlashTimer = setTimeout(() => {
+    rows.forEach(el => el.classList.remove('just-changed'));
+    changedFlashTimer = null;
+  }, 5000);
+}
 function findMisfiledAssignments(){
   const starts = payCycleStarts();
   const out = [], undatable = [];
@@ -6754,6 +6786,7 @@ async function refileAssignmentsToCurrentMode(moves){
   const months = {};
   for(const k of keys) months[k] = (k === settings.currentMonth) ? monthData : monthRowToData(await db.loadMonth(k));
   let moved = 0, skipped = 0, created = 0;
+  const touched = new Set();
   for(const mv of moves){
     const src = months[mv.from], dst = months[mv.to];
     if(!dst){ skipped++; continue; }
@@ -6804,6 +6837,10 @@ async function refileAssignmentsToCurrentMode(moves){
       if(isIncome && prior === 0) dstItem.amount = Math.round(amt * 100) / 100;
       else dstItem.amount = Math.round(((Number(dstItem.amount)||0) + amt) * 100) / 100;
     }
+    // Only rows in the month actually on screen can be flashed. Captured before the ids are
+    // overwritten below, since the source row is identified by the assignment's OLD ids.
+    if(mv.from === settings.currentMonth && srcItem) touched.add(mv.a.catId + ':' + mv.a.itemId);
+    if(mv.to === settings.currentMonth) touched.add(dstCatId + ':' + dstItem.id);
     mv.a.monthKey = mv.to; mv.a.catId = dstCatId; mv.a.itemId = dstItem.id; mv.a.itemName = dstItem.name;
     moved++;
   }
@@ -6811,7 +6848,8 @@ async function refileAssignmentsToCurrentMode(moves){
   await saveTxAssignments();
   await saveCurrentMonth();
   renderGroups(); updateSummary(); renderUpTxList();
-  saveLog('refile', {moved, skipped, created});
+  flashChangedItems([...touched]);
+  saveLog('refile', {moved, skipped, created, flashed: touched.size});
   return {moved, skipped, created};
 }
 document.getElementById('periodModeGroup').addEventListener('click', async (e) => {

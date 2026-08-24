@@ -678,6 +678,23 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     idempotent. Dragging a crossed-off row above an outstanding one settles back down on the
     next render, which is the intent rather than a bug.
 
+41. **Undo covers crossing an item off**, and **a re-file highlights what it changed.**
+    `toggleItemCharged` was the only month-level edit that never called `pushUndo` — "Uncross
+    all" already did, so undo covered wiping every cross but not the click that made one. The
+    snapshot goes in after the item is resolved so a click that hits nothing leaves no entry.
+    `flashChangedItems()` marks the rows a toggle-driven re-file actually changed
+    (`.just-changed`), collected in `refileAssignmentsToCurrentMode` for the OPEN month only —
+    source ids captured before they're overwritten, destination after. Each row clears on its
+    own `pointerenter` (per row, so finding one doesn't wipe the rest) and anything unvisited
+    clears on a 5s timer.
+    **Two testing traps worth remembering here.** `getComputedStyle` right after adding a class
+    returns the MID-TRANSITION value — `.lrow` already transitions `background-color` over .15s,
+    so the highlight read as transparent and looked broken when it wasn't. Set
+    `style.transition='none'` to read the settled value. And the `javascript_exec` round-trip gap
+    is longer than 5s, so a two-call test of the timer always shows it already cleared — drive
+    toggle, hover and timeout in ONE call. (Same class of gotcha as the remember-popup, already
+    noted above.)
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
