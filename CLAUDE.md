@@ -445,6 +445,29 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     and outlives the change meant to undo it. The incoming cover transfer stays excluded either
     way — it still isn't income.
 
+30. **Saves survive a refresh now.** Reported as "assigning transactions then refreshing often
+    doesn't save". Two separate causes, both real:
+    (a) `scheduleSave()` debounces the month write 500ms and **nothing flushed it on unload** —
+    no `beforeunload`/`pagehide` handler existed at all, so refreshing inside that window threw
+    the work away. (b) `db.saveTxAssignments` did DELETE-all then INSERT-all: two sequential
+    requests with a gap in which the table was **empty**, so an unload or a failed insert
+    between them wiped every assignment. Now an upsert (PK is `(user_id, tx_id)`) plus a
+    targeted prune driven by `lastSavedTxIds`, so the worst an interruption leaves is a stale
+    row and the ordinary save issues no delete at all.
+    **Firing the pending saves on pagehide is NOT sufficient and this was proven, not assumed**
+    — the request is async and the page is torn down before it completes; a reload 100ms after
+    assigning still lost everything with only that fix in place. What works is synchronous:
+    `stashUnsavedState()` parks month + template + txAssignments in `localStorage` on
+    pagehide/visibilitychange, and `replayStashedSave()` writes it to the server on the next
+    load, before `loadEverything()` so nothing has to reconcile against already-loaded state.
+    That also covers a crash or a killed tab, which no unload-time request would survive. The
+    stash is ignored if `userId` doesn't match (another account on the same browser), dropped
+    if corrupt, and cleared on any successful save so it can never replay stale state over
+    newer work.
+    Testing note: this is only reproducible with a harness whose fake db has **real latency and
+    a backing store that survives reload** (localStorage). A synchronous in-memory `_fakeDb`
+    cannot show a persistence race at all.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as

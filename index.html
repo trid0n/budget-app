@@ -1999,6 +1999,9 @@ const authStorage = {
 };
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storage: authStorage } });
 let authUserId = null;
+// tx_ids known to be stored server-side, so a save can prune exactly what was removed instead
+// of clearing the table and rewriting it - see db.saveTxAssignments.
+let lastSavedTxIds = new Set();
 
 function showAuthOverlay(){ document.getElementById('authOverlay').classList.remove('hidden'); }
 function hideAuthOverlay(){ document.getElementById('authOverlay').classList.add('hidden'); }
@@ -2250,13 +2253,30 @@ const db = {
     if(error) throw error;
     const out = {};
     (data||[]).forEach(r => { out[r.tx_id] = { catId: r.cat_id, itemId: r.item_id, monthKey: r.month_key, desc: r.description, itemName: r.item_name, date: r.tx_date, txAmt: r.tx_amount, excluded: r.excluded }; });
+    // Seeded here so the first save of the session knows what's already stored and can tell a
+    // genuine removal from a row it simply hasn't seen yet - see saveTxAssignments.
+    lastSavedTxIds = new Set(Object.keys(out));
     return out;
   },
+  // Upsert what exists, then prune only what genuinely went away. This used to delete every
+  // row and re-insert them: two sequential requests with a window between them where the table
+  // was EMPTY, so a refresh mid-save (or an insert that failed for any reason) wiped the lot.
+  // Done this way round, the worst an interruption can leave behind is a stale row that the
+  // next save corrects. Pruning is driven by lastSavedTxIds rather than a blanket delete, so
+  // the usual save - where nothing was removed - costs one request and no delete at all.
   async saveTxAssignments(assignments){
-    const { error: delErr } = await sb.from('tx_assignments').delete().eq('user_id', authUserId);
-    if(delErr) throw delErr;
     const rows = Object.entries(assignments).map(([txId, a]) => ({ tx_id: txId, user_id: authUserId, cat_id: a.catId, item_id: a.itemId, month_key: a.monthKey, description: a.desc, item_name: a.itemName, tx_date: a.date || null, tx_amount: a.txAmt==null ? null : Number(a.txAmt), excluded: !!a.excluded }));
-    if(rows.length){ const { error } = await sb.from('tx_assignments').insert(rows); if(error) throw error; }
+    if(rows.length){
+      const { error } = await sb.from('tx_assignments').upsert(rows, { onConflict: 'user_id,tx_id' });
+      if(error) throw error;
+    }
+    const now = new Set(Object.keys(assignments));
+    const gone = [...lastSavedTxIds].filter(id => !now.has(id));
+    if(gone.length){
+      const { error } = await sb.from('tx_assignments').delete().eq('user_id', authUserId).in('tx_id', gone);
+      if(error) throw error;
+    }
+    lastSavedTxIds = now;
   },
   async loadTxRules(){
     const { data, error } = await sb.from('tx_rules').select('*').eq('user_id', authUserId);
@@ -2676,7 +2696,7 @@ function findRawGuessForTx(desc, amt, tx){
   }
   return null;
 }
-async function saveTxAssignments(){ try{ await db.saveTxAssignments(txAssignments); }catch(e){} }
+async function saveTxAssignments(){ try{ await db.saveTxAssignments(txAssignments); if(!saveTimer) clearSaveStash(); }catch(e){} }
 let priceChangeNotes = {};
 async function savePriceChangeNotes(){ try{ await db.savePriceChangeNotes(priceChangeNotes); }catch(e){} }
 let grocery = { items: [], days: 30, eatOut: 5 };
@@ -2736,10 +2756,64 @@ async function saveCurrentMonth(){
   try{
     await db.saveMonth(settings.currentMonth, monthData);
     if(!existingMonths.includes(settings.currentMonth)){ existingMonths.push(settings.currentMonth); existingMonths.sort(); }
+    // The stash only exists to cover a save that didn't finish. One that did makes it stale,
+    // and a stale stash replayed on the next load would undo whatever came after it.
+    clearSaveStash();
     setSyncStatus('Saved just now');
   }catch(e){ setSyncStatus('Save failed', true); }
 }
-function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(saveCurrentMonth, 500); }
+function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(() => { saveTimer = null; saveCurrentMonth(); }, 500); }
+// Nothing used to flush pending work when the page went away, so refreshing within the 500ms
+// debounce silently threw away whatever had just been done - which is exactly the rhythm of
+// categorising a few transactions and reloading to check them.
+// pagehide rather than beforeunload: beforeunload is unreliable on mobile Safari and blocks
+// bfcache. visibilitychange covers backgrounding the tab/app, where the page can be discarded
+// without pagehide ever running.
+// Firing the pending saves on the way out is NOT enough on its own, which is worth stating
+// plainly because it looks like it should be: the request is asynchronous, and the browser
+// tears the page down long before a round-trip finishes, so a reload ~100ms after assigning a
+// transaction still lost it. Reproduced exactly that way before this existed.
+// So the way out is synchronous: park the unsaved state in localStorage (which cannot be
+// interrupted), then replay it against the server on the next load. That also covers a crash,
+// a killed tab, or a flat battery, none of which any unload-time request would have survived.
+const SAVE_STASH_KEY = 'pendingSave';
+function stashUnsavedState(){
+  if(!authUserId) return;
+  try{
+    localStorage.setItem(SAVE_STASH_KEY, JSON.stringify({
+      v: 1, userId: authUserId, monthKey: settings.currentMonth, savedAt: Date.now(),
+      month: monthData || null, template: monthTemplate || null, txAssignments
+    }));
+  }catch(e){ /* quota or private mode - the async saves below are still the normal path */ }
+}
+function clearSaveStash(){ try{ localStorage.removeItem(SAVE_STASH_KEY); }catch(e){} }
+// Replayed before loadEverything() so the server is correct by the time anything reads it,
+// rather than having to reconcile a stash against already-loaded state.
+async function replayStashedSave(){
+  let s = null;
+  try{ s = JSON.parse(localStorage.getItem(SAVE_STASH_KEY) || 'null'); }catch(e){ clearSaveStash(); return; }
+  // A stash from a different account on this browser is not ours to write.
+  if(!s || s.v !== 1 || s.userId !== authUserId){ if(s) clearSaveStash(); return; }
+  try{
+    if(s.txAssignments){ lastSavedTxIds = new Set(); await db.saveTxAssignments(s.txAssignments); }
+    if(s.month && s.monthKey) await db.saveMonth(s.monthKey, s.month);
+    if(s.template) await db.saveMonthTemplate(s.template);
+    clearSaveStash();
+  }catch(e){ /* leave it in place and try again next load rather than dropping the work */ }
+}
+function flushPendingSaves(){
+  stashUnsavedState();
+  if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; saveCurrentMonth(); }
+  if(templateSaveTimer){
+    clearTimeout(templateSaveTimer); templateSaveTimer = null;
+    if(monthTemplate) db.saveMonthTemplate(monthTemplate).catch(()=>{});
+  }
+}
+// pagehide rather than beforeunload: beforeunload is unreliable on mobile Safari and blocks
+// bfcache. visibilitychange covers backgrounding the tab/app, where the page can be discarded
+// without pagehide ever running.
+window.addEventListener('pagehide', flushPendingSaves);
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') flushPendingSaves(); });
 async function saveMonthIncomeEmoji(){ if(!monthData) return; try{ await db.saveMonthIncomeEmoji(settings.currentMonth, monthData.incomeEmoji); }catch(e){} }
 async function saveTemplateIncomeEmoji(){ if(!monthTemplate) return; try{ await db.saveTemplateIncomeEmoji(monthTemplate.incomeEmoji); }catch(e){} }
 async function saveTech(){ try{ await db.saveTechItems(techItems); }catch(e){} }
@@ -4663,6 +4737,7 @@ let templateSaveTimer = null;
 function scheduleTemplateSave(){
   clearTimeout(templateSaveTimer);
   templateSaveTimer = setTimeout(async () => {
+    templateSaveTimer = null;
     try{ await db.saveMonthTemplate(monthTemplate); updateTemplateStatus(); }catch(e){}
   }, 500);
 }
@@ -9863,6 +9938,9 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
     }
   }catch(e){}
   await waitForAuth();
+  // Before loading, so anything a previous session couldn't finish writing is on the server by
+  // the time the load reads it - see stashUnsavedState.
+  await replayStashedSave();
   await loadEverything();
   applyTheme();
   renderMonthDropdown();
