@@ -843,6 +843,14 @@ body.saver-dragging-active{user-select:none; -webkit-user-select:none;}
 .up-tx-cycle-hdr:first-child{border-top:none;}
 .up-tx-month-hdr.cycle{border-top:2px solid var(--gold);}
 .up-tx-month-hdr.cycle:first-child{border-top:none;}
+.tpl-overflow-btn{font-size:.9rem; line-height:1;}
+.tpl-overflow-btn.set{color:var(--gold);}
+.overflow-panel{max-height:320px; overflow-y:auto; min-width:210px;}
+.overflow-panel-hdr{padding:6px 10px 4px; font-size:.64rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint);}
+.overflow-panel .tf-toggle-btn{display:flex; align-items:baseline; justify-content:space-between; gap:10px; width:100%; text-align:left;}
+.overflow-panel .tf-toggle-btn.active{color:var(--gold); font-weight:800;}
+.overflow-opt-cat{font-size:.66rem; font-weight:600; color:var(--ink-faint); white-space:nowrap;}
+.tx-view-overflow{margin-left:6px; padding:1px 6px; border-radius:999px; background:var(--gold-bg); color:var(--gold); font-weight:700; font-size:.62rem; white-space:nowrap; position:relative;}
 .up-tx-cycle-name{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; min-width:0;}
 .up-tx-cycle-range{font-weight:600; text-transform:none; letter-spacing:0; opacity:.75; white-space:nowrap;}
 .up-tx-row2{display:flex; align-items:center; gap:10px; padding:9px 14px; border-bottom:1px solid var(--rule); font-size:.85rem; transition:background-color .1s; cursor:default;}
@@ -1910,6 +1918,12 @@ try{
      wasteful and complicate the body-relocation trick below for no benefit. -->
 <div class="month-actions-panel" id="itemRowMenuPanel">
   <button class="tf-toggle-btn" id="itemRowMenuRestore" title="Recalculates this item back to what your template says it should be this month">Restore to template</button>
+</div>
+<!-- Overflow target picker for a template item. One shared instance repositioned per click,
+     same reasoning as #itemRowMenuPanel above. -->
+<div class="month-actions-panel overflow-panel" id="tplOverflowPanel">
+  <div class="overflow-panel-hdr">Send overspend to</div>
+  <div id="tplOverflowList"></div>
 </div>
 <div class="modal-overlay" id="txAssignOverlay">
   <div class="modal-box tx-assign-box">
@@ -3221,6 +3235,80 @@ function isApportionedItem(name){
   const source = tplSourceFor(name);
   return source === 'grocery' || source === 'monthlycost';
 }
+/* ---- overflow: spending past an item's template cap lands on another item ---- */
+// The cap is the item's TEMPLATE amount, not its ledger amount - for a day-apportioned item
+// those differ (the ledger holds the goal for the days still to come), and the question here
+// is "what is this meant to cost over a whole period". A template amount of 0/blank means no
+// budget has been set rather than a cap of nothing, so it never overflows.
+function templateItemByName(categoryName, itemName){
+  if(!monthTemplate) return null;
+  const c = (categoryName||'').trim().toLowerCase(), n = (itemName||'').trim().toLowerCase();
+  const cat = monthTemplate.categories.find(x => (x.name||'').trim().toLowerCase() === c);
+  return (cat && cat.items.find(i => (i.name||'').trim().toLowerCase() === n)) || null;
+}
+function templateCapFor(categoryName, itemName){
+  const t = templateItemByName(categoryName, itemName);
+  const amt = t ? Number(t.amount)||0 : 0;
+  return amt > 0 ? amt : null;
+}
+// Transactions diverted out of this item by overflow, recorded on the item itself so they
+// persist with the month (months.categories is JSONB - no migration needed, unlike a column on
+// tx_assignments). Counting them is what keeps the item over its cap for the rest of the
+// period: without it the item would drop back under the moment a transaction was diverted, and
+// start accepting again. An id whose assignment has since been excluded, or moved back onto
+// this item, stops counting - so it self-heals instead of needing bookkeeping at every
+// unassign/reassign site in the file.
+function overflowedTotalFor(catId, item){
+  if(!Array.isArray(item.overflowedTxIds)) return 0;
+  let sum = 0;
+  item.overflowedTxIds.forEach(txId => {
+    const a = txAssignments[txId];
+    if(!a || a.excluded || a.monthKey !== settings.currentMonth) return;
+    if(a.catId === catId && a.itemId === item.id) return;
+    sum += Number(a.txAmt)||0;
+  });
+  return Math.round(sum * 100) / 100;
+}
+// What this item has cost this period for cap purposes: its own transactions plus whatever has
+// already overflowed out of it. The period is whichever one the app is set to - assignments are
+// stamped with the effective month key, so pay-cycle mode caps per cycle and calendar mode per
+// calendar month with no extra work here.
+function periodTotalAgainstCap(catId, item){
+  return Math.round((spentOnItem(catId, item.id) + overflowedTotalFor(catId, item)) * 100) / 100;
+}
+// Single hop by design. Chaining (A full -> B, B full -> C) would need the cap accounting to
+// attribute one transaction to several items at once, and nothing asked for it.
+function routeThroughOverflow(found, amt){
+  const plain = { cat: found.cat, item: found.item, overflowFrom: null };
+  const cap = templateCapFor(found.cat.name, found.item.name);
+  if(cap === null) return plain;
+  if(periodTotalAgainstCap(found.cat.id, found.item) + Math.abs(Number(amt)||0) <= cap + 0.005) return plain;
+  const tpl = templateItemByName(found.cat.name, found.item.name);
+  const target = tpl && tpl.overflowTo;
+  if(!target || !target.itemName) return plain;
+  const next = findCatItemByName(target.categoryName, target.itemName);
+  if(!next || next.item.id === found.item.id) return plain;
+  return { cat: next.cat, item: next.item, overflowFrom: found };
+}
+// Which item a transaction was diverted out of, or null. Read back off the same persisted
+// overflowedTxIds the cap accounting uses rather than a field on the assignment - assignments
+// round-trip through fixed columns in tx_assignments, so anything extra stored there would be
+// dropped on the next load and the label would silently disappear.
+function overflowSourceNameFor(txId){
+  if(!monthData) return null;
+  for(const c of monthData.categories){
+    for(const i of c.items){
+      if(Array.isArray(i.overflowedTxIds) && i.overflowedTxIds.includes(txId)) return i.name;
+    }
+  }
+  return null;
+}
+// Records the diversion on the item it came OUT of, which is where the cap is measured.
+function noteOverflowed(fromFound, txId){
+  const item = fromFound.item;
+  if(!Array.isArray(item.overflowedTxIds)) item.overflowedTxIds = [];
+  if(!item.overflowedTxIds.includes(txId)) item.overflowedTxIds.push(txId);
+}
 function spentOnItem(catId, itemId){
   return Math.round(getTxsForItem(catId, itemId).reduce((s,t)=>s+(Number(t.amt)||0), 0) * 100) / 100;
 }
@@ -3609,7 +3697,9 @@ function renderTxPanelHtml(catId, itemId){
   const total = txs.reduce((s,t)=>s+(Number(t.amt)||0),0);
   const rows = txs.map(t => {
     const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-AU', {day:'numeric', month:'short'}) : '';
-    return `<div class="tx-view-row" data-tx-jump="${escapeAttr(t.txId)}"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div><button class="up-tx-exclude-btn" data-tx-unassign-view="${t.txId}" data-tip="Unassign this transaction">×</button></div></div>`;
+    const from = overflowSourceNameFor(t.txId);
+    const fromHtml = from ? ` <span class="tx-view-overflow" data-tip="Moved here because “${escapeAttr(from)}” had already reached its template amount for this period">overflow from ${escapeAttr(from)}</span>` : '';
+    return `<div class="tx-view-row" data-tx-jump="${escapeAttr(t.txId)}"><div class="tx-view-row-info"><div class="tx-view-row-desc">${escapeAttr(t.desc||'')}</div><div class="tx-view-row-date">${dateStr}${fromHtml}</div></div><div class="tx-view-row-trailing"><div class="tx-view-row-amt">${money(t.amt)}</div><button class="up-tx-exclude-btn" data-tx-unassign-view="${t.txId}" data-tip="Unassign this transaction">×</button></div></div>`;
   }).join('') || '<div class="tx-assign-empty">No transactions linked yet.</div>';
   // item.amount can legitimately sit above the linked transactions' total (e.g. edited
   // up manually as a buffer) - surface that gap here rather than leaving it silently
@@ -4554,8 +4644,45 @@ function tplLeafRowHtml(catId, item){
     <span class="grip-handle"></span>
     <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. rent" value="${escapeAttr(item.name)}" data-tpl-cat="${catId}" data-tpl-item="${item.id}" data-tpl-field="name"></div>
     <div class="gcell">${source ? `<button class="tpl-source-link" data-jump-source="${source}" data-tip="Open the ${sourceDisplayLabel(source)} table">${LINK_SVG}</button>` : ''}<div class="amt-wrap"><span class="sign"></span><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-tpl-cat="${catId}" data-tpl-item="${item.id}" data-tpl-field="amount" ${source?'readonly':''}></div></div>
-    <div class="del-cell"><button data-tpl-cat="${catId}" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
+    <div class="del-cell">${overflowBtnHtml(catId, item)}<button data-tpl-cat="${catId}" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
   </div>`;
+}
+let tplOverflowTarget = null;
+function renderTplOverflowList(){
+  const listEl = document.getElementById('tplOverflowList');
+  if(!tplOverflowTarget || !monthTemplate){ listEl.innerHTML = ''; return; }
+  const cat = monthTemplate.categories.find(c => c.id === tplOverflowTarget.catId);
+  const item = cat && cat.items.find(i => i.id === tplOverflowTarget.itemId);
+  if(!item){ listEl.innerHTML = ''; return; }
+  const cur = item.overflowTo && item.overflowTo.itemName ? item.overflowTo.itemName.trim().toLowerCase() : null;
+  const opts = [`<button class="tf-toggle-btn${cur?'':' active'}" data-overflow-pick="">Nowhere — just go over</button>`];
+  monthTemplate.categories.forEach(c => (c.items||[]).forEach(i => {
+    if(i.id === item.id || !(i.name||'').trim()) return;
+    const on = cur === (i.name||'').trim().toLowerCase();
+    opts.push(`<button class="tf-toggle-btn${on?' active':''}" data-overflow-pick="${escapeAttr(c.name)}|${escapeAttr(i.name)}">${escapeAttr(i.name)} <span class="overflow-opt-cat">${escapeAttr(c.name)}</span></button>`);
+  }));
+  listEl.innerHTML = opts.join('');
+}
+document.getElementById('tplOverflowList').addEventListener('click', (e) => {
+  const pick = e.target.closest('[data-overflow-pick]');
+  if(!pick || !tplOverflowTarget || !monthTemplate) return;
+  const cat = monthTemplate.categories.find(c => c.id === tplOverflowTarget.catId);
+  const item = cat && cat.items.find(i => i.id === tplOverflowTarget.itemId);
+  if(!item) return;
+  const val = pick.dataset.overflowPick;
+  if(!val) delete item.overflowTo;
+  else { const [categoryName, itemName] = val.split('|'); item.overflowTo = {categoryName, itemName}; }
+  scheduleTemplateSave();
+  closeFloatingMenus();
+  tplOverflowTarget = null;
+  renderTemplateEditor();
+});
+// Lives on the Template tab because the cap it works off IS the template amount - setting it
+// next to any other number would be setting it away from the thing it depends on.
+function overflowBtnHtml(catId, item){
+  if(catId === 'income') return '';
+  const to = item.overflowTo && item.overflowTo.itemName ? item.overflowTo.itemName : null;
+  return `<button class="item-menu-toggle month-actions-gear tpl-overflow-btn${to?' set':''}" data-tpl-overflow="${catId}:${item.id}" data-tip="${to?`Anything over this amount goes to “${escapeAttr(to)}” for the rest of the period`:'Send spending past this amount to another item'}">⤵</button>`;
 }
 function tplGroupHtml(cat, idx){
   const total = (cat.items||[]).reduce((s,i)=>s+(Number(i.amount)||0),0);
@@ -4819,6 +4946,20 @@ document.getElementById('templateCard').addEventListener('click', async (e) => {
     }
     scheduleTemplateSave();
     updateAllTplItemNameWidths();
+    return;
+  }
+  const ovBtn = e.target.closest('[data-tpl-overflow]');
+  if(ovBtn){
+    const [catId, itemId] = ovBtn.dataset.tplOverflow.split(':');
+    const panel = document.getElementById('tplOverflowPanel');
+    const alreadyOpen = tplOverflowTarget && tplOverflowTarget.itemId === itemId && panel.classList.contains('open');
+    closeFloatingMenus();
+    if(alreadyOpen){ tplOverflowTarget = null; return; }
+    tplOverflowTarget = {catId, itemId};
+    renderTplOverflowList();
+    positionFloatingMenu(panel, ovBtn);
+    panel.classList.add('open');
+    ovBtn.classList.add('open');
     return;
   }
   const delBtn = e.target.closest('.tpl-item-del');
@@ -6673,9 +6814,14 @@ function autoApplyTxRules(){
     if(!target) return;
     const found = findCatItemByName(target.categoryName, target.itemName);
     if(!found) return;
-    applyTxAmountToItem(found.cat.id, found.item, amt);
+    // Past its template cap, an item can hand the whole transaction to another item for the
+    // rest of the period - only here in the auto-rule path, never over an explicit manual
+    // assignment, which always lands where it was pointed.
+    const dest = routeThroughOverflow(found, amt);
+    if(dest.overflowFrom) noteOverflowed(dest.overflowFrom, t.id);
+    applyTxAmountToItem(dest.cat.id, dest.item, amt);
     const merchantKey = extractMerchantKey(t.attributes.description, amt);
-    txAssignments[t.id] = {monthKey: settings.currentMonth, catId: found.cat.id, itemId: found.item.id, itemName: found.item.name, categoryName: found.cat.name, merchantKey, txAmt: Math.abs(amt), desc: t.attributes.description, date: t.attributes.createdAt};
+    txAssignments[t.id] = {monthKey: settings.currentMonth, catId: dest.cat.id, itemId: dest.item.id, itemName: dest.item.name, categoryName: dest.cat.name, merchantKey, txAmt: Math.abs(amt), desc: t.attributes.description, date: t.attributes.createdAt};
     changed = true;
   });
   if(changed){

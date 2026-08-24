@@ -398,6 +398,27 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     guessed cycle. The accent rule along a header's top edge IS the boundary marker, hence
     `:first-child` deliberately has none — there's no boundary above the top of the list.
 
+28. **Overflow: spending past an item's template cap lands on another item.** Set per template
+    item via the `⤵` button on the Template tab (`item.overflowTo = {categoryName, itemName}`) —
+    it lives there because the cap IS the template amount. `routeThroughOverflow()` runs in
+    `autoApplyTxRules` only: a manual assignment always lands where it was pointed. The whole
+    transaction moves (never split) so `txAssignments` keeps one item per transaction, which
+    the paperclip list, the spent figure and "set to total" all depend on.
+    **The bit worth understanding**: "for the rest of the period" needs the capped item to STAY
+    over its cap, but a diverted transaction doesn't land on it, so its own spend drops back
+    under and it would start accepting again. `overflowedTxIds` on the month item records what
+    was diverted out of it, and `periodTotalAgainstCap()` = own spend + diverted. It's stored on
+    the item (months.categories is JSONB) rather than as a column on `tx_assignments`
+    specifically to avoid a migration — that table has fixed columns, so anything extra put on
+    an assignment is silently dropped on the next load. That's also why the panel's "overflow
+    from X" label is derived from `overflowedTxIds` and not from a field on the assignment.
+    The list self-heals: an id whose assignment is later excluded, or moved back onto the item
+    by hand, stops counting — so no bookkeeping is needed at the various unassign sites.
+    A template amount of 0/blank is "no budget set", not a cap of nothing, so it never
+    overflows. Single hop by design; chaining would need one transaction attributed to several
+    caps at once and nothing asked for it. The period is whichever mode is selected, free —
+    assignments are stamped with the effective month key, so paycycle mode caps per cycle.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
