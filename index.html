@@ -2673,7 +2673,11 @@ function findRawGuessForTx(desc, amt, tx){
   }
   return null;
 }
-async function saveTxAssignments(){ try{ await db.saveTxAssignments(txAssignments); if(!saveTimer) clearSaveStash(); }catch(e){} }
+// Deliberately does NOT clear the save stash on success. The stash protects the month data and
+// the assignments together, and every path that assigns also calls scheduleSave() - so clearing
+// it here, when only half the pair is on the server, would drop the safety net while the month
+// write is still pending or has failed. saveCurrentMonth() clears it once that lands.
+async function saveTxAssignments(){ try{ await db.saveTxAssignments(txAssignments); }catch(e){} }
 let priceChangeNotes = {};
 async function savePriceChangeNotes(){ try{ await db.savePriceChangeNotes(priceChangeNotes); }catch(e){} }
 let grocery = { items: [], days: 30, eatOut: 5 };
@@ -2776,7 +2780,11 @@ async function replayStashedSave(){
     if(s.month && s.monthKey) await db.saveMonth(s.monthKey, s.month);
     if(s.template) await db.saveMonthTemplate(s.template);
     clearSaveStash();
-  }catch(e){ /* leave it in place and try again next load rather than dropping the work */ }
+  }catch(e){
+    // Kept, not dropped - the next load tries again. Logged because a stash that silently
+    // fails to replay every time looks exactly like "it didn't save" from the outside.
+    console.warn('[budget] could not replay unsaved work, keeping it for next load:', e);
+  }
 }
 function flushPendingSaves(){
   stashUnsavedState();
@@ -5095,6 +5103,10 @@ async function buildRollingAverageLookup(key, monthsBack){
   return computeRollingAverageFromMonths(keys.map(k => byKey[k]));
 }
 async function switchToMonth(key){
+  // A pending debounced save still belongs to the month being left. saveCurrentMonth() reads
+  // settings.currentMonth, so changing it first would either write the outgoing month's data
+  // under the incoming key, or lose it outright when monthData is replaced below. Flush first.
+  if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; await saveCurrentMonth(); }
   settings.currentMonth = key;
   saveSettings();
   renderMonthDropdown();

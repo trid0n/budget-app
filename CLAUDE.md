@@ -487,6 +487,20 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     `pagehide` and re-stashes on the way out. Set `authUserId = null` first — the stash bails
     without it — then clear and reload.
 
+32. **`switchToMonth` wrote the outgoing month's pending save into the INCOMING month.** Found
+    while chasing a second "refreshed and some still didn't save" report, and it is a
+    corruption bug, not just a loss one: `switchToMonth` set `settings.currentMonth = key` as
+    its first statement, but `saveCurrentMonth()` reads that same variable. A debounced save
+    still in flight for the month being left therefore fired against the NEW key. Proven in the
+    harness — August's $99 landed in July, and August kept 0. It now flushes (`await
+    saveCurrentMonth()`) before touching `settings.currentMonth`. Worth remembering as a shape:
+    **any debounced write whose target is read from mutable global state at fire time, not
+    captured at schedule time, is a bug waiting for the state to change under it.** Also
+    stopped `saveTxAssignments()` clearing the stash from item 30 — the stash protects month
+    data and assignments together, so clearing it when only the assignments had landed dropped
+    the safety net while the month write was still pending or failed. `saveCurrentMonth()`
+    clears it now, on success only.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
