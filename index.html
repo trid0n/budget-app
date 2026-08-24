@@ -2250,11 +2250,25 @@ const db = {
       if(error) throw error;
     }
   },
+  // Paged, because Supabase caps a REST response at 1000 rows by default. A plain select()
+  // silently returned only the first 1000 once this table passed that size - the rest stayed
+  // on the server and simply never loaded, which reads exactly like "it didn't save what I
+  // did". Nothing errored; the data was there the whole time.
+  // Advancing by rows.length (not by a fixed page size) keeps this correct whatever the
+  // server's cap actually is, and stopping only on an empty page costs one extra request.
+  // Ordered because range() without a stable sort can overlap or skip rows between pages.
   async loadTxAssignments(){
-    const { data, error } = await sb.from('tx_assignments').select('*').eq('user_id', authUserId);
-    if(error) throw error;
     const out = {};
-    (data||[]).forEach(r => { out[r.tx_id] = { catId: r.cat_id, itemId: r.item_id, monthKey: r.month_key, desc: r.description, itemName: r.item_name, date: r.tx_date, txAmt: r.tx_amount, excluded: r.excluded }; });
+    let from = 0;
+    for(;;){
+      const { data, error } = await sb.from('tx_assignments').select('*').eq('user_id', authUserId)
+        .order('tx_id', { ascending: true }).range(from, from + 999);
+      if(error) throw error;
+      const rows = data || [];
+      rows.forEach(r => { out[r.tx_id] = { catId: r.cat_id, itemId: r.item_id, monthKey: r.month_key, desc: r.description, itemName: r.item_name, date: r.tx_date, txAmt: r.tx_amount, excluded: r.excluded }; });
+      if(!rows.length) break;
+      from += rows.length;
+    }
     // Seeded here so the first save of the session knows what's already stored and can tell a
     // genuine removal from a row it simply hasn't seen yet - see saveTxAssignments.
     lastSavedTxIds = new Set(Object.keys(out));

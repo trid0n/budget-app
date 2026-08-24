@@ -518,6 +518,26 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     is the one that tears the page down and takes the console with it. Keep this: two of the
     three save bugs above were only pinnable with a record that survived the refresh.
 
+35. **THE actual "refreshed and it didn't save" bug: Supabase caps a REST response at 1000
+    rows.** `loadTxAssignments` did a plain `.select('*')` with no paging. Once
+    `tx_assignments` passed 1000 rows (the user's was at 1003 when the save log finally caught
+    it), every load silently returned the first 1000 and dropped the rest. **No error, no
+    failed save** — the save log showed `tx.save.ok` at n=1003 every time, because saving was
+    never the problem. The rows were on the server the whole time; the app just never read
+    them. They surfaced as transactions that came back unassigned, i.e. "some didn't save".
+    Nothing was destroyed: the prune in `saveTxAssignments` compares against `lastSavedTxIds`,
+    which was also truncated, so `gone` stayed empty and no delete ever fired.
+    Now paged via `.range()`, advancing by `rows.length` so it's correct whatever the cap
+    actually is, stopping on an empty page, and `.order('tx_id')` because `range()` without a
+    stable sort can overlap or skip rows between pages. Verified against a mock enforcing the
+    real cap: 1247 rows, recovered in 3 requests, versus 1000 for the old shape.
+    **Generalise**: any `.select()` on a table that grows per-transaction needs paging. The
+    next candidate is `tx_rules` (one row per merchant); everything else is single-row or a
+    hand-maintained list. And the lesson that cost three wrong fixes: **three plausible
+    theories in a row were wrong because the failure was in the READ path while every symptom
+    pointed at the WRITE path.** The save log (item 34) is what broke the deadlock — it showed
+    saves succeeding, which is what finally moved the search to loading.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
