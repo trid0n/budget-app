@@ -581,6 +581,27 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     without the other would split the batch. Revisit only if a batch lands between a pay and
     month end.
 
+38. **Toggling periodMode now re-files already-assigned transactions.** Before this, switching
+    calendar↔paycycle changed only the dividers, which period counts as current, and how NEW
+    transactions file — the stored `monthKey` on existing assignments never moved, so the
+    ledger sat still and the toggle looked like it did nothing. `findMisfiledAssignments()`
+    compares each loaded transaction's `periodKeyForTx()` against its stored `monthKey`;
+    `refileAssignmentsToCurrentMode()` moves them AND adjusts both months' item amounts —
+    re-stamping alone would leave the old month still counting the money and the new one still
+    not. Destination items are matched by category name + item name (ids are per-month), with a
+    fallback to the item name anywhere in the month, because a category id from another month
+    often doesn't resolve at all. Income keeps its first-pay-replaces-the-estimate rule, and
+    apportioned goals are never touched. Anything unplaceable is left exactly as it was and
+    counted into the toast.
+    **Confirmed, not silent** — it rewrites stored amounts across several months at once, which
+    is precisely the shape of the bug that once buried a year of transactions in the wrong
+    month (see Data repairs). Declining still switches the mode, it just skips the re-file.
+    Verified reversible: calendar→paycycle moved $200 from July to August, back again restored
+    it exactly, and a pre-payday transaction stayed put in both directions.
+    **Limit worth knowing**: only transactions currently loaded in the Up tab can be judged,
+    since `periodKeyForTx` needs the transaction's own date and an assignment alone doesn't
+    carry enough to place it in a cycle. Widen the timeframe first to re-file further back.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as

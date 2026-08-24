@@ -6653,7 +6653,72 @@ function updatePeriodToggleVisibility(){
     updateSummary();
   }
 }
-document.getElementById('periodModeGroup').addEventListener('click', (e) => {
+// Which already-filed transactions would land in a different period under the mode that's now
+// selected. Only ones currently loaded in the Up tab can be judged - periodKeyForTx needs the
+// transaction's date, and an assignment on its own doesn't carry enough to place it in a cycle.
+function findMisfiledAssignments(){
+  const out = [];
+  for(const txId in txAssignments){
+    const a = txAssignments[txId];
+    if(a.excluded || !a.catId) continue;
+    const t = upTransactions.find(x => x.id === txId);
+    if(!t) continue;
+    const should = periodKeyForTx(t);
+    if(should === a.monthKey) continue;
+    out.push({txId, a, from: a.monthKey, to: should});
+  }
+  return out;
+}
+// Moves them, adjusting BOTH months' item amounts - re-stamping alone would leave the old
+// month still counting the money and the new one still not. Destination items are matched by
+// category name + item name, since ids are per-month. Anything that can't be placed is left
+// exactly as it was rather than guessed at; the count of those is reported back.
+async function refileAssignmentsToCurrentMode(moves){
+  const lc = s => (s||'').trim().toLowerCase();
+  const keys = [...new Set(moves.flatMap(m => [m.from, m.to]))];
+  const months = {};
+  for(const k of keys) months[k] = (k === settings.currentMonth) ? monthData : monthRowToData(await db.loadMonth(k));
+  let moved = 0, skipped = 0;
+  for(const mv of moves){
+    const src = months[mv.from], dst = months[mv.to];
+    if(!dst){ skipped++; continue; }
+    const isIncome = mv.a.catId === 'income';
+    const srcCat = (!isIncome && src) ? src.categories.find(c => c.id === mv.a.catId) : null;
+    const srcItem = src ? (isIncome ? src.income : (srcCat ? srcCat.items : [])).find(i => i.id === mv.a.itemId) : null;
+    let dstCatId = null, dstItem = null;
+    if(isIncome){ dstCatId = 'income'; dstItem = dst.income.find(i => lc(i.name) === lc(mv.a.itemName)); }
+    else {
+      // Prefer the same category by name; fall back to wherever that item name lives, since a
+      // category id from another month may not resolve here at all.
+      const byName = srcCat ? dst.categories.find(c => lc(c.name) === lc(srcCat.name)) : null;
+      const search = byName ? [byName] : dst.categories;
+      for(const c of search){
+        const it = c.items.find(i => lc(i.name) === lc(mv.a.itemName));
+        if(it){ dstCatId = c.id; dstItem = it; break; }
+      }
+    }
+    if(!dstItem){ skipped++; continue; }
+    const amt = Number(mv.a.txAmt) || 0;
+    if(srcItem && !isApportionedItem(srcItem.name)){
+      srcItem.amount = Math.round(((Number(srcItem.amount)||0) - amt) * 100) / 100;
+    }
+    const prior = Object.values(txAssignments).filter(x => !x.excluded && x.monthKey === mv.to && x.catId === dstCatId && x.itemId === dstItem.id).length;
+    if(!isApportionedItem(dstItem.name)){
+      // Income keeps its first-pay-replaces-the-estimate rule, same as applyTxAmountToItem.
+      if(isIncome && prior === 0) dstItem.amount = Math.round(amt * 100) / 100;
+      else dstItem.amount = Math.round(((Number(dstItem.amount)||0) + amt) * 100) / 100;
+    }
+    mv.a.monthKey = mv.to; mv.a.catId = dstCatId; mv.a.itemId = dstItem.id; mv.a.itemName = dstItem.name;
+    moved++;
+  }
+  for(const k of keys){ if(k !== settings.currentMonth && months[k]) await db.saveMonth(k, months[k]); }
+  await saveTxAssignments();
+  await saveCurrentMonth();
+  renderGroups(); updateSummary(); renderUpTxList();
+  saveLog('refile', {moved, skipped});
+  return {moved, skipped};
+}
+document.getElementById('periodModeGroup').addEventListener('click', async (e) => {
   const btn = e.target.closest('.period-mode-btn');
   if(!btn) return;
   e.stopPropagation();
@@ -6664,6 +6729,19 @@ document.getElementById('periodModeGroup').addEventListener('click', (e) => {
   renderPeriodModeToggle();
   recomputeEffectivePeriod();
   updateSummary();
+  // Changing what defines a period changes which period a transaction belongs to, so the ones
+  // already filed are re-filed to match. Confirmed rather than silent: it rewrites stored
+  // amounts across several months at once, and doing that without asking is how a bad rule
+  // once buried a year of transactions in the wrong month.
+  const moves = findMisfiledAssignments();
+  if(moves.length){
+    const ok = await customConfirm(`${moves.length} transaction${moves.length>1?'s':''} now belong${moves.length>1?'':'s'} to a different period. Move ${moves.length>1?'them':'it'} and update both periods' totals?`);
+    if(ok){
+      const {moved, skipped} = await refileAssignmentsToCurrentMode(moves);
+      toast(skipped ? `Re-filed ${moved}. ${skipped} had no matching item and were left alone.` : `Re-filed ${moved} transaction${moved!==1?'s':''}.`);
+      return;
+    }
+  }
   if(mode === 'paycycle' && !upIncomeSourceKey){
     toast('Pay cycle is on, but nothing will change until you choose an income source — do that on the Up tab');
   } else {
