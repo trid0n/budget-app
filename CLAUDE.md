@@ -601,6 +601,16 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     **Limit worth knowing**: only transactions currently loaded in the Up tab can be judged,
     since `periodKeyForTx` needs the transaction's own date and an assignment alone doesn't
     carry enough to place it in a cycle. Widen the timeframe first to re-file further back.
+    **Follow-up, reported as "it warns me but changes nothing":** the first version skipped any
+    transaction whose item didn't already exist in the destination month, which is the common
+    case — a line that only ever existed in one month has no counterpart in the other. Measured
+    on real data: income moved (−$4,692.47) while every spending transaction was skipped, so
+    cost moved by exactly 0.00. It now CREATES the missing line (and its category, copying the
+    source category's name and emoji) rather than skipping, since a re-file that silently drops
+    most of the work is indistinguishable from doing nothing. The category-name preference also
+    falls back to searching every category instead of giving up on the preferred one. Verified
+    symmetric: paycycle→calendar creates `mtg deck` + `Work` in July and empties August's,
+    toggling back restores exactly, and the created lines stay at 0 rather than vanishing.
 
 ## Data repairs (a fix to the code is not a fix to the data)
 

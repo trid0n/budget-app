@@ -6678,7 +6678,7 @@ async function refileAssignmentsToCurrentMode(moves){
   const keys = [...new Set(moves.flatMap(m => [m.from, m.to]))];
   const months = {};
   for(const k of keys) months[k] = (k === settings.currentMonth) ? monthData : monthRowToData(await db.loadMonth(k));
-  let moved = 0, skipped = 0;
+  let moved = 0, skipped = 0, created = 0;
   for(const mv of moves){
     const src = months[mv.from], dst = months[mv.to];
     if(!dst){ skipped++; continue; }
@@ -6686,15 +6686,36 @@ async function refileAssignmentsToCurrentMode(moves){
     const srcCat = (!isIncome && src) ? src.categories.find(c => c.id === mv.a.catId) : null;
     const srcItem = src ? (isIncome ? src.income : (srcCat ? srcCat.items : [])).find(i => i.id === mv.a.itemId) : null;
     let dstCatId = null, dstItem = null;
-    if(isIncome){ dstCatId = 'income'; dstItem = dst.income.find(i => lc(i.name) === lc(mv.a.itemName)); }
-    else {
-      // Prefer the same category by name; fall back to wherever that item name lives, since a
-      // category id from another month may not resolve here at all.
+    if(isIncome){
+      dstCatId = 'income';
+      dstItem = dst.income.find(i => lc(i.name) === lc(mv.a.itemName));
+      if(!dstItem && mv.a.itemName){
+        dstItem = {id: uid(), name: mv.a.itemName, amount: 0, charged: false};
+        dst.income.push(dstItem); created++;
+      }
+    } else {
+      // Prefer the category of the same name; otherwise take the item name wherever it lives,
+      // since a category id from another month often doesn't resolve here at all.
       const byName = srcCat ? dst.categories.find(c => lc(c.name) === lc(srcCat.name)) : null;
-      const search = byName ? [byName] : dst.categories;
+      const search = byName ? [byName, ...dst.categories.filter(c => c !== byName)] : dst.categories;
       for(const c of search){
         const it = c.items.find(i => lc(i.name) === lc(mv.a.itemName));
         if(it){ dstCatId = c.id; dstItem = it; break; }
+      }
+      // Still nothing: the period this transaction belongs to simply has no line for it yet.
+      // Create one rather than skipping - a re-file that silently drops half the transactions
+      // is why toggling appeared to do nothing at all. Created empty; the amount lands below.
+      if(!dstItem && mv.a.itemName){
+        let cat = byName;
+        if(!cat && srcCat){
+          cat = {id: uid(), name: srcCat.name, ...(srcCat.emoji!=null?{emoji:srcCat.emoji}:{}), items: []};
+          dst.categories.push(cat);
+        }
+        if(!cat) cat = dst.categories[0];
+        if(cat){
+          dstItem = {id: uid(), name: mv.a.itemName, amount: 0, planned: 0, charged: false};
+          cat.items.push(dstItem); dstCatId = cat.id; created++;
+        }
       }
     }
     if(!dstItem){ skipped++; continue; }
@@ -6715,8 +6736,8 @@ async function refileAssignmentsToCurrentMode(moves){
   await saveTxAssignments();
   await saveCurrentMonth();
   renderGroups(); updateSummary(); renderUpTxList();
-  saveLog('refile', {moved, skipped});
-  return {moved, skipped};
+  saveLog('refile', {moved, skipped, created});
+  return {moved, skipped, created};
 }
 document.getElementById('periodModeGroup').addEventListener('click', async (e) => {
   const btn = e.target.closest('.period-mode-btn');
@@ -6737,8 +6758,10 @@ document.getElementById('periodModeGroup').addEventListener('click', async (e) =
   if(moves.length){
     const ok = await customConfirm(`${moves.length} transaction${moves.length>1?'s':''} now belong${moves.length>1?'':'s'} to a different period. Move ${moves.length>1?'them':'it'} and update both periods' totals?`);
     if(ok){
-      const {moved, skipped} = await refileAssignmentsToCurrentMode(moves);
-      toast(skipped ? `Re-filed ${moved}. ${skipped} had no matching item and were left alone.` : `Re-filed ${moved} transaction${moved!==1?'s':''}.`);
+      const {moved, skipped, created} = await refileAssignmentsToCurrentMode(moves);
+      toast(`Re-filed ${moved} transaction${moved!==1?'s':''}.`
+        + (created ? ` Added ${created} missing line${created!==1?'s':''}.` : '')
+        + (skipped ? ` ${skipped} couldn’t be placed.` : ''));
       return;
     }
   }
