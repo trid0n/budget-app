@@ -468,6 +468,25 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     a backing store that survives reload** (localStorage). A synchronous in-memory `_fakeDb`
     cannot show a persistence race at all.
 
+31. **One search box in the assign-transaction modal.** It used to have two inputs — a search
+    over existing items, and a separate "create a new item" row (category dropdown + name +
+    button) with its own suggestion list. Now `#txAssignSearch` is the only field: typing
+    filters existing items AND appends a `Create “<term>” in…` section listing every category,
+    one click to create-and-assign. The old create-name box's last-month suggestions were
+    folded in as a "From last month" section (only for categories that still exist this month,
+    so a suggestion always has somewhere to go); picking one recreates it with its original
+    name. The modal focuses the search on open — done after `.show` is added, since
+    `.modal-overlay` is `display:none` until then and `focus()` on a hidden element is a no-op.
+    Deleted with it: `renderTxAssignNameSuggestions`, `populateSimpleSelect`/`resetSimpleSelect`/
+    `getSimpleSelectValue`, `SIMPLE_SELECT_WRAP_IDS` and its two branches in the shared
+    `.custom-select` click handler (the date pickers use that handler too — they still work,
+    verified). Net −53 lines.
+    **Testing gotcha worth knowing**: `stashUnsavedState()` (item 30) faithfully carries
+    in-memory state across a reload, so a harness reload replays whatever the PREVIOUS test
+    left. `localStorage.clear()` alone doesn't help, because `location.reload()` fires
+    `pagehide` and re-stashes on the way out. Set `authUserId = null` first — the stash bails
+    without it — then clear and reload.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as

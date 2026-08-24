@@ -1001,19 +1001,8 @@ body.saver-dragging-active{user-select:none; -webkit-user-select:none;}
 .tx-remember-threshold:hover{background:var(--gold); border-color:var(--gold); color:#fff;}
 .tx-remember-threshold-row{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:.82rem; color:var(--ink-soft);}
 .tx-remember-threshold-row input{width:70px; font-family:'Inter',sans-serif; font-size:.82rem; color:var(--ink); background:var(--paper-dim); border:1px solid var(--rule); border-radius:7px; padding:6px 8px;}
-.tx-assign-new{border-top:1px solid var(--rule); padding-top:12px;}
-.tx-assign-new-lbl{font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:700; margin-bottom:8px;}
-.tx-assign-new-row{display:flex; gap:8px; flex-wrap:wrap;}
 .tx-assign-cat-select{font-family:'Inter',sans-serif; font-size:.82rem; color:var(--ink); background:var(--paper-dim); border:1px solid var(--rule); border-radius:7px; padding:7px 10px;}
-.tx-assign-new-row input{flex:1; min-width:120px; font-family:'Inter',sans-serif; font-size:.82rem; color:var(--ink); background:var(--paper-dim); border:1px solid var(--rule); border-radius:7px; padding:7px 10px;}
 .tx-assign-threshold-amt{width:70px; font-family:'Inter',sans-serif; font-size:.82rem; color:var(--ink); background:var(--surface); border:1px solid var(--rule); border-radius:7px; padding:6px 8px;}
-.tx-assign-name-suggestions{display:flex; flex-direction:column; border:1px solid var(--rule); border-radius:8px; overflow:hidden; background:var(--paper-dim); margin-top:8px;}
-.tx-assign-suggestion{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; cursor:pointer; font-size:.8rem; border-top:1px solid var(--rule);}
-.tx-assign-suggestion:first-child{border-top:none;}
-.tx-assign-suggestion:hover{background:var(--surface);}
-.tx-assign-suggestion-name{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.tx-assign-suggestion-meta{color:var(--ink-faint); font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; flex-shrink:0;}
-.tx-assign-select-btn{min-width:110px;}
 .up-tx-cover-icon{flex-shrink:0; color:var(--gold); display:flex; align-items:center; cursor:pointer; position:relative; background:none; border:none; padding:0; margin:0; line-height:0;}
 .up-tx-cover-icon:hover{opacity:.7;}
 /* Filled shield = this cover still counts against the budget, hollow = excluded as a
@@ -1935,20 +1924,8 @@ try{
     <div class="tx-assign-hdr">Assign <span id="txAssignAmt"></span> from <span id="txAssignDesc"></span></div>
     <div class="tx-assign-sub">to a line item in <span id="txAssignMonthLbl"></span></div>
     <div class="tx-assign-current" id="txAssignCurrentLbl" style="display:none;"></div>
-    <input type="text" id="txAssignSearch" class="up-tx-search" placeholder="Search your categories and items...">
+    <input type="text" id="txAssignSearch" class="up-tx-search" placeholder="Search items, or type a new name to create one…">
     <div class="tx-assign-list" id="txAssignList"></div>
-    <div class="tx-assign-new">
-      <div class="tx-assign-new-lbl">Or create a new item</div>
-      <div class="tx-assign-new-row">
-        <div class="custom-select tx-assign-select" id="txAssignNewCatWrap">
-          <button type="button" class="custom-select-btn date-select tx-assign-select-btn" id="txAssignNewCatBtn">Category</button>
-          <div class="custom-select-list" id="txAssignNewCatList"></div>
-        </div>
-        <input type="text" id="txAssignNewName" placeholder="Item name">
-        <button class="mini-btn gold" id="txAssignNewBtn">Create &amp; assign</button>
-      </div>
-      <div class="tx-assign-name-suggestions" id="txAssignNameSuggestions" style="display:none;"></div>
-    </div>
     <div class="modal-actions">
       <button type="button" class="tx-assign-exclude-link" id="txAssignExcludeBtn">Exclude this transaction instead</button>
       <button class="mini-btn" id="txAssignCancel">Cancel</button>
@@ -7482,36 +7459,11 @@ document.getElementById('upPayCycleClearBtn').addEventListener('click', () => {
   toast('Income source cleared');
 });
 let txAssignCurrent = null;
-function renderTxAssignNameSuggestions(query){
-  const container = document.getElementById('txAssignNameSuggestions');
-  const q = (query||'').trim().toLowerCase();
-  if(q.length < 2 || !monthData){ container.style.display = 'none'; container.innerHTML = ''; container._suggestions = null; return; }
-  const thisMonthMatches = [];
-  monthData.categories.forEach(cat => {
-    cat.items.forEach(item => {
-      if((item.name||'').trim().toLowerCase().includes(q)) thisMonthMatches.push({categoryId: cat.id, categoryName: cat.name, itemId: item.id, itemName: item.name, source: 'this'});
-    });
-  });
-  let lastMonthMatches = [];
-  if(prevMonthCompareData){
-    const thisMonthNames = new Set(thisMonthMatches.map(m => m.itemName.toLowerCase()));
-    prevMonthCompareData.categories.forEach(cat => {
-      cat.items.forEach(item => {
-        const nameLower = (item.name||'').trim().toLowerCase();
-        if(nameLower.includes(q) && !thisMonthNames.has(nameLower)) lastMonthMatches.push({categoryName: cat.name, itemName: item.name, source: 'last'});
-      });
-    });
-  }
-  const combined = [...thisMonthMatches, ...lastMonthMatches].slice(0, 5);
-  if(combined.length === 0){ container.style.display = 'none'; container.innerHTML = ''; container._suggestions = null; return; }
-  container.style.display = 'flex';
-  container.innerHTML = combined.map((m, idx) => `<div class="tx-assign-suggestion" data-suggestion-idx="${idx}"><span class="tx-assign-suggestion-name">${escapeAttr(m.itemName)}</span><span class="tx-assign-suggestion-meta">${m.source==='this'?'This month':'Last month'}</span></div>`).join('');
-  container._suggestions = combined;
-}
 function renderTxAssignList(filterTerm){
   const list = document.getElementById('txAssignList');
   if(!monthData){ list.innerHTML = '<div class="tx-assign-empty">No month is open in the Budget tab right now.</div>'; return; }
-  const term = (filterTerm||'').trim().toLowerCase();
+  const rawTerm = (filterTerm||'').trim();
+  const term = rawTerm.toLowerCase();
   let html = '';
   let anyShown = false;
   const incomeItems = monthData.income.filter(i => (i.name||'').trim());
@@ -7530,23 +7482,43 @@ function renderTxAssignList(filterTerm){
     html += `<div class="tx-assign-cat-hdr" data-cat-hdr="${cat.id}">${getCategoryEmoji(cat)} ${escapeAttr(cat.name)}</div>`;
     html += matching.map(i => `<div class="tx-assign-item${isCurrent(cat.id, i.id)?' current':''}" data-assign-cat="${cat.id}" data-assign-item="${i.id}" data-assign-name="${escapeAttr(i.name)}"><span class="tx-assign-item-name">${escapeAttr(i.name)}</span><span class="tx-assign-item-amt">${money(i.amount||0)}</span></div>`).join('');
   });
+  // Items that existed last month but not this one. This used to hang off the separate
+  // create-a-new-item box's own suggestion list; folded in here so one search still surfaces
+  // them, and picking one recreates it in the same category with the right name rather than
+  // leaving you to retype it. Only categories that still exist this month, so there's never a
+  // suggestion with nowhere to go.
+  if(term.length >= 2 && prevMonthCompareData){
+    const here = new Set();
+    monthData.categories.forEach(c => c.items.forEach(i => here.add((i.name||'').trim().toLowerCase())));
+    const fromLast = [];
+    prevMonthCompareData.categories.forEach(pc => {
+      const cat = monthData.categories.find(c => (c.name||'').trim().toLowerCase() === (pc.name||'').trim().toLowerCase());
+      if(!cat) return;
+      (pc.items||[]).forEach(pi => {
+        const n = (pi.name||'').trim();
+        if(!n || !n.toLowerCase().includes(term) || here.has(n.toLowerCase())) return;
+        fromLast.push({catId: cat.id, catName: cat.name, name: n});
+      });
+    });
+    if(fromLast.length){
+      anyShown = true;
+      html += `<div class="tx-assign-cat-hdr">From last month</div>`;
+      html += fromLast.slice(0, 5).map(p => `<div class="tx-assign-item" data-create-cat="${escapeAttr(p.catId)}" data-create-name="${escapeAttr(p.name)}"><span class="tx-assign-item-name">${escapeAttr(p.name)}</span><span class="tx-assign-item-amt">${escapeAttr(p.catName)}</span></div>`).join('');
+    }
+  }
+  // The create path, in the same list rather than a second form: whatever is typed can become
+  // a new item in any category, one click.
+  if(rawTerm){
+    anyShown = true;
+    html += `<div class="tx-assign-cat-hdr">Create “${escapeAttr(rawTerm)}” in…</div>`;
+    html += `<div class="tx-assign-item create" data-create-cat="income" data-create-name="${escapeAttr(rawTerm)}"><span class="tx-assign-item-name">💵 Income</span><span class="tx-assign-item-amt">new</span></div>`;
+    html += monthData.categories.map(c => `<div class="tx-assign-item create" data-create-cat="${escapeAttr(c.id)}" data-create-name="${escapeAttr(rawTerm)}"><span class="tx-assign-item-name">${getCategoryEmoji(c)} ${escapeAttr(c.name)}</span><span class="tx-assign-item-amt">new</span></div>`).join('');
+  }
   list.innerHTML = anyShown ? html : '<div class="tx-assign-empty">No matching items.</div>';
   if(!term){
     const currentEl = list.querySelector('.tx-assign-item.current');
     if(currentEl) currentEl.scrollIntoView({block:'nearest'});
   }
-}
-function populateSimpleSelect(wrapId, options){
-  document.getElementById(wrapId+'List').innerHTML = options.map(o => `<div class="custom-select-opt" data-value="${escapeAttr(o.value)}">${escapeAttr(o.label)}</div>`).join('');
-}
-function resetSimpleSelect(wrapId, placeholder){
-  const wrap = document.getElementById(wrapId+'Wrap');
-  wrap.dataset.value = '';
-  document.getElementById(wrapId+'Btn').textContent = placeholder;
-  document.getElementById(wrapId+'List').querySelectorAll('.custom-select-opt').forEach(opt => opt.classList.remove('selected'));
-}
-function getSimpleSelectValue(wrapId){
-  return document.getElementById(wrapId+'Wrap').dataset.value || '';
 }
 function openTxAssignModal(txId, amt, desc, date, transferAccountId){
   if(!monthData){ toast('Open a month in the Budget tab first'); return; }
@@ -7568,14 +7540,14 @@ function openTxAssignModal(txId, amt, desc, date, transferAccountId){
   } else {
     currentLbl.style.display = 'none';
   }
-  document.getElementById('txAssignSearch').value = '';
+  const search = document.getElementById('txAssignSearch');
+  search.value = '';
   renderTxAssignList('');
-  const catOptionsById = [{value:'income', label:'💵 Income'}, ...monthData.categories.map(c => ({value: c.id, label: `${getCategoryEmoji(c)} ${c.name}`}))];
-  populateSimpleSelect('txAssignNewCat', catOptionsById);
-  resetSimpleSelect('txAssignNewCat', 'Category');
-  document.getElementById('txAssignNewName').value = desc;
-  renderTxAssignNameSuggestions(desc);
   document.getElementById('txAssignOverlay').classList.add('show');
+  // After .show, not before - the overlay is display:none until then and focus() on a hidden
+  // element does nothing. Opening straight into the search is the point: one field, typing
+  // narrows the existing items and offers to create what you typed.
+  search.focus();
 }
 function closeTxAssignModal(){
   document.getElementById('txAssignOverlay').classList.remove('show');
@@ -7850,34 +7822,15 @@ function showTransferRememberPopup(txId, transferAccountId, accountName, categor
   });
 }
 document.getElementById('txAssignSearch').addEventListener('input', (e) => renderTxAssignList(e.target.value));
-document.getElementById('txAssignNewName').addEventListener('input', (e) => renderTxAssignNameSuggestions(e.target.value));
-document.getElementById('txAssignNameSuggestions').addEventListener('click', (e) => {
-  const row = e.target.closest('[data-suggestion-idx]');
-  if(!row) return;
-  const container = document.getElementById('txAssignNameSuggestions');
-  const suggestion = container._suggestions && container._suggestions[Number(row.dataset.suggestionIdx)];
-  if(!suggestion) return;
-  if(suggestion.source === 'this'){
-    completeTxAssignment(suggestion.categoryId, suggestion.itemId, suggestion.itemName);
-  } else {
-    document.getElementById('txAssignNewName').value = suggestion.itemName;
-    const cat = monthData.categories.find(c => c.name.trim().toLowerCase() === suggestion.categoryName.trim().toLowerCase());
-    if(cat){
-      document.getElementById('txAssignNewCatWrap').dataset.value = cat.id;
-      document.getElementById('txAssignNewCatBtn').textContent = `${getCategoryEmoji(cat)} ${cat.name}`;
-    }
-    container.style.display = 'none'; container.innerHTML = ''; container._suggestions = null;
-  }
-});
 document.getElementById('txAssignList').addEventListener('click', (e) => {
+  const create = e.target.closest('[data-create-cat]');
+  if(create){ createAndAssignItem(create.dataset.createCat, (create.dataset.createName||'').trim()); return; }
   const row = e.target.closest('[data-assign-item]');
   if(!row) return;
   completeTxAssignment(row.dataset.assignCat, row.dataset.assignItem, row.dataset.assignName);
 });
-document.getElementById('txAssignNewBtn').addEventListener('click', () => {
+function createAndAssignItem(catId, name){
   if(!txAssignCurrent || !monthData) return;
-  const catId = getSimpleSelectValue('txAssignNewCat');
-  const name = document.getElementById('txAssignNewName').value.trim();
   if(!name){ toast('Enter a name for the new item'); return; }
   const cat = findCatById(catId);
   if(!cat) return;
@@ -7895,7 +7848,7 @@ document.getElementById('txAssignNewBtn').addEventListener('click', () => {
   closeTxAssignModal();
   if(transferAccountId) maybeShowTransferRememberPopup(txId, transferAccountId, cat.name, name);
   else maybeShowRememberPopup(txId, merchantKey, desc, cat.name, name);
-});
+}
 document.getElementById('txAssignCancel').addEventListener('click', closeTxAssignModal);
 document.getElementById('view-ledger').addEventListener('click', (e) => {
   const badge = e.target.closest('[data-tx-view-item]');
@@ -9633,11 +9586,10 @@ function getCustomDatePrefixFromWrapId(wrapId){
   return null;
 }
 const CUSTOM_DATE_WRAP_IDS = CUSTOM_DATE_PREFIXES.flatMap(p => [p+'DayWrap', p+'MonthWrap', p+'YearWrap']);
-const SIMPLE_SELECT_WRAP_IDS = ['txAssignNewCatWrap'];
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.custom-select-btn');
   const btnWrapId = btn ? btn.closest('.custom-select')?.id : null;
-  if(btn && (CUSTOM_DATE_WRAP_IDS.includes(btnWrapId) || SIMPLE_SELECT_WRAP_IDS.includes(btnWrapId))){
+  if(btn && CUSTOM_DATE_WRAP_IDS.includes(btnWrapId)){
     const wrap = btn.closest('.custom-select');
     const list = wrap.querySelector('.custom-select-list');
     const wasOpen = list.classList.contains('open');
@@ -9648,7 +9600,7 @@ document.addEventListener('click', (e) => {
   }
   const opt = e.target.closest('.custom-select-opt');
   const optWrapId = opt ? opt.closest('.custom-select')?.id : null;
-  if(opt && (CUSTOM_DATE_WRAP_IDS.includes(optWrapId) || SIMPLE_SELECT_WRAP_IDS.includes(optWrapId))){
+  if(opt && CUSTOM_DATE_WRAP_IDS.includes(optWrapId)){
     const wrap = opt.closest('.custom-select');
     wrap.dataset.value = opt.dataset.value;
     const partBtn = wrap.querySelector('.custom-select-btn');
@@ -9658,11 +9610,6 @@ document.addEventListener('click', (e) => {
     if(CUSTOM_DATE_WRAP_IDS.includes(optWrapId)){
       const prefix = getCustomDatePrefixFromWrapId(optWrapId);
       updateCustomDateSelectSelected(prefix);
-    }
-    if(optWrapId === 'txAssignNewCatWrap'){
-      const catId = opt.dataset.value;
-      const hdr = document.querySelector(`#txAssignList [data-cat-hdr="${CSS.escape(catId)}"]`);
-      if(hdr) hdr.scrollIntoView({block:'start', behavior:'smooth'});
     }
     return;
   }
