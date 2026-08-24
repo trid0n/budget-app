@@ -1979,6 +1979,31 @@ let authUserId = null;
 // tx_ids known to be stored server-side, so a save can prune exactly what was removed instead
 // of clearing the table and rewriting it - see db.saveTxAssignments.
 let lastSavedTxIds = new Set();
+/* ---- save diagnostics ----------------------------------------------------------------
+   For chasing "I refreshed and it didn't save". Writes to localStorage rather than the
+   console specifically because the moment of interest is the one that tears the page down,
+   taking the console with it. Entirely off unless localStorage.debugSaves === '1', so it
+   costs a single string compare per event the rest of the time.
+   Console API: startSaveDebug() / dumpSaveLog() / stopSaveDebug().                       */
+const SAVE_LOG_KEY = 'saveLog';
+function saveLogOn(){ try{ return localStorage.getItem('debugSaves') === '1'; }catch(e){ return false; } }
+function saveLog(event, detail){
+  if(!saveLogOn()) return;
+  try{
+    const l = JSON.parse(localStorage.getItem(SAVE_LOG_KEY) || '[]');
+    l.push({ t: new Date().toISOString().slice(11,23), event, ...(detail||{}) });
+    localStorage.setItem(SAVE_LOG_KEY, JSON.stringify(l.slice(-300)));
+  }catch(e){}
+}
+window.startSaveDebug = function(){
+  try{ localStorage.setItem('debugSaves','1'); localStorage.removeItem(SAVE_LOG_KEY); }catch(e){}
+  return 'Save logging ON. Reproduce the problem (assign, refresh), then run dumpSaveLog()';
+};
+window.dumpSaveLog = function(){
+  try{ const l = JSON.parse(localStorage.getItem(SAVE_LOG_KEY) || '[]'); console.table(l); return l.length + ' entries'; }
+  catch(e){ return 'no log'; }
+};
+window.stopSaveDebug = function(){ try{ localStorage.removeItem('debugSaves'); localStorage.removeItem(SAVE_LOG_KEY); }catch(e){} return 'Save logging OFF'; };
 
 function showAuthOverlay(){ document.getElementById('authOverlay').classList.remove('hidden'); }
 function hideAuthOverlay(){ document.getElementById('authOverlay').classList.add('hidden'); }
@@ -2233,6 +2258,7 @@ const db = {
     // Seeded here so the first save of the session knows what's already stored and can tell a
     // genuine removal from a row it simply hasn't seen yet - see saveTxAssignments.
     lastSavedTxIds = new Set(Object.keys(out));
+    saveLog('tx.load', {n: lastSavedTxIds.size});
     return out;
   },
   // Upsert what exists, then prune only what genuinely went away. This used to delete every
@@ -2677,7 +2703,12 @@ function findRawGuessForTx(desc, amt, tx){
 // the assignments together, and every path that assigns also calls scheduleSave() - so clearing
 // it here, when only half the pair is on the server, would drop the safety net while the month
 // write is still pending or has failed. saveCurrentMonth() clears it once that lands.
-async function saveTxAssignments(){ try{ await db.saveTxAssignments(txAssignments); }catch(e){} }
+async function saveTxAssignments(){
+  const n = Object.keys(txAssignments).length;
+  saveLog('tx.save.start', {n});
+  try{ await db.saveTxAssignments(txAssignments); saveLog('tx.save.ok', {n}); }
+  catch(e){ saveLog('tx.save.FAILED', {n, err: String(e && e.message || e)}); }
+}
 let priceChangeNotes = {};
 async function savePriceChangeNotes(){ try{ await db.savePriceChangeNotes(priceChangeNotes); }catch(e){} }
 let grocery = { items: [], days: 30, eatOut: 5 };
@@ -2732,16 +2763,19 @@ function setSyncStatus(text, isErr){
 }
 async function saveSettings(){ try{ await db.saveSettings({ current_month: settings.currentMonth, theme: settings.theme, last_goal: settings.lastGoal, balance_mode: settings.balanceMode, manual_balance: settings.manualBalance, period_mode: settings.periodMode }); }catch(e){} }
 async function saveCurrentMonth(){
-  if(!monthData) return;
+  if(!monthData){ saveLog('month.save.skipped', {reason:'no monthData'}); return; }
   setSyncStatus('Saving…');
+  const key = settings.currentMonth;
+  saveLog('month.save.start', {key, items: monthData.categories.reduce((s,c)=>s+c.items.length,0)});
   try{
     await db.saveMonth(settings.currentMonth, monthData);
+    saveLog('month.save.ok', {key, keyAtFinish: settings.currentMonth});
     if(!existingMonths.includes(settings.currentMonth)){ existingMonths.push(settings.currentMonth); existingMonths.sort(); }
     // The stash only exists to cover a save that didn't finish. One that did makes it stale,
     // and a stale stash replayed on the next load would undo whatever came after it.
     clearSaveStash();
     setSyncStatus('Saved just now');
-  }catch(e){ setSyncStatus('Save failed', true); }
+  }catch(e){ saveLog('month.save.FAILED', {key, err: String(e && e.message || e)}); setSyncStatus('Save failed', true); }
 }
 function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(() => { saveTimer = null; saveCurrentMonth(); }, 500); }
 // Nothing used to flush pending work when the page went away, so refreshing within the 500ms
@@ -2759,13 +2793,15 @@ function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(() => {
 // a killed tab, or a flat battery, none of which any unload-time request would have survived.
 const SAVE_STASH_KEY = 'pendingSave';
 function stashUnsavedState(){
-  if(!authUserId) return;
+  if(!authUserId){ saveLog('stash.skipped', {reason:'no authUserId'}); return; }
   try{
-    localStorage.setItem(SAVE_STASH_KEY, JSON.stringify({
+    const payload = JSON.stringify({
       v: 1, userId: authUserId, monthKey: settings.currentMonth, savedAt: Date.now(),
       month: monthData || null, template: monthTemplate || null, txAssignments
-    }));
-  }catch(e){ /* quota or private mode - the async saves below are still the normal path */ }
+    });
+    localStorage.setItem(SAVE_STASH_KEY, payload);
+    saveLog('stash.written', {bytes: payload.length, n: Object.keys(txAssignments).length, key: settings.currentMonth});
+  }catch(e){ saveLog('stash.FAILED', {err: String(e && e.message || e)}); }
 }
 function clearSaveStash(){ try{ localStorage.removeItem(SAVE_STASH_KEY); }catch(e){} }
 // Replayed before loadEverything() so the server is correct by the time anything reads it,
@@ -2774,15 +2810,19 @@ async function replayStashedSave(){
   let s = null;
   try{ s = JSON.parse(localStorage.getItem(SAVE_STASH_KEY) || 'null'); }catch(e){ clearSaveStash(); return; }
   // A stash from a different account on this browser is not ours to write.
-  if(!s || s.v !== 1 || s.userId !== authUserId){ if(s) clearSaveStash(); return; }
+  if(!s){ saveLog('stash.replay.none'); return; }
+  if(s.v !== 1 || s.userId !== authUserId){ saveLog('stash.replay.rejected', {stashUser: s.userId, me: authUserId}); clearSaveStash(); return; }
+  saveLog('stash.replay.start', {key: s.monthKey, n: Object.keys(s.txAssignments||{}).length, age: Date.now() - (s.savedAt||0)});
   try{
     if(s.txAssignments){ lastSavedTxIds = new Set(); await db.saveTxAssignments(s.txAssignments); }
     if(s.month && s.monthKey) await db.saveMonth(s.monthKey, s.month);
     if(s.template) await db.saveMonthTemplate(s.template);
     clearSaveStash();
+    saveLog('stash.replay.ok');
   }catch(e){
     // Kept, not dropped - the next load tries again. Logged because a stash that silently
     // fails to replay every time looks exactly like "it didn't save" from the outside.
+    saveLog('stash.replay.FAILED', {err: String(e && e.message || e)});
     console.warn('[budget] could not replay unsaved work, keeping it for next load:', e);
   }
 }
@@ -2797,8 +2837,10 @@ function flushPendingSaves(){
 // pagehide rather than beforeunload: beforeunload is unreliable on mobile Safari and blocks
 // bfcache. visibilitychange covers backgrounding the tab/app, where the page can be discarded
 // without pagehide ever running.
-window.addEventListener('pagehide', flushPendingSaves);
-document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') flushPendingSaves(); });
+window.addEventListener('pagehide', () => { saveLog('pagehide', {pendingMonthSave: !!saveTimer}); flushPendingSaves(); });
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden'){ saveLog('hidden', {pendingMonthSave: !!saveTimer}); flushPendingSaves(); }
+});
 async function saveMonthIncomeEmoji(){ if(!monthData) return; try{ await db.saveMonthIncomeEmoji(settings.currentMonth, monthData.incomeEmoji); }catch(e){} }
 async function saveTemplateIncomeEmoji(){ if(!monthTemplate) return; try{ await db.saveTemplateIncomeEmoji(monthTemplate.incomeEmoji); }catch(e){} }
 async function saveTech(){ try{ await db.saveTechItems(techItems); }catch(e){} }
@@ -5106,6 +5148,7 @@ async function switchToMonth(key){
   // A pending debounced save still belongs to the month being left. saveCurrentMonth() reads
   // settings.currentMonth, so changing it first would either write the outgoing month's data
   // under the incoming key, or lose it outright when monthData is replaced below. Flush first.
+  saveLog('month.switch', {from: settings.currentMonth, to: key, hadPendingSave: !!saveTimer});
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; await saveCurrentMonth(); }
   settings.currentMonth = key;
   saveSettings();
@@ -7649,6 +7692,11 @@ function releaseTxsForDeletedItems(pairs){
 // applyBulkAssignIfSelected below without duplicating the reverse+apply+record sequence.
 function assignTxToItem(txId, amt, desc, date, catId, itemId, itemName){
   reverseTxAssignmentIfSameMonth(txId);
+  // Drop the old entry BEFORE the new total is worked out. applyTxAmountToItem sets the item to
+  // the sum of its linked transactions plus this one, and getTxsForItem still sees the previous
+  // assignment until it's replaced - so re-picking the item a transaction was already on
+  // counted it twice and permanently inflated that item by one copy of the amount.
+  delete txAssignments[txId];
   const cat = findCatById(catId);
   const item = cat && cat.items.find(i=>i.id===itemId);
   if(!item) return false;

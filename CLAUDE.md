@@ -501,6 +501,23 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     the safety net while the month write was still pending or failed. `saveCurrentMonth()`
     clears it now, on success only.
 
+33. **Re-picking the item a transaction was already on doubled that item's amount.** Found by
+    accident while verifying the save log — a harness figure read 90 where 45 was expected.
+    `assignTxToItem` called `reverseTxAssignmentIfSameMonth` (which decrements `item.amount`)
+    and then `applyTxAmountToItem`, which *overwrites* that amount with
+    `getTxsForItem(...) + amt`. The old assignment was still in `txAssignments` at that point,
+    so the transaction was counted twice and the reverse was irrelevant. Stabilised at exactly
+    one extra copy — permanently wrong, never growing, which is why it could sit unnoticed.
+    Fixed by `delete txAssignments[txId]` after the reverse and before the recompute.
+    Moving a transaction to a *different* item was always fine; only re-picking the same one
+    was affected.
+34. **Save diagnostics.** `startSaveDebug()` / `dumpSaveLog()` / `stopSaveDebug()` in the
+    console. Off unless `localStorage.debugSaves === '1'`. Writes each step (tx.save.start/ok/
+    FAILED, month.save.*, pagehide, stash.written, stash.replay.*, tx.load, month.switch) into
+    `localStorage.saveLog` **rather than the console, deliberately** — the moment worth seeing
+    is the one that tears the page down and takes the console with it. Keep this: two of the
+    three save bugs above were only pinnable with a record that survived the refresh.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
