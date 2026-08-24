@@ -381,6 +381,23 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     months, so the rule is still valid there; `findCatItemByName` returning null keeps it from
     resolving in the month where it was deleted.
 
+27. **Pay-cycle dividers in the Up transaction list.** In paycycle mode (and only with an
+    income source linked), the list marks where each cycle starts and ends. Boundaries come
+    from `payCycleStarts()` → `getIncomeSourceOccurrences()`, i.e. from ALL of
+    `upTransactions`, never from the filtered list — searching "coles" hides every pay
+    transaction and the cycle each remaining result belongs to still has to be right.
+    `payCycleForTime()` maps a timestamp to its cycle; a cycle is named for the budget month
+    it funds (`addMonths(start, 1)`, same rule as `recomputeEffectivePeriod`), so "28 Jul –
+    27 Aug" reads as "August 2026 pay cycle". Desktop was a flat list with no headers at all,
+    so `renderUpTxFlat()` adds cycle dividers as its only grouping. Mobile already grouped by
+    calendar month over date; in paycycle mode the top level becomes the cycle instead —
+    nesting was not an option, a cycle straddles two calendar months and the two headers would
+    have cut each other in half. Group totals count only what's currently visible, so they
+    agree with an active search rather than contradicting it. Transactions older than the
+    earliest pay loaded get an honest "Before your earliest loaded pay" header rather than a
+    guessed cycle. The accent rule along a header's top edge IS the boundary marker, hence
+    `:first-child` deliberately has none — there's no boundary above the top of the list.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
