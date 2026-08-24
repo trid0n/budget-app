@@ -3502,19 +3502,21 @@ function noteOverflowed(fromFound, txId){
 function spentOnItem(catId, itemId){
   return Math.round(getTxsForItem(catId, itemId).reduce((s,t)=>s+(Number(t.amt)||0), 0) * 100) / 100;
 }
-// Once a period has closed there are no remaining days left to apportion over, so the goal
-// stops describing anything - daysRemainingInMonth returns 0 for a past month, and the stored
-// amount just stays frozen at whatever slice of the month was still ahead the last time the
-// app had it open (open it on the 28th and Groceries is stuck at three days' worth). What the
-// period actually cost is the honest number from then on, so its apportioned items settle to
-// their transactions' total. Only ever for an item that HAS transactions - one that never had
-// any is left alone rather than being zeroed on no evidence. isCurrentPeriod covers pay-cycle
-// rollover as well as calendar month end, which is the same event as far as this is concerned.
-function settleApportionedItemsIfPeriodClosed(){
-  if(!monthData || isCurrentPeriod(settings.currentMonth)) return false;
+// One rule for every source-synced item: while a period is open its amount is the GOAL its
+// source table says it should be (apportioned over the days left, for Groceries and Monthly
+// Costs; a flat monthly figure for Tech and Recurring), with what's actually been spent shown
+// beneath it. Once the period has closed, the goal stops describing anything and the amount
+// becomes what the period actually cost.
+// Closed means closed for the PERIOD the app is set to, not the calendar month - the same test
+// syncAmountEverywhere uses, so the two can't take turns overwriting each other, which they did
+// for the few days between payday and month end in paycycle mode.
+// Only ever for an item that HAS transactions: one that never had any is left alone rather than
+// zeroed on no evidence.
+function settleSourceItemsIfPeriodClosed(){
+  if(!monthData || !isClosedPeriod(settings.currentMonth)) return false;
   let changed = false;
   monthData.categories.forEach(c => c.items.forEach(i => {
-    if(!isApportionedItem(i.name)) return;
+    if(!isSourceSyncedItem(i.name)) return;
     const txs = getTxsForItem(c.id, i.id);
     if(!txs.length) return;
     const total = Math.round(txs.reduce((s,t)=>s+(Number(t.amt)||0), 0) * 100) / 100;
@@ -5215,7 +5217,7 @@ async function switchToMonth(key){
   const data = byKey[key];
   prevMonthCompareData = byKey[prevKey] || null;
   rollingAvgLookup = computeRollingAverageFromMonths(avgKeys.map(k => byKey[k]));
-  if(data){ monthData = data; settleApportionedItemsIfPeriodClosed(); await finishLoadMonth(); }
+  if(data){ monthData = data; settleSourceItemsIfPeriodClosed(); await finishLoadMonth(); }
   else { monthData = null; showEmptyState(); refreshInsertDropdowns(); }
   updateGroceryTotal();
   updateTechTotal();
@@ -6994,6 +6996,10 @@ function recomputeEffectivePeriod(){
   todaysEffectiveMonthKey = addMonths(dateToKey(new Date(occurrences[0])), 1);
 }
 function isCurrentPeriod(monthKey){ return monthKey === todaysEffectiveMonthKey; }
+// Closed = strictly before the period we're in now. Deliberately not `!isCurrentPeriod`: a
+// FUTURE period isn't closed, it just hasn't started, and it should still take its goal from
+// the source tables. Month keys are YYYY-MM so a string compare is a date compare.
+function isClosedPeriod(monthKey){ return !!monthKey && !!todaysEffectiveMonthKey && monthKey < todaysEffectiveMonthKey; }
 // Pay-cycle boundaries for the Up tab's transaction list, newest first. Deliberately derived
 // from ALL of upTransactions (via getIncomeSourceOccurrences) rather than from whatever the
 // list is currently showing: searching for "coles" filters every pay transaction out of view,
@@ -7305,7 +7311,7 @@ function renderUpTxList(){
   if(todaysEffectiveMonthKey !== prevEffectiveMonthKey && monthData){
     // The period just rolled over underneath an open page - the month on screen is now a
     // closed one, so its apportioned items settle here rather than waiting for a reload.
-    if(settleApportionedItemsIfPeriodClosed()){ scheduleSave(); renderGroups(); }
+    if(settleSourceItemsIfPeriodClosed()){ scheduleSave(); renderGroups(); }
     updateSummary();
   }
   const term = upTxSearchTerm.trim().toLowerCase();
@@ -9491,7 +9497,11 @@ function syncAmountEverywhere(matchFn, amount, apportion=true){
     if(document.getElementById('templateCard').closest('.view').classList.contains('active')) renderTemplateEditor();
   }
   let touchedMonth = false;
-  if(monthData && !isPastMonth(settings.currentMonth)){
+  // Closed by PERIOD, not by calendar month. Using the calendar here while
+  // settleSourceItemsIfPeriodClosed used the period meant that, for the days between payday and
+  // month end in paycycle mode, the settle wrote actuals and this wrote the goal straight back
+  // over them. One test, so a closed period keeps what it actually cost.
+  if(monthData && !isClosedPeriod(settings.currentMonth)){
     let monthAmount = amount;
     if(apportion){
       const totalDays = daysInMonth(settings.currentMonth);

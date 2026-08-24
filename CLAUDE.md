@@ -390,6 +390,22 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     still follows its transactions, still floors on focusout and still offers the button.
     **Generalise**: an action the app will silently undo on the next load is worse than no
     action — don't offer it.
+39. **One settle rule for every source-synced item, keyed on the PERIOD.** Asked for explicitly:
+    while a period is open, a source-synced item's amount is the GOAL its table says (day-
+    apportioned for Groceries/Monthly Costs, flat for Tech/Recurring) with spend shown beneath;
+    once the period closes the amount becomes what the period actually cost.
+    `settleApportionedItemsIfPeriodClosed` → `settleSourceItemsIfPeriodClosed`, now gated on
+    `isSourceSyncedItem` rather than `isApportionedItem`, so Tech and Recurring settle too.
+    The important half is `isClosedPeriod()`, used by BOTH the settle and
+    `syncAmountEverywhere`. They previously disagreed — settle asked "is this the current
+    period", the sync asked "is this a past calendar month" — so for the days between payday and
+    month end in paycycle mode the settle wrote actuals and the sync wrote the goal straight back
+    over them. One test now, so a closed period keeps what it cost.
+    `isClosedPeriod` is deliberately `key < todaysEffectiveMonthKey`, NOT `!isCurrentPeriod`: a
+    FUTURE period isn't closed, it just hasn't started, and must still take its goal from the
+    source tables. Verified — July (closed) settled to actuals including Ballet at its real $120
+    and survived a re-open without the sync clobbering it; August (open) showed goals with spend
+    beneath; September (future) took full goals rather than settling to zero.
 
 26. **Closed periods settle to actuals; deleted items release their transactions.** Two
     follow-ons to 25. `settleApportionedItemsIfPeriodClosed()` runs from `switchToMonth` and
