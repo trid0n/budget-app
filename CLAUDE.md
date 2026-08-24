@@ -650,9 +650,22 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     What genuinely still needs the Up tab is the pay dates themselves: in paycycle mode a
     transaction older than the earliest loaded pay can't be placed in a cycle. `strict` makes
     that return null instead of silently falling back to its calendar month, and those are
-    reported in the confirm dialog ("N older ones are from before your earliest loaded pay…")
-    rather than moved somewhere plausible. Assignments with no stored date at all get the same
-    treatment. Calendar mode always has an answer, so strict never bites there.
+    reported in the confirm dialog rather than moved somewhere plausible. Assignments with no
+    stored date at all get the same treatment. Calendar mode always has an answer, so strict
+    never bites there.
+    **And that dependency is now handled too (2026-08-24).** Reported as "it changed only the
+    transactions loaded into the Up tab". Measured on real data: `pay dates known: ['2026-07-31']`
+    — ONE payslip — so `would move: 0, cannot place: 243`. Cycle boundaries ARE pay transactions,
+    so a period is unplaceable unless the pay that started it is loaded. `ensurePayDatesBackTo()`
+    now fetches the missing ones before the moves are worked out, triggered off the oldest
+    assignment date, and caches the result in `localStorage` (`payDates`, keyed on userId AND
+    income source, so re-pointing the source invalidates it). `payCycleStarts()` merges the cache
+    with whatever `upTransactions` holds. `loadTransactionsForRange` gained optional
+    `pageSize`/`maxPages` — its fixed 20×50 stops at 1000 transactions, well short of a year for
+    a daily card user — defaults unchanged so existing callers are untouched.
+    Verified with a mock Up API holding six months of payslips while the tab held only the
+    latest: before, 1 move and 4 unplaceable; after one fetch, five pay dates recovered, all 5
+    transactions moved, and a second toggle re-filed from cache with **zero** further fetches.
     **Follow-up, reported as "it warns me but changes nothing":** the first version skipped any
     transaction whose item didn't already exist in the destination month, which is the common
     case — a line that only ever existed in one month has no counterpart in the other. Measured

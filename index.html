@@ -6867,6 +6867,22 @@ document.getElementById('periodModeGroup').addEventListener('click', async (e) =
   // already filed are re-filed to match. Confirmed rather than silent: it rewrites stored
   // amounts across several months at once, and doing that without asking is how a bad rule
   // once buried a year of transactions in the wrong month.
+  // Fetch whatever paydays are missing before working out what moves, otherwise everything
+  // older than the one payslip the Up tab happens to hold is unplaceable and silently skipped.
+  if(mode === 'paycycle' && upIncomeSourceKey){
+    let oldest = Infinity;
+    for(const id in txAssignments){
+      const a = txAssignments[id];
+      if(a.excluded || !a.catId || !a.date) continue;
+      const t = new Date(a.date).getTime();
+      if(!isNaN(t) && t < oldest) oldest = t;
+    }
+    const known = payCycleStarts();
+    if(oldest !== Infinity && (!known.length || oldest < known[known.length - 1])){
+      toast('Looking up your earlier paydays…');
+      await ensurePayDatesBackTo(oldest);
+    }
+  }
   const moves = findMisfiledAssignments();
   const undatable = moves.undatable ? moves.undatable.length : 0;
   if(moves.length){
@@ -7087,9 +7103,51 @@ function isClosedPeriod(monthKey){ return !!monthKey && !!todaysEffectiveMonthKe
 // from ALL of upTransactions (via getIncomeSourceOccurrences) rather than from whatever the
 // list is currently showing: searching for "coles" filters every pay transaction out of view,
 // and the cycle each remaining result sits in still has to come out right.
+// Pay dates found by scanning further back than the Up tab happens to be showing. Cached because
+// they're settled history and the scan is expensive - toggling shouldn't re-read a year of
+// transactions each time. Purely derived, so localStorage is enough; losing it costs one rescan.
+// Keyed on the income source too, so pointing it at a different transaction invalidates the lot
+// rather than mixing two people's paydays together.
+const PAY_DATES_CACHE_KEY = 'payDates';
+function cachedPayDates(){
+  try{
+    const c = JSON.parse(localStorage.getItem(PAY_DATES_CACHE_KEY) || 'null');
+    if(!c || c.userId !== authUserId || c.key !== upIncomeSourceKey) return [];
+    return Array.isArray(c.times) ? c.times : [];
+  }catch(e){ return []; }
+}
+function cachePayDates(times){
+  try{ localStorage.setItem(PAY_DATES_CACHE_KEY, JSON.stringify({userId: authUserId, key: upIncomeSourceKey, times})); }catch(e){}
+}
 function payCycleStarts(){
   if(settings.periodMode !== 'paycycle' || !upIncomeSourceKey) return [];
-  return getIncomeSourceOccurrences();
+  const seen = new Set();
+  return [...getIncomeSourceOccurrences(), ...cachedPayDates()]
+    .filter(t => seen.has(t) ? false : (seen.add(t), true))
+    .sort((a, b) => b - a);
+}
+// Cycle boundaries are pay transactions, so a period can only be worked out if the pay that
+// started it is known. The Up tab holds whatever timeframe was last fetched - often one payslip -
+// which left everything older unplaceable. This goes and finds them, once, and caches the result.
+async function ensurePayDatesBackTo(oldestMs){
+  if(!upToken || !upIncomeSourceKey) return payCycleStarts();
+  const known = payCycleStarts();
+  const earliest = known.length ? known[known.length - 1] : Infinity;
+  if(oldestMs >= earliest) return known;
+  // A month either side of the target, so the pay that STARTED the oldest period is included.
+  const since = new Date(oldestMs); since.setMonth(since.getMonth() - 1);
+  const found = new Set(cachedPayDates());
+  try{
+    const txs = await loadTransactionsForRange(since.toISOString(), null, {pageSize: 100, maxPages: 150});
+    txs.forEach(t => {
+      const amt = parseFloat(t.attributes.amount.value);
+      if(extractMerchantKey(t.attributes.description, amt) === upIncomeSourceKey){
+        found.add(new Date(t.attributes.createdAt).getTime());
+      }
+    });
+    cachePayDates([...found].sort((a, b) => b - a));
+  }catch(e){ saveLog('paydates.scan.FAILED', {err: String(e && e.message || e)}); }
+  return payCycleStarts();
 }
 // The cycle a moment falls in: the most recent pay landing at or before it. starts is newest
 // first, so the entry before the match is the pay that ends this cycle (null for the newest,
@@ -7694,13 +7752,18 @@ document.getElementById('upIncomeOnlyToggle').addEventListener('click', () => {
   document.getElementById('upTxMorePanel').classList.remove('open');
   document.getElementById('upTxMoreToggle').classList.remove('open');
 });
-async function loadTransactionsForRange(sinceIso, untilIso){
-  let url = `${upSpendingAccountId ? `/accounts/${upSpendingAccountId}/transactions` : '/transactions'}?page[size]=50&filter[since]=${encodeURIComponent(sinceIso)}`;
+// pageSize/maxPages default to the old fixed values, so existing callers are unchanged. The
+// pay-date scan below raises both: 20 pages of 50 stops at 1000 transactions, which is well
+// short of a year of history for anyone who uses their card daily.
+async function loadTransactionsForRange(sinceIso, untilIso, opts){
+  const pageSize = (opts && opts.pageSize) || 50;
+  const maxPages = (opts && opts.maxPages) || 20;
+  let url = `${upSpendingAccountId ? `/accounts/${upSpendingAccountId}/transactions` : '/transactions'}?page[size]=${pageSize}&filter[since]=${encodeURIComponent(sinceIso)}`;
   if(untilIso) url += `&filter[until]=${encodeURIComponent(untilIso)}`;
   let all = [];
   let nextUrl = url;
   let pages = 0;
-  while(nextUrl && pages < 20){
+  while(nextUrl && pages < maxPages){
     const res = await upFetch(nextUrl);
     all = all.concat((res.data||[]).filter(isValidUpTx));
     nextUrl = (res.links && res.links.next) || null;
