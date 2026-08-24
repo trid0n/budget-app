@@ -5993,7 +5993,13 @@ document.addEventListener('click', (e) => {
 // to avoid; closing it on scroll just made it vanish the moment anything moved. With
 // capture:true that included scrolls INSIDE the settings modal, so expanding Manage users
 // (whose open animation scrolls the modal) tore the search box shut right after it opened.
-function closeFixedFloatingPanelsOnScroll(){
+function closeFixedFloatingPanelsOnScroll(e){
+  // A scroll INSIDE one of these panels is not the page moving under it - the panel hasn't
+  // drifted from its anchor at all, so there's nothing to avoid, and closing on it makes a
+  // panel with its own scrollable list (the overflow target picker) impossible to scroll:
+  // the wheel or the scrollbar tears it shut on the first notch. Only scrolls elsewhere
+  // count. e.target is the document itself for a page scroll, which has no closest().
+  if(e && e.target && e.target.closest && e.target.closest('.month-actions-panel')) return;
   document.querySelectorAll('.month-actions-panel.open').forEach(p => p.classList.remove('open'));
   // #adminSearchToggle's own .open has to survive too, or it would fall out of step with
   // the inline box it controls and the next click would read as "close" on something
