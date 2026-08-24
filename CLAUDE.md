@@ -708,6 +708,28 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     toggle, hover and timeout in ONE call. (Same class of gotcha as the remember-popup, already
     noted above.)
 
+42. **Toast redesign + a loading state, and rows slide when they re-order.**
+    `toast(msg, {loading:true})` keeps the toast up with an indeterminate bar until something
+    replaces or dismisses it — no timeout in that case, since auto-hiding partway through would
+    claim the work had finished. `dismissToast()` for the declined path. Used around both halves
+    of a mode toggle: the payday lookup and the re-file itself. The bar is indeterminate on
+    purpose — the cost is a network round trip of unknown length, so a percentage would be
+    invented. Visually it went from a flat square full-bleed bar (which read as browser chrome)
+    to a rounded, shadowed, width-capped card; `--ink`/`--paper` already invert with the theme.
+    `captureRowTops`/`playRowMoves` FLIP the rows when a crossed-off item changes position.
+    **Keyed by item id, not by element** — the existing `flipCaptureGroups` keys on nodes, which
+    is fine for categories that survive a render but useless here, where `innerHTML` is replaced
+    and every row is a new node.
+    **It deliberately does NOT use `requestAnimationFrame`** (unlike `flipPlayGroups`): rAF
+    doesn't run in a backgrounded or non-compositing tab, which would leave every moved row
+    frozen at its OLD position with an inline transform until the tab came back. A forced
+    reflow (`void el.offsetWidth`) between the start and end states sets the final state
+    synchronously, so the worst case is the travel not being seen rather than the list being
+    left visibly wrong. Inline styles are cleared on a timer, not `transitionend`, which never
+    fires when the transition didn't run.
+    Verified with `getAnimations()`: real `transform` transitions running from each row's old
+    offset, all settled to `none` afterwards.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as

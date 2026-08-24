@@ -1050,7 +1050,16 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
 .sync-status .dot{width:6px; height:6px; border-radius:50%; background:var(--credit); flex-shrink:0;}
 .sync-status.err .dot{background:var(--debit);}
 
-.toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--paper); padding:10px 18px; font-size:.8rem; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:100;}
+/* Rounded, shadowed and width-capped rather than the flat full-bleed rectangle this was - it
+   read as a browser chrome element rather than part of the app. --ink/--paper invert with the
+   theme, so it stays the opposite of the page in both. */
+.toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(14px); min-width:180px; max-width:min(420px, calc(100vw - 32px)); background:var(--ink); color:var(--paper); padding:12px 18px; border-radius:13px; font-size:.82rem; font-weight:600; line-height:1.35; opacity:0; pointer-events:none; transition:opacity .22s cubic-bezier(.4,0,.2,1), transform .22s cubic-bezier(.4,0,.2,1); z-index:100; box-shadow:0 12px 32px rgba(0,0,0,.3), 0 2px 6px rgba(0,0,0,.18);}
+/* Indeterminate, because a re-file's cost is a network round trip of unknown length - a
+   percentage bar would have to invent its own progress. Shown only while work is in flight. */
+.toast-bar{display:none; height:3px; margin-top:10px; border-radius:999px; background:rgba(128,128,128,.28); overflow:hidden;}
+.toast.loading .toast-bar{display:block;}
+.toast-bar i{display:block; height:100%; width:38%; border-radius:999px; background:var(--gold); animation:toastBarSlide 1.15s cubic-bezier(.5,0,.5,1) infinite;}
+@keyframes toastBarSlide{0%{transform:translateX(-110%)} 100%{transform:translateX(300%)}}
 /* white-space:normal + max-width, not the nowrap/unconstrained box this started as - short
    tooltips (a full item name, a donut slice's value) never wrapped anyway, so this is a
    no-op for them, but a long one (the template info explanation) used to render as one
@@ -1908,7 +1917,7 @@ try{
 
   </div>
 </div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast"><span id="toastMsg"></span><div class="toast-bar"><i></i></div></div>
 <div class="float-tip" id="floatTip"></div>
 <div id="inlinePanelHost"></div>
 <!-- Single shared instance, repositioned/retargeted on demand (see itemRowMenuTarget) -
@@ -2398,11 +2407,23 @@ function focusLastInput(containerId){
 }
 
 let toastTimer=null;
-function toast(msg){
+// {loading:true} keeps it on screen with a progress bar until something replaces or dismisses
+// it. Deliberately no timeout in that case: auto-hiding partway through would say the work had
+// finished when it hadn't, which is worse than no feedback at all.
+function toast(msg, opts){
   const el = document.getElementById('toast');
-  el.textContent = msg; el.classList.add('show');
+  document.getElementById('toastMsg').textContent = msg;
+  const loading = !!(opts && opts.loading);
+  el.classList.toggle('loading', loading);
+  el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>el.classList.remove('show'), 2400);
+  if(!loading) toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+function dismissToast(){
+  clearTimeout(toastTimer);
+  const el = document.getElementById('toast');
+  el.classList.remove('loading');
+  el.classList.remove('show');
 }
 
 /* ===================== state ===================== */
@@ -3103,15 +3124,53 @@ function scheduleChargedResort(catId){
     rerenderCategoryRows(catId);
   }, 420);
 }
+// FLIP, keyed by item id rather than by element: the rows are replaced wholesale by the
+// re-render below, so a map keyed on the old nodes would match nothing afterwards. Captures
+// each row's y, re-renders, then starts every moved row from where it used to be and lets it
+// travel to its new place - so crossing something off reads as the row sliding down rather
+// than the list silently rearranging itself.
+function captureRowTops(container){
+  const tops = new Map();
+  if(container) container.querySelectorAll('[data-item]').forEach(el => tops.set(el.dataset.item, el.getBoundingClientRect().top));
+  return tops;
+}
+function playRowMoves(container, oldTops){
+  if(!container || !oldTops.size) return;
+  container.querySelectorAll('[data-item]').forEach(el => {
+    const was = oldTops.get(el.dataset.item);
+    if(was == null) return;
+    const dy = was - el.getBoundingClientRect().top;
+    if(Math.abs(dy) < 0.5) return;
+    el.style.transition = 'none';
+    el.style.transform = `translateY(${dy}px)`;
+    void el.offsetWidth;   // flush the start position so the change below actually transitions
+    el.style.transition = 'transform .34s cubic-bezier(.34,1.02,.64,1)';
+    el.style.transform = '';
+    // A forced reflow rather than requestAnimationFrame: rAF doesn't run in a backgrounded or
+    // non-compositing tab, which would leave every moved row frozen at its OLD position with an
+    // inline transform until the tab came back. This way the final state is set synchronously -
+    // worst case the travel isn't seen, rather than the list being left visibly wrong.
+    // The inline transition is cleared on a timer (not transitionend, which never fires if the
+    // transition didn't run) so it can't interfere with a later drag, which drives transform too.
+    setTimeout(() => { el.style.transition = ''; el.style.transform = ''; }, 420);
+  });
+}
 function rerenderCategoryRows(catId){
   if(!monthData) return;
-  if(catId === 'income'){ renderIncome(); return; }
-  const cat = monthData.categories.find(c => c.id === catId);
-  const container = document.querySelector(`[data-cat-rows="${catId}"]`);
-  if(!cat || !container) return;
-  container.innerHTML = itemsForDisplay(cat.items).map(i => leafRowHtml(catId, i)).join('');
+  const container = catId === 'income'
+    ? document.getElementById('incomeRows')
+    : document.querySelector(`[data-cat-rows="${catId}"]`);
+  if(!container) return;
+  const before = captureRowTops(container);
+  if(catId === 'income') renderIncome();
+  else {
+    const cat = monthData.categories.find(c => c.id === catId);
+    if(!cat) return;
+    container.innerHTML = itemsForDisplay(cat.items).map(i => leafRowHtml(catId, i)).join('');
+  }
   updateAllItemNameWidths();
   updateAllStrikeWidths();
+  playRowMoves(container, before);
 }
 function renderIncome(){
   updateIncomeEmojiSpan(document.getElementById('incomeHdrEmoji'), monthData);
@@ -6879,8 +6938,9 @@ document.getElementById('periodModeGroup').addEventListener('click', async (e) =
     }
     const known = payCycleStarts();
     if(oldest !== Infinity && (!known.length || oldest < known[known.length - 1])){
-      toast('Looking up your earlier paydays…');
+      toast('Looking up your earlier paydays…', {loading: true});
       await ensurePayDatesBackTo(oldest);
+      dismissToast();
     }
   }
   const moves = findMisfiledAssignments();
@@ -6891,12 +6951,16 @@ document.getElementById('periodModeGroup').addEventListener('click', async (e) =
       + `Move ${moves.length>1?'them':'it'} and update both periods' totals?`
       + (undatable ? `\n\n${undatable} older one${undatable>1?'s are':' is'} from before your earliest loaded pay, so ${undatable>1?'they':'it'} can’t be placed in a cycle — ${undatable>1?'they’ll':'it’ll'} be left alone. Load a wider timeframe on the Up tab first if you want ${undatable>1?'them':'it'} included.` : ''));
     if(ok){
+      // Stays up with its bar running until the writes land - a re-file touches several months
+      // and saves each, so there's a real wait to account for.
+      toast(`Re-filing ${moves.length} transaction${moves.length!==1?'s':''}…`, {loading: true});
       const {moved, skipped, created} = await refileAssignmentsToCurrentMode(moves);
       toast(`Re-filed ${moved} transaction${moved!==1?'s':''}.`
         + (created ? ` Added ${created} missing line${created!==1?'s':''}.` : '')
         + (skipped ? ` ${skipped} couldn’t be placed.` : ''));
       return;
     }
+    dismissToast();
   }
   if(mode === 'paycycle' && !upIncomeSourceKey){
     toast('Pay cycle is on, but nothing will change until you choose an income source — do that on the Up tab');
