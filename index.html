@@ -843,6 +843,7 @@ body.saver-dragging-active{user-select:none; -webkit-user-select:none;}
 .up-tx-cycle-hdr:first-child{border-top:none;}
 .up-tx-month-hdr.cycle{border-top:2px solid var(--gold);}
 .up-tx-month-hdr.cycle:first-child{border-top:none;}
+.up-tx-assign-btn.guess.overflowed{border-style:dashed;}
 .tpl-overflow-btn{font-size:.9rem; line-height:1;}
 .tpl-overflow-btn.set{color:var(--gold);}
 .overflow-panel{max-height:320px; overflow-y:auto; min-width:210px;}
@@ -2540,7 +2541,28 @@ function findTransferGuess(transferAccountId){
   });
   return best ? {...best, reason: 'saver_name'} : null;
 }
+// Guesses go through the same cap as the auto-rule path: a guess pointing at an item that's
+// already spent its template amount for the period suggests that item's overflow target
+// instead, so the chip proposes where the money would actually end up rather than somewhere
+// it would immediately be moved out of. Wrapping the whole guesser rather than editing each
+// strategy's return means merchant, amount-match, past-assignment and saver-name guesses all
+// inherit it. overflowFrom rides along so confirming can record the diversion against the cap.
 function findGuessForTx(desc, amt, tx){
+  const guess = findRawGuessForTx(desc, amt, tx);
+  if(!guess || !monthData) return guess;
+  const found = findCatItemByName(guess.categoryName, guess.itemName);
+  if(!found) return guess;
+  const dest = routeThroughOverflow(found, amt);
+  if(!dest.overflowFrom) return guess;
+  return { categoryName: dest.cat.name, itemName: dest.item.name, reason: guess.reason,
+           overflowFrom: { categoryName: dest.overflowFrom.cat.name, itemName: dest.overflowFrom.item.name } };
+}
+function guessOverflowAttrs(guess){
+  return guess.overflowFrom
+    ? ` data-guess-overflow-cat="${escapeAttr(guess.overflowFrom.categoryName)}" data-guess-overflow-item="${escapeAttr(guess.overflowFrom.itemName)}"`
+    : '';
+}
+function findRawGuessForTx(desc, amt, tx){
   if(isInternalTransfer(tx)){
     // Only an outgoing transfer (money leaving spending, e.g. to a saver) can be
     // guessed this way - an incoming "Cover from X" side of a transfer pair isn't a
@@ -7021,7 +7043,7 @@ function buildUpTxStatusHtml(t, amt, transferAttr){
   }
   const guess = findGuessForTx(t.attributes.description, amt, t);
   if(guess){
-    return `<button class="up-tx-status guess" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}"${transferAttr} data-tip="Guessing \u201c${escapeAttr(guess.itemName)}\u201d \u2014 tap to confirm">?</button><button class="up-tx-exclude-btn" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Wrong guess \u2014 search for the right one">\u00d7</button><button class="up-tx-exclude-btn" data-tx-exclude="${t.id}" data-tip="Exclude this transaction from the budget">\u2013</button>`;
+    return `<button class="up-tx-status guess" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}"${guessOverflowAttrs(guess)}${transferAttr} data-tip="${guess.overflowFrom?`\u201c${escapeAttr(guess.overflowFrom.itemName)}\u201d is at its template amount \u2014 guessing \u201c${escapeAttr(guess.itemName)}\u201d instead. Tap to confirm`:`Guessing \u201c${escapeAttr(guess.itemName)}\u201d \u2014 tap to confirm`}">?</button><button class="up-tx-exclude-btn" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Wrong guess \u2014 search for the right one">\u00d7</button><button class="up-tx-exclude-btn" data-tx-exclude="${t.id}" data-tip="Exclude this transaction from the budget">\u2013</button>`;
   }
   return `<button class="up-tx-status unassigned" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Not categorised \u2014 tap to assign">+</button>`;
 }
@@ -7075,7 +7097,7 @@ function buildUpTxRowHtmlDesktop(t){
   } else {
     const guess = findGuessForTx(t.attributes.description, amt, t);
     if(guess){
-      assignBtn = `<button class="up-tx-assign-btn guess ${guess.reason==='amount_rough'?'rough':''}" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}"${transferAttr} data-tip="${escapeAttr(guess.itemName)}"><span class="up-tx-assign-btn-text">${escapeAttr(guess.itemName)}</span> ?</button>`;
+      assignBtn = `<button class="up-tx-assign-btn guess ${guess.reason==='amount_rough'?'rough':''}${guess.overflowFrom?' overflowed':''}" data-tx-guess="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}" data-guess-cat="${escapeAttr(guess.categoryName)}" data-guess-item="${escapeAttr(guess.itemName)}" data-guess-reason="${guess.reason}"${guessOverflowAttrs(guess)}${transferAttr} data-tip="${guess.overflowFrom?`“${escapeAttr(guess.overflowFrom.itemName)}” is at its template amount for this period — overflowing to “${escapeAttr(guess.itemName)}”`:escapeAttr(guess.itemName)}">${guess.overflowFrom?'⤵ ':''}<span class="up-tx-assign-btn-text">${escapeAttr(guess.itemName)}</span> ?</button>`;
       showWrongGuessBtn = true;
     } else {
       assignBtn = `<button class="up-tx-assign-btn" data-tx-assign="${t.id}" data-tx-amt="${amt}" data-tx-desc="${escapeAttr(t.attributes.description)}" data-tx-date="${escapeAttr(t.attributes.createdAt)}"${transferAttr} data-tip="Assign to a budget line item">Assign</button>`;
@@ -7847,12 +7869,19 @@ document.getElementById('txAssignExcludeBtn').addEventListener('click', () => {
   closeTxAssignModal();
 });
 document.getElementById('txAssignOverlay').addEventListener('click', (e) => { if(e.target.id === 'txAssignOverlay') closeTxAssignModal(); });
-function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date, transferAccountId){
+function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date, transferAccountId, overflowFromCat, overflowFromItem){
   if(!monthData) return;
   const found = findCatItemByName(categoryName, itemName);
   if(!found){ toast(`Couldn\u2019t find "${itemName}" in this month \u2014 assign manually instead`); openTxAssignModal(txId, amt, desc, date, transferAccountId); return; }
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
   if(!assignTxToItem(txId, amt, desc, date, found.cat.id, found.item.id, found.item.name)) return;
+  // The guess was already redirected past a full item (see findGuessForTx), so the diversion
+  // has to be recorded against THAT item - otherwise its own spend stays under the cap and the
+  // next transaction gets guessed straight back onto it.
+  if(overflowFromItem){
+    const src = findCatItemByName(overflowFromCat, overflowFromItem);
+    if(src) noteOverflowed(src, txId);
+  }
   const bulkCount = applyBulkAssignIfSelected(txId, found.cat.id, found.item.id, found.item.name);
   const merchantKey = extractMerchantKey(desc, amt);
   saveTxAssignments();
@@ -8456,7 +8485,7 @@ document.getElementById('upTxList').addEventListener('click', (e) => {
   }
   const guessBtn = e.target.closest('[data-tx-guess]');
   if(guessBtn){
-    confirmTxGuess(guessBtn.dataset.txGuess, guessBtn.dataset.txAmt, guessBtn.dataset.txDesc, guessBtn.dataset.guessCat, guessBtn.dataset.guessItem, guessBtn.dataset.guessReason, guessBtn.dataset.txDate, guessBtn.dataset.txTransferAccount);
+    confirmTxGuess(guessBtn.dataset.txGuess, guessBtn.dataset.txAmt, guessBtn.dataset.txDesc, guessBtn.dataset.guessCat, guessBtn.dataset.guessItem, guessBtn.dataset.guessReason, guessBtn.dataset.txDate, guessBtn.dataset.txTransferAccount, guessBtn.dataset.guessOverflowCat, guessBtn.dataset.guessOverflowItem);
     return;
   }
   const btn = e.target.closest('[data-tx-assign]');

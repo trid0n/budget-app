@@ -418,6 +418,14 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     overflows. Single hop by design; chaining would need one transaction attributed to several
     caps at once and nothing asked for it. The period is whichever mode is selected, free —
     assignments are stamped with the effective month key, so paycycle mode caps per cycle.
+    The **guesser** honours the cap too: `findGuessForTx()` is now a thin wrapper that runs
+    `findRawGuessForTx()`'s answer through `routeThroughOverflow()`, so merchant, amount-match,
+    past-assignment and saver-name guesses all inherit it without editing each strategy's
+    return. The chip shows the overflow target (`⤵`, dashed border) and explains itself in its
+    tooltip. `overflowFrom` rides on the guess into `data-guess-overflow-cat/-item` so
+    `confirmTxGuess()` can call `noteOverflowed()` against the item it was diverted FROM —
+    without that the capped item's own spend stays under the cap and the next transaction gets
+    guessed straight back onto it.
 
 ## Data repairs (a fix to the code is not a fix to the data)
 
