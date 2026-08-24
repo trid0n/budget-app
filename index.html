@@ -3001,7 +3001,12 @@ function updateSummary(){
   const balSubEl = document.getElementById('balanceBarSub');
   if(effectiveBalance != null){
     balAmtEl.textContent = money(effectiveBalance);
-    balSubEl.textContent = usingManual ? 'Entered manually' : (usingRememberedUp ? 'Last known balance — reconnecting…' : (!isCurrentPeriod(settings.currentMonth) ? 'Not counted — viewing a different month' : ''));
+    // "Not counted" comes first deliberately: it changes how the number above should be read,
+    // which matters more than where the balance came from. Previously it was the last branch,
+    // so it only ever appeared for a live Up balance - with a manual or a remembered one the
+    // bar showed a balance on a closed period with nothing saying it wasn't in the total.
+    balSubEl.textContent = !isCurrentPeriod(settings.currentMonth) ? 'Not counted — viewing a different period'
+      : (usingManual ? 'Entered manually' : (usingRememberedUp ? 'Last known balance — reconnecting…' : ''));
   } else {
     balAmtEl.textContent = '—';
     balSubEl.textContent = upToken ? 'Fetching…' : 'Connect Up Bank on the Up tab, or switch to Manual';
@@ -6875,6 +6880,20 @@ function payCycleForTime(ts, starts){
   }
   return null;
 }
+// Which budget period a transaction belongs to. In calendar mode that is simply its own
+// calendar month. In paycycle mode it is the cycle it falls inside, named for the month that
+// cycle funds - the same addMonths(start, 1) rule recomputeEffectivePeriod uses to decide which
+// period "today" is in, so the two can never disagree. payCycleStarts() returns [] unless
+// paycycle mode AND an income source are both set, so calendar mode keeps its old behaviour
+// exactly. A transaction older than the earliest pay loaded falls back to its calendar month
+// rather than being guessed into a cycle we have no evidence for.
+function periodKeyForTx(t){
+  const d = new Date(t.attributes.createdAt);
+  const starts = payCycleStarts();
+  if(!starts.length) return dateToKey(d);
+  const cycle = payCycleForTime(d.getTime(), starts);
+  return cycle ? addMonths(dateToKey(new Date(cycle.startTs)), 1) : dateToKey(d);
+}
 function payCycleLabel(cycle){
   if(!cycle) return { name: 'Before your earliest loaded pay', range: '' };
   const start = new Date(cycle.startTs);
@@ -6973,11 +6992,12 @@ function autoApplyTxRules(){
     // merchant/saver rule got attributed to whichever month happened to be OPEN and had
     // its amount added there - a monthly $30 saver transfer going back a year silently
     // piled ~$1.8k onto this month's item, from transactions the visible list wasn't even
-    // showing. Same calendar-month test the transfer batch already uses
-    // (canJoinTransferGroup). In pay-cycle mode a transaction right on a period boundary
-    // may fall outside and simply not auto-assign - it can still be assigned by hand,
-    // which is a far smaller problem than silently inflating an item.
-    if(dateToKey(new Date(t.attributes.createdAt)) !== settings.currentMonth) return;
+    // showing. The test is the transaction's PERIOD, not its calendar month: in paycycle mode
+    // those differ for everything between the pay landing and the end of that calendar month,
+    // which with a pay around the 28th is three or four days of every single cycle - long
+    // enough that a plain calendar test both failed to assign those transactions to the cycle
+    // they belong to AND assigned them into the previous one while it was on screen.
+    if(periodKeyForTx(t) !== settings.currentMonth) return;
     const target = getRuleTargetForTx(t.attributes.description, amt) || (transferRule ? {categoryName: transferRule.categoryName, itemName: transferRule.itemName} : null);
     if(!target) return;
     const found = findCatItemByName(target.categoryName, target.itemName);

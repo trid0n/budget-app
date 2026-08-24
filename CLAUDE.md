@@ -558,6 +558,29 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     still in flight, their freshly-loaded copy can overwrite the repair. Narrow, and it loses
     the correction rather than corrupting anything.
 
+37. **Pay-cycle mode auto-assigned by CALENDAR month, not by cycle.** Found by deliberately
+    auditing the periodMode feature rather than from a report. `autoApplyTxRules`'s guard was
+    `dateToKey(tx.createdAt) !== settings.currentMonth`. The old comment called the fallout "a
+    transaction right on a period boundary may fall outside" — measured, it is every
+    transaction between the pay landing and the end of that calendar month, i.e. **three or
+    four days of every single cycle** with a pay around the 28th. Both directions were wrong:
+    a 30 Jul transaction (August cycle) did NOT assign while August was open, and DID assign
+    into July while July was open. `periodKeyForTx()` now answers "which budget period does
+    this transaction belong to" — calendar month in calendar mode, and in paycycle mode the
+    cycle it falls in named by `addMonths(cycleStart, 1)`, the same rule
+    `recomputeEffectivePeriod` uses, so the two can never disagree. `payCycleStarts()` returns
+    [] unless paycycle mode AND an income source are set, so **calendar mode is byte-for-byte
+    unchanged** (verified: $20/$70 before and after).
+    Also fixed while in there: the balance bar's "Not counted — viewing a different period"
+    note was the LAST branch of its ternary, so it only ever showed for a live Up balance. With
+    a manual or remembered balance a closed period showed a balance with nothing saying it
+    wasn't in the total. The maths was always right; only the caption was missing.
+    **Still calendar-keyed on purpose**: `canJoinTransferGroup` (the saver-batch window). The
+    batch happens around the 1st, where calendar month and cycle agree, and its sibling
+    `inAutoWindow` computes from the transaction's own calendar month start — changing one
+    without the other would split the batch. Revisit only if a batch lands between a pay and
+    month end.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
