@@ -5,3 +5,8 @@ node_modules/
 .DS_Store
 Thumbs.db
 .claude/
+
+# Scratch test harness — recreated per session, never committed (see CLAUDE.md)
+index-test.html
+scratch-server.ps1
+.claude/launch.json
