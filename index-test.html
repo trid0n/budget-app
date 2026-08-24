@@ -10199,6 +10199,48 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
 });
 
 /* ===================== init ===================== */
+/* ===== TEST STUB (index-test.html only) ===== */
+(function(){
+  const AUG='2026-08';
+  const mem={
+    settings:{ current_month:AUG, theme:'light', last_goal:500, balance_mode:'manual', manual_balance:1000,
+      period_mode:'calendar', up_token:'', is_admin:false, platform_hidden:{}, saver_order:[], display_name:'T' },
+    months:{ [AUG]:{ month_key:AUG,
+      income:[{id:'in1',name:'Work',amount:4000,charged:false}],
+      categories:[{id:'c1',name:'Life',items:[
+        {id:'a',name:'Alpha',amount:10,charged:false},
+        {id:'b',name:'Bravo',amount:20,charged:false},
+        {id:'c',name:'Charlie',amount:30,charged:true},
+      ]}], notes:'', goal:500 } },
+    template:{income:[],categories:[],goal:500},
+  };
+  window._mem=mem;
+  sb.auth.getSession=async()=>({data:{session:{user:{id:'u',email:'t@e.com'}}}});
+  sb.auth.onAuthStateChange=()=>({data:{subscription:{unsubscribe(){}}}});
+  sb.auth.signOut=async()=>({});
+  const C=o=>JSON.parse(JSON.stringify(o));
+  Object.assign(db,{
+    async loadSettings(){return C(mem.settings);}, async saveSettings(p){Object.assign(mem.settings,p);},
+    async listMonthKeys(){return Object.keys(mem.months);},
+    async loadMonth(k){return mem.months[k]?C(mem.months[k]):null;},
+    async loadMonths(ks){const o={};ks.forEach(k=>{if(mem.months[k])o[k]=C(mem.months[k]);});return o;},
+    async saveMonth(k,m){mem.months[k]=C({month_key:k,...m});},
+    async saveMonthIncomeEmoji(){}, async saveTemplateIncomeEmoji(){},
+    async loadMonthTemplate(){return C(mem.template);}, async saveMonthTemplate(t){mem.template=C(t);},
+    async loadTechItems(){return [];}, async saveTechItems(){},
+    async loadGrocery(){return {items:[],days:30,eatOut:5};}, async saveGrocery(){},
+    async loadRecurringCosts(){return [];}, async saveRecurringCosts(){},
+    async loadMtg(){return {rows:[]};}, async saveMtg(){},
+    async loadMonthlyCosts(){return [];}, async saveMonthlyCosts(){},
+    async loadTxAssignments(){lastSavedTxIds=new Set();return {};}, async saveTxAssignments(){},
+    async loadTxRules(){return {};}, async saveTxRules(){},
+    async loadTransferRules(){return {};}, async saveTransferRules(){},
+    async loadIncomeSource(){return null;}, async saveIncomeSource(){},
+    async loadPriceChangeNotes(){return {};}, async savePriceChangeNotes(){},
+  });
+  window.upFetch=async()=>({data:[],links:{}});
+})();
+/* ===== END TEST STUB ===== */
 (async function init(){
   try{
     if(document.fonts && document.fonts.load){
