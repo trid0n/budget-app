@@ -1979,6 +1979,8 @@ let authUserId = null;
 // tx_ids known to be stored server-side, so a save can prune exactly what was removed instead
 // of clearing the table and rewriting it - see db.saveTxAssignments.
 let lastSavedTxIds = new Set();
+// Columns the database turned out not to have - warned about once each, see db.saveSettings.
+const warnedMissingColumns = new Set();
 /* ---- save diagnostics ----------------------------------------------------------------
    For chasing "I refreshed and it didn't save". Writes to localStorage rather than the
    console specifically because the moment of interest is the one that tears the page down,
@@ -2087,9 +2089,30 @@ const db = {
     if(error) throw error;
     return data;
   },
+  // Every setting goes in one row, so a single column the database doesn't have takes the whole
+  // save down with it - which is exactly what happened when period_mode turned out never to
+  // have been added: current_month, theme, last_goal and balance_mode all silently stopped
+  // saving too, and nothing surfaced because the caller swallows errors. PostgREST names the
+  // offending column in a PGRST204, so drop that one and retry rather than losing the rest.
+  // Whatever was dropped is reported once per session so a missing migration is findable.
   async saveSettings(patch){
-    const { error } = await sb.from('user_settings').upsert({ user_id: authUserId, ...patch }, { onConflict: 'user_id' });
-    if(error) throw error;
+    let row = { user_id: authUserId, ...patch };
+    // Columns already known absent are dropped up front, so the cost is one failed request per
+    // column per session rather than one on every save.
+    warnedMissingColumns.forEach(c => { delete row[c]; });
+    for(let attempt = 0; attempt < 8; attempt++){
+      const { error } = await sb.from('user_settings').upsert(row, { onConflict: 'user_id' });
+      if(!error) return;
+      const missing = error.code === 'PGRST204' && (String(error.message).match(/'([^']+)' column/) || [])[1];
+      if(!missing || !(missing in row)) throw error;
+      delete row[missing];
+      if(!warnedMissingColumns.has(missing)){
+        warnedMissingColumns.add(missing);
+        saveLog('settings.column.missing', {column: missing});
+        console.warn(`[budget] user_settings has no "${missing}" column — that setting won't persist until the migration in supabase/schema.sql is run.`);
+      }
+    }
+    throw new Error('user_settings save failed after dropping unknown columns');
   },
   async loadMonth(key){
     const { data, error } = await sb.from('months').select('*').eq('user_id', authUserId).eq('month_key', key).maybeSingle();

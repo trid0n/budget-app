@@ -40,9 +40,22 @@ Repo: `github.com/trid0n/budget-app`, deployed via Vercel from `main` (auto-depl
   new persisted field, this is where to wire it up, alongside a matching column in
   `supabase/schema.sql`.
 
-## Schema migrations — all applied
+## Schema migrations — NOT all applied (corrected 2026-08-24)
 
-Every migration this app has needed is **confirmed run** by the user as of 2026-08-15:
+**This section used to claim every migration was confirmed run. That was wrong**, and it cost a
+long debugging session. `user_settings` had no `period_mode` column, proven by a live
+`PGRST204: Could not find the 'period_mode' column of 'user_settings' in the schema cache`.
+Because every setting is written as ONE row, that single missing column made the **entire**
+settings save fail — `current_month`, `theme`, `last_goal` and `balance_mode` all silently
+stopped persisting too, and nothing surfaced because `saveSettings()` swallows errors.
+`supabase/repair-user-settings-columns.sql` adds every column `schema.sql` declares, using
+`add column if not exists` so it's safe to run repeatedly, plus a `notify pgrst, 'reload schema'`
+and a verification query. `db.saveSettings` now also drops a column PostgREST reports as unknown
+and retries, so one absent column can never again take the rest of the row down with it.
+**Do not trust a "migration confirmed run" note again without checking.** The cheap check is to
+attempt a write and read the error, exactly as above.
+
+The list below is what schema.sql declares and what *was* believed applied as of 2026-08-15:
 `period_mode`, `platform_hidden`, `saver_order` and `feature_recurring` on `user_settings`;
 the `up_transfer_rules` table; `actual_revenue` on `mtg_rows`; and the `recurring_costs`
 table (plus its RLS policy). `supabase/schema.sql` is the source of truth and matches the
