@@ -6938,7 +6938,7 @@ function autoApplyTxRules(){
         // for now (rather than excluding without reversing) means it gets another chance
         // on the next render instead of the item amount staying inflated forever.
         if(!monthData) return;
-        reverseTxAssignmentIfSameMonth(t.id);
+        reverseTxAssignment(t.id);
         txAssignments[t.id] = {monthKey: settings.currentMonth, excluded: true};
         changed = true;
         return;
@@ -7622,15 +7622,44 @@ function closeTxAssignModal(){
   document.getElementById('txAssignOverlay').classList.remove('show');
   txAssignCurrent = null;
 }
-function reverseTxAssignmentIfSameMonth(txId){
+// Undoes a transaction's prior contribution to whatever item it was on, in whatever month that
+// was. This was previously called reverseTxAssignmentIfSameMonth and did exactly what its name
+// said: a prior assignment belonging to a DIFFERENT month was skipped, because that month's
+// items aren't the ones in memory. The consequence was that re-pointing a transaction across a
+// month boundary left the old month still counting it - one $45 dinner read as $45 in August
+// AND $45 in September. Pay-cycle mode runs into this constantly, since the period rolls over
+// mid-calendar-month and anything near the boundary gets re-pointed across periods.
+function reverseTxAssignment(txId){
   const prev = txAssignments[txId];
-  if(!prev || prev.monthKey !== settings.currentMonth || !monthData) return;
+  if(!prev || !prev.catId || !prev.txAmt) return;
+  if(prev.monthKey !== settings.currentMonth){ reverseTxAssignmentInOtherMonth({...prev}); return; }
+  if(!monthData) return;
   const prevCat = findCatById(prev.catId);
   const prevItem = prevCat && prevCat.items.find(i=>i.id===prev.itemId);
   // Mirror of applyTxAmountToItem's guard - a goal that was never added to must not be
   // subtracted from when the transaction moves away or gets excluded.
-  if(prevItem && prev.txAmt && !isApportionedItem(prevItem.name)){
+  if(prevItem && !isApportionedItem(prevItem.name)){
     prevItem.amount = Math.round(((Number(prevItem.amount)||0) - prev.txAmt) * 100) / 100;
+  }
+}
+// The month being corrected isn't on screen, so it has to be loaded, decremented and saved on
+// its own. Deliberately not awaited by its caller: it repairs a month the user isn't looking at
+// and must not make the click that triggered it wait on a round trip. Failing leaves that month
+// exactly as it already was, which is no worse than before.
+async function reverseTxAssignmentInOtherMonth(prev){
+  try{
+    const other = monthRowToData(await db.loadMonth(prev.monthKey));
+    if(!other) return;
+    const list = prev.catId === 'income'
+      ? other.income
+      : (other.categories.find(c => c.id === prev.catId) || {}).items;
+    const item = list && list.find(i => i.id === prev.itemId);
+    if(!item || isApportionedItem(item.name)) return;
+    item.amount = Math.round(((Number(item.amount)||0) - prev.txAmt) * 100) / 100;
+    await db.saveMonth(prev.monthKey, other);
+    saveLog('tx.reverse.otherMonth', {key: prev.monthKey, item: item.name, by: prev.txAmt});
+  }catch(e){
+    saveLog('tx.reverse.otherMonth.FAILED', {key: prev.monthKey, err: String(e && e.message || e)});
   }
 }
 function findCatById(catId){
@@ -7682,7 +7711,7 @@ function applyTxAmountToItem(catId, item, txAmt){
 // same as the assign-side helpers.
 function excludeTx(txId){
   const wasAssigned = txAssignments[txId] && !txAssignments[txId].excluded;
-  if(wasAssigned) reverseTxAssignmentIfSameMonth(txId);
+  if(wasAssigned) reverseTxAssignment(txId);
   txAssignments[txId] = {monthKey: settings.currentMonth, excluded: true};
 }
 // Deleting an item (or a category, which takes its items with it) used to leave any
@@ -7705,15 +7734,17 @@ function releaseTxsForDeletedItems(pairs){
 // confirmTxGuess (tap-to-confirm) - factored out so both can also drive
 // applyBulkAssignIfSelected below without duplicating the reverse+apply+record sequence.
 function assignTxToItem(txId, amt, desc, date, catId, itemId, itemName){
-  reverseTxAssignmentIfSameMonth(txId);
+  // Resolve the target BEFORE touching anything. Bailing out after the reverse-and-delete below
+  // would leave the transaction unassigned as a side effect of a target that doesn't exist.
+  const cat = findCatById(catId);
+  const item = cat && cat.items.find(i=>i.id===itemId);
+  if(!item) return false;
+  reverseTxAssignment(txId);
   // Drop the old entry BEFORE the new total is worked out. applyTxAmountToItem sets the item to
   // the sum of its linked transactions plus this one, and getTxsForItem still sees the previous
   // assignment until it's replaced - so re-picking the item a transaction was already on
   // counted it twice and permanently inflated that item by one copy of the amount.
   delete txAssignments[txId];
-  const cat = findCatById(catId);
-  const item = cat && cat.items.find(i=>i.id===itemId);
-  if(!item) return false;
   applyTxAmountToItem(catId, item, amt);
   const merchantKey = extractMerchantKey(desc, amt);
   txAssignments[txId] = {monthKey: settings.currentMonth, catId, itemId, itemName, categoryName: cat.name, merchantKey, txAmt: Math.abs(amt), desc, date};
@@ -7909,7 +7940,7 @@ function createAndAssignItem(catId, name){
   const cat = findCatById(catId);
   if(!cat) return;
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
-  reverseTxAssignmentIfSameMonth(txAssignCurrent.id);
+  reverseTxAssignment(txAssignCurrent.id);
   const newItem = {id: uid(), name, amount: Math.abs(txAssignCurrent.amt), planned: Math.abs(txAssignCurrent.amt), charged: false};
   cat.items.push(newItem);
   const merchantKey = extractMerchantKey(txAssignCurrent.desc, txAssignCurrent.amt);
@@ -7967,7 +7998,7 @@ document.body.addEventListener('click', (e) => {
     if(!monthData) return;
     const txId = unassignBtn.dataset.txUnassignView;
     pushUndo('month', monthData, {monthKey: settings.currentMonth});
-    reverseTxAssignmentIfSameMonth(txId);
+    reverseTxAssignment(txId);
     txAssignments[txId] = {monthKey: settings.currentMonth, unassignedManually: true};
     saveTxAssignments();
     scheduleSave();
@@ -8521,7 +8552,7 @@ document.getElementById('txGroupCommitBtn').addEventListener('click', () => {
       // Only matters when this transfer was previously attributed to some OTHER item -
       // that item needs its amount reduced. The target item's own amount is set outright
       // below, so no reversal is needed against it.
-      reverseTxAssignmentIfSameMonth(tx.id);
+      reverseTxAssignment(tx.id);
       const merchantKey = extractMerchantKey(tx.attributes.description, amt);
       txAssignments[tx.id] = {monthKey: settings.currentMonth, catId: cat.id, itemId: item.id, itemName: item.name, categoryName: cat.name, merchantKey, txAmt: Math.abs(amt), desc: tx.attributes.description, date: tx.attributes.createdAt};
       total += Math.abs(amt);

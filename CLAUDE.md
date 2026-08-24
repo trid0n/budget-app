@@ -538,6 +538,26 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     pointed at the WRITE path.** The save log (item 34) is what broke the deadlock — it showed
     saves succeeding, which is what finally moved the search to loading.
 
+36. **One transaction counted in two months at once.** `reverseTxAssignmentIfSameMonth` did
+    exactly what its name said — a prior assignment belonging to a different month was skipped,
+    because that month's items aren't the ones in memory. So re-pointing a transaction across a
+    month boundary left the old month still counting it: one $45 dinner read as $45 in August
+    AND $45 in September. **Pay-cycle mode hits this constantly**, because the period rolls over
+    mid-calendar-month and anything near the boundary gets re-pointed across periods; calendar
+    mode hits it whenever you switch month and reassign. Renamed to `reverseTxAssignment`, and
+    the cross-month case now loads that month, decrements the item and saves it via
+    `reverseTxAssignmentInOtherMonth()` — deliberately NOT awaited, since it repairs a month
+    that isn't on screen and must not make the click wait on a round trip; failing leaves that
+    month exactly as it already was. The apportioned-item guard applies there too (a goal that
+    was never incremented must not be decremented). Covers exclude as well as reassign, since
+    `excludeTx` shares the same reversal.
+    Also fixed a regression from item 33: `assignTxToItem` deleted the old assignment *before*
+    resolving the target, so a target that didn't exist left the transaction unassigned as a
+    side effect. It resolves the target first now, and touches nothing until that succeeds.
+    **Known limit**: if the user switches to the month being repaired while the async write is
+    still in flight, their freshly-loaded copy can overwrite the repair. Narrow, and it loses
+    the correction rather than corrupting anything.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
