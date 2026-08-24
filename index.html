@@ -3414,6 +3414,13 @@ function tplSourceFor(name){
 // days still to come, which is a genuinely different quantity from what's already been spent
 // on them - so the row carries both and transactions never overwrite the goal. Tech and
 // Recurring sync a flat monthly figure instead, so they stay out of this.
+// True when an item's amount is owned by one of the source tables (Groceries, Monthly Costs,
+// Tech Replacement, Recurring costs) rather than by the ledger. Transactions must not rewrite
+// these: the source sync overwrites them again on the next load, so anything that "sets" one -
+// a landing transaction, the focusout floor, the panel's "Set to $X" - flip-flops and reads as
+// an edit that wouldn't save. Reported exactly that way for a Ballet row synced from Recurring.
+// Broader than isApportionedItem, which is specifically about day-apportionment.
+function isSourceSyncedItem(name){ return !!tplSourceFor(name); }
 function isApportionedItem(name){
   const source = tplSourceFor(name);
   return source === 'grocery' || source === 'monthlycost';
@@ -3890,7 +3897,7 @@ function renderTxPanelHtml(catId, itemId){
   const diff = Math.round(((Number(item.amount)||0) - total) * 100) / 100;
   // An apportioned item's amount is a goal for the remaining days, deliberately unrelated to
   // this total - so neither the gap nor a "set it to match" button means anything there.
-  const diffHtml = (diff > 0.01 && !isApportionedItem(item.name)) ? `<div class="tx-assign-sub tx-view-diff">${money(diff)} more than these transactions add up to</div><button type="button" class="tx-view-fix-btn" data-tx-fix-total="${escapeAttr(catId)}:${escapeAttr(itemId)}">Set to ${money(total)}</button>` : '';
+  const diffHtml = (diff > 0.01 && !isSourceSyncedItem(item.name)) ? `<div class="tx-assign-sub tx-view-diff">${money(diff)} more than these transactions add up to</div><button type="button" class="tx-view-fix-btn" data-tx-fix-total="${escapeAttr(catId)}:${escapeAttr(itemId)}">Set to ${money(total)}</button>` : '';
   return `<button class="panel-close-btn" data-close-tx-panel="${escapeAttr(catId)}:${escapeAttr(itemId)}" title="Close">${X_SVG}</button><div class="tx-assign-hdr">Transactions for <span>"${escapeAttr(item.name)}"</span></div>
     <div class="tx-assign-sub">${txs.length} transaction${txs.length!==1?'s':''} — <span class="tx-view-sub-total">${money(total)} total</span></div>
     ${diffHtml}
@@ -4141,11 +4148,13 @@ function leafRowHtml(catId, item){
   ) : '';
   const linkedTxCount = getTxsForItem(catId, item.id).length;
   const txPanelOpen = expandedTxPanels.has(`${catId}:${item.id}`);
-  const apportioned = isApportionedItem(item.name);
   // "amount is higher than its transactions" is a staleness hint for an item whose amount is
-  // supposed to track them. For an apportioned goal that gap is the normal state, not a hint.
-  const txOver = linkedTxCount > 0 && !apportioned && itemAmountExceedsTxTotal(catId, item.id, item.amount);
-  const spentVal = apportioned && linkedTxCount > 0 ? spentOnItem(catId, item.id) : null;
+  // supposed to track them. Where the amount comes from a source table instead, that gap is
+  // the normal state rather than something to fix - and the fix would be undone by the next
+  // sync anyway. Those rows show what's been spent underneath instead.
+  const sourceSynced = isSourceSyncedItem(item.name);
+  const txOver = linkedTxCount > 0 && !sourceSynced && itemAmountExceedsTxTotal(catId, item.id, item.amount);
+  const spentVal = sourceSynced && linkedTxCount > 0 ? spentOnItem(catId, item.id) : null;
   // Once a closed period has settled to its actuals the goal IS the spend, so printing the
   // same number twice says nothing - show it only while the two are genuinely different.
   const spent = (spentVal !== null && Math.abs(spentVal - (Number(item.amount)||0)) >= 0.005) ? spentVal : null;
@@ -5446,7 +5455,7 @@ document.getElementById('view-ledger').addEventListener('focusout', async (e) =>
       // The floor exists so an item can't claim to cost less than the transactions on it.
       // A day-apportioned goal isn't making that claim - it's a target for the days left,
       // which is legitimately below (or above) what's already been spent.
-      if(item && isApportionedItem(item.name)) return;
+      if(item && isSourceSyncedItem(item.name)) return;
       if(item && Number(item.amount) < linkedTotal - 0.001){
         item.amount = Math.round(linkedTotal*100)/100;
         t.value = item.amount;
@@ -7782,7 +7791,7 @@ function reverseTxAssignment(txId){
   const prevItem = prevCat && prevCat.items.find(i=>i.id===prev.itemId);
   // Mirror of applyTxAmountToItem's guard - a goal that was never added to must not be
   // subtracted from when the transaction moves away or gets excluded.
-  if(prevItem && !isApportionedItem(prevItem.name)){
+  if(prevItem && !isSourceSyncedItem(prevItem.name)){
     prevItem.amount = Math.round(((Number(prevItem.amount)||0) - prev.txAmt) * 100) / 100;
   }
 }
@@ -7841,7 +7850,7 @@ function applyTxAmountToItem(catId, item, txAmt){
   // the two are separate figures shown side by side on the row (see isApportionedItem).
   // Without this the goal got overwritten with the month's actual spend every time a
   // transaction landed, then re-synced back on the next load, flip-flopping all month.
-  if(isApportionedItem(item.name)) return;
+  if(isSourceSyncedItem(item.name)) return;
   const amt = Math.abs(Number(txAmt)) || 0;
   if(catId === 'income' && getTxsForItem(catId, item.id).length === 0){
     item.amount = Math.round(amt * 100) / 100;

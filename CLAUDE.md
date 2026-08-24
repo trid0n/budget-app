@@ -376,6 +376,20 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     paperclip's "stale" state and the panel's "Set to $X". Plain items are untouched and
     still follow their transactions. **Totals still run off the goal**, not the spend.
     Tech and Recurring sync flat monthly figures, so they're deliberately out of scope.
+    **That last sentence was wrong and was corrected 2026-08-24.** Reported as "it's not saving
+    me setting Ballet to the sum of its transactions" — Ballet is synced from Recurring costs,
+    so the ledger edit saved and the next sync overwrote it. The flip-flop isn't specific to
+    day-apportionment; it applies to ANY item whose amount is owned by a source table.
+    `isSourceSyncedItem()` (`!!tplSourceFor(name)`) now gates the amount-ownership decisions —
+    `applyTxAmountToItem`, `reverseTxAssignment`, the focusout floor, the paperclip's stale
+    badge and the panel's "Set to $X" — while `isApportionedItem` stays for the things that are
+    genuinely about day-apportionment (`settleApportionedItemsIfPeriodClosed`). Tech and
+    Recurring rows now also show the `.amt-spent` figure, which is what makes the gap legible
+    instead of looking like a failed edit. Verified: Ballet keeps its synced amount through a
+    landing transaction and a hand-typed value and offers no fix button, while an ordinary item
+    still follows its transactions, still floors on focusout and still offers the button.
+    **Generalise**: an action the app will silently undo on the next load is worse than no
+    action — don't offer it.
 
 26. **Closed periods settle to actuals; deleted items release their transactions.** Two
     follow-ons to 25. `settleApportionedItemsIfPeriodClosed()` runs from `switchToMonth` and
