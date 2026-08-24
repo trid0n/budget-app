@@ -364,6 +364,23 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     still follow their transactions. **Totals still run off the goal**, not the spend.
     Tech and Recurring sync flat monthly figures, so they're deliberately out of scope.
 
+26. **Closed periods settle to actuals; deleted items release their transactions.** Two
+    follow-ons to 25. `settleApportionedItemsIfPeriodClosed()` runs from `switchToMonth` and
+    from the rollover branch in `renderUpTxList`: once `isCurrentPeriod()` is false there are
+    no remaining days to apportion over, so an apportioned item's amount is rewritten to its
+    transactions' total — otherwise it stays frozen at whatever slice of the month was still
+    ahead the last time the app was open (open it on the 28th and Groceries is stuck at three
+    days' worth). Only for items that HAVE transactions; one that never had any is left alone
+    rather than zeroed on no evidence. The `.amt-spent` figure hides itself once goal and
+    spend match, so a settled month doesn't print the same number twice.
+    `releaseTxsForDeletedItems()` runs on item and category delete: it `delete`s the
+    assignments outright rather than using the `unassignedManually` marker, because that
+    marker means "the user chose this, leave it alone" and these specifically need re-guessing.
+    They come back as guesses in the Up tab. Note the merchant rule is deliberately NOT
+    removed — it targets by name, and the item usually still exists in the template and other
+    months, so the rule is still valid there; `findCatItemByName` returning null keeps it from
+    resolving in the month where it was deleted.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as

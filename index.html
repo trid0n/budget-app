@@ -3215,6 +3215,28 @@ function isApportionedItem(name){
 function spentOnItem(catId, itemId){
   return Math.round(getTxsForItem(catId, itemId).reduce((s,t)=>s+(Number(t.amt)||0), 0) * 100) / 100;
 }
+// Once a period has closed there are no remaining days left to apportion over, so the goal
+// stops describing anything - daysRemainingInMonth returns 0 for a past month, and the stored
+// amount just stays frozen at whatever slice of the month was still ahead the last time the
+// app had it open (open it on the 28th and Groceries is stuck at three days' worth). What the
+// period actually cost is the honest number from then on, so its apportioned items settle to
+// their transactions' total. Only ever for an item that HAS transactions - one that never had
+// any is left alone rather than being zeroed on no evidence. isCurrentPeriod covers pay-cycle
+// rollover as well as calendar month end, which is the same event as far as this is concerned.
+function settleApportionedItemsIfPeriodClosed(){
+  if(!monthData || isCurrentPeriod(settings.currentMonth)) return false;
+  let changed = false;
+  monthData.categories.forEach(c => c.items.forEach(i => {
+    if(!isApportionedItem(i.name)) return;
+    const txs = getTxsForItem(c.id, i.id);
+    if(!txs.length) return;
+    const total = Math.round(txs.reduce((s,t)=>s+(Number(t.amt)||0), 0) * 100) / 100;
+    if(Math.abs(total - (Number(i.amount)||0)) < 0.005) return;
+    i.amount = total;
+    changed = true;
+  }));
+  return changed;
+}
 function toggleRecCard(card){
   const body = card.querySelector('.rec-body');
   const inner = card.querySelector('.rec-body-inner');
@@ -3841,7 +3863,10 @@ function leafRowHtml(catId, item){
   // "amount is higher than its transactions" is a staleness hint for an item whose amount is
   // supposed to track them. For an apportioned goal that gap is the normal state, not a hint.
   const txOver = linkedTxCount > 0 && !apportioned && itemAmountExceedsTxTotal(catId, item.id, item.amount);
-  const spent = apportioned && linkedTxCount > 0 ? spentOnItem(catId, item.id) : null;
+  const spentVal = apportioned && linkedTxCount > 0 ? spentOnItem(catId, item.id) : null;
+  // Once a closed period has settled to its actuals the goal IS the spend, so printing the
+  // same number twice says nothing - show it only while the two are genuinely different.
+  const spent = (spentVal !== null && Math.abs(spentVal - (Number(item.amount)||0)) >= 0.005) ? spentVal : null;
   const spentHtml = spent !== null
     ? `<span class="amt-spent" data-tip="${money(spent)} spent so far this month across ${linkedTxCount} transaction${linkedTxCount>1?'s':''} — separate from the goal, which covers the days still to come">${money(spent)}</span>`
     : '';
@@ -4842,7 +4867,7 @@ async function switchToMonth(key){
   const data = byKey[key];
   prevMonthCompareData = byKey[prevKey] || null;
   rollingAvgLookup = computeRollingAverageFromMonths(avgKeys.map(k => byKey[k]));
-  if(data){ monthData = data; await finishLoadMonth(); }
+  if(data){ monthData = data; settleApportionedItemsIfPeriodClosed(); await finishLoadMonth(); }
   else { monthData = null; showEmptyState(); refreshInsertDropdowns(); }
   updateGroceryTotal();
   updateTechTotal();
@@ -5365,6 +5390,7 @@ document.getElementById('view-ledger').addEventListener('click', async (e) => {
     const catId = delItem.dataset.cat;
     const list = findList(catId);
     const idx = list.findIndex(i=>i.id===delItem.dataset.item);
+    const released = releaseTxsForDeletedItems([{catId, itemId: delItem.dataset.item}]);
     if(idx>-1) list.splice(idx,1);
     if(catId==='income') renderIncome(); else {
       const container = document.querySelector(`[data-cat-rows="${catId}"]`);
@@ -5372,6 +5398,7 @@ document.getElementById('view-ledger').addEventListener('click', async (e) => {
       if(container) container.innerHTML = cat.items.map(i=>leafRowHtml(catId,i)).join('');
     }
     updateSummary(); scheduleSave(); updateAllNameTooltips(); updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths();
+    if(released){ renderUpTxList(); toast(`${released} transaction${released>1?'s':''} back in the Up tab to re-assign`); }
     return;
   }
   const delCat = e.target.closest('[data-del-cat]');
@@ -5382,8 +5409,11 @@ document.getElementById('view-ledger').addEventListener('click', async (e) => {
     const proceed = isEmpty || await customConfirm(`Delete "${cat ? cat.name : 'this category'}" and all its lines?`);
     if(proceed){
       pushUndo('month', monthData, {monthKey: settings.currentMonth});
+      // A category takes its items with it, so their transactions need releasing too.
+      const released = releaseTxsForDeletedItems((cat ? cat.items : []).map(i => ({catId: removedId, itemId: i.id})));
       monthData.categories = monthData.categories.filter(c=>c.id!==removedId);
       renderGroups(); updateSummary(); scheduleSave(); refreshInsertDropdowns();
+      if(released){ renderUpTxList(); toast(`${released} transaction${released>1?'s':''} back in the Up tab to re-assign`); }
     }
     return;
   }
@@ -6737,7 +6767,12 @@ function renderUpTxList(){
   renderPayCycleRow();
   const prevEffectiveMonthKey = todaysEffectiveMonthKey;
   recomputeEffectivePeriod();
-  if(todaysEffectiveMonthKey !== prevEffectiveMonthKey && monthData) updateSummary();
+  if(todaysEffectiveMonthKey !== prevEffectiveMonthKey && monthData){
+    // The period just rolled over underneath an open page - the month on screen is now a
+    // closed one, so its apportioned items settle here rather than waiting for a reload.
+    if(settleApportionedItemsIfPeriodClosed()){ scheduleSave(); renderGroups(); }
+    updateSummary();
+  }
   const term = upTxSearchTerm.trim().toLowerCase();
   const filtered = visibleUpTransactions();
   const listEl = document.getElementById('upTxList');
@@ -7236,6 +7271,22 @@ function excludeTx(txId){
   const wasAssigned = txAssignments[txId] && !txAssignments[txId].excluded;
   if(wasAssigned) reverseTxAssignmentIfSameMonth(txId);
   txAssignments[txId] = {monthKey: settings.currentMonth, excluded: true};
+}
+// Deleting an item (or a category, which takes its items with it) used to leave any
+// transactions linked to it pointing at an id nothing answers to any more - they kept
+// rendering in the Up tab as "✓ <name>" against an item that no longer existed, and the only
+// way to reach them again was to remember they were there. The assignment is deleted outright
+// rather than given the unassignedManually marker the panel's × uses: that marker means "the
+// user made this choice deliberately, leave it alone", which is precisely what these
+// transactions must NOT be - they need to go back through the guess machinery and find a new
+// home. Callers re-render the Up list afterwards; renderUpTxList runs autoApplyTxRules itself.
+function releaseTxsForDeletedItems(pairs){
+  let released = 0;
+  pairs.forEach(({catId, itemId}) => {
+    getTxsForItem(catId, itemId).forEach(t => { delete txAssignments[t.txId]; released++; });
+  });
+  if(released) saveTxAssignments();
+  return released;
 }
 // Core single-transaction assignment, shared by completeTxAssignment (search modal) and
 // confirmTxGuess (tap-to-confirm) - factored out so both can also drive
