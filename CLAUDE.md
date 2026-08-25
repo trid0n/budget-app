@@ -787,6 +787,19 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     fetch lands. `applyUpDataToAllViews()` runs when a load finishes so every tab reflects it
     without needing to be visited.
 
+46. **"Last month" only ever loaded one page.** `fetchUpTransactionsFresh`'s exhaust-all-pages
+    branch tested `upTxTimeframe === 'lastmonth' || === '3'`, but the Up tab's Last month button
+    is `data-tf="1"` — **no button anywhere uses `'lastmonth'`**, so the shortest range stopped
+    at 50 transactions while 3 months (which nobody wanted exhaustive) loaded everything. Now
+    keyed on `'1'` only, cap raised 20→40 pages. 3/6/12/all deliberately keep their Load more
+    button; exhausting a year is a lot of sequential requests for a range that's usually skimmed.
+    "Since last pay" loads in full by both of its routes: cold, the six-month scan already holds
+    everything and it filters in memory; warm (paydays cached), the narrow fetch now asks for
+    `{pageSize:100, maxPages:50}` rather than the 20×50 default that topped out at 1000.
+    **Harness gotcha**: route `/accounts/<id>/transactions` BEFORE `/accounts` in a fake
+    `upFetch`, or transaction requests get the accounts payload and `isValidUpTx` filters it to
+    zero — which reads as "the fetch loaded nothing" rather than as a stub bug.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as

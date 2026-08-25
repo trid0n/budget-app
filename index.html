@@ -7160,9 +7160,14 @@ async function fetchUpTransactionsFresh(){
     const txRes = await upFetch(`${upSpendingAccountId ? `/accounts/${upSpendingAccountId}/transactions` : '/transactions'}?page[size]=50${upTxSinceParam()}`);
     upTransactions = (txRes.data||[]).filter(isValidUpTx);
     upTxNextUrl = (txRes.links && txRes.links.next) || null;
-    if(upTxTimeframe === 'lastmonth' || upTxTimeframe === '3'){
+    // Only the short ranges page themselves out in full. The Up tab's "Last month" button is
+    // data-tf="1" - the old condition tested for 'lastmonth', which no button actually uses, so
+    // Last month stopped after one page while 3 months (which nobody asked to be exhaustive)
+    // loaded everything. The longer ranges keep their Load more button, since exhausting a year
+    // is a lot of sequential requests for something usually only skimmed.
+    if(upTxTimeframe === '1'){
       let pagesLoaded = 1;
-      const maxPages = 20;
+      const maxPages = 40;
       while(upTxNextUrl && pagesLoaded < maxPages){
         document.getElementById('upTxList').innerHTML = `<div class="pc-faint" style="padding:12px; text-align:center;">Loading transactions\u2026 (${upTransactions.length} so far)</div>`;
         const nextRes = await upFetch(upTxNextUrl);
@@ -7949,7 +7954,9 @@ async function applyPayCycleFilter(mode){
       });
     } else {
       document.getElementById('upTxList').innerHTML = '<div class="pc-faint" style="padding:12px; text-align:center;">Loading transactions for this period\u2026</div>';
-      upTransactions = await loadTransactionsForRange(new Date(sinceTime).toISOString(), untilTime ? new Date(untilTime).toISOString() : null);
+      // Bigger pages and a higher ceiling than the default: a pay cycle is meant to be shown in
+      // full, not trailed by a Load more button, and the default 20x50 tops out at 1000.
+      upTransactions = await loadTransactionsForRange(new Date(sinceTime).toISOString(), untilTime ? new Date(untilTime).toISOString() : null, {pageSize: 100, maxPages: 50});
     }
     upTxNextUrl = null;
   }catch(e){
