@@ -6225,6 +6225,10 @@ async function jumpToUpTransaction(txId){
     upTxTimeframe = 'all';
     upPayCycleFilter = null;
     document.getElementById('upTxCustomRange').style.display = 'none';
+    // Widening to find a transaction is a real change of view, so remember it - otherwise the
+    // stored preference and what's on screen drift apart and a refresh snaps back to whatever
+    // was selected before the jump.
+    saveUpTimeframePrefs();
     await fetchUpTransactionsFresh();
     tx = upTransactions.find(t => t.id === txId);
   }
