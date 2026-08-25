@@ -751,6 +751,23 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     changed nothing.
     **Testing note**: a batch needs at least TWO adjacent transfers — a single one is never a
     group, so a one-transfer harness silently tests nothing.
+    **Follow-up: the banner counted the whole run.** Reported as "it suggested to link and cross
+    off transactions that had already been crossed off". The diagnostic showed 14 of 15 settled,
+    with only Ballet outstanding (`crossedOff: false`) — so the batch was right, but said "15
+    transfers look like the start of this month's saver batch", which reads as none being done.
+    The whole run still stays on screen (a settled transfer among unfinished ones shouldn't
+    punch a hole in the group), but the wording now leads with what's left: "1 of 15 … still to
+    link — the other 14 are done", and the button becomes "Link & cross off 1".
+    Also confirmed from that same table: Tech replacements showed `itemAmount 116.67` vs
+    `linkedTotal 125` and still read as settled, which is `isSourceSyncedItem` doing its job —
+    its table owns the amount, so it will never equal the transaction total.
+44. **"Since last pay" persists too.** Item 43 saved `upTxTimeframe`, but the pay-cycle filter is
+    a separate control — `handleTimeframeBtnClick` explicitly skips those two buttons and
+    `applyPayCycleFilter` owns them — so selecting one and refreshing still fell back to All
+    time. Saved as `pc` alongside the timeframe and restored in two halves: state before the
+    initial load, then `restoreUpPayCycleFilter()` does the fetch once `upIncomeSourceKey`
+    exists, because `applyPayCycleFilter` needs it. That restored fetch REPLACES the ordinary
+    one rather than running after it, or the tab loads unfiltered and then reloads.
 
 ## Data repairs (a fix to the code is not a fix to the data)
 

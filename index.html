@@ -8738,11 +8738,20 @@ function updateTransferGroupBanner(){
   if(group.length >= 2){
     banner.style.display = '';
     const unmatched = group.filter(g => !g.target).length;
+    // The whole run stays on screen even when most of it is done (a settled transfer sitting
+    // among unfinished ones shouldn't punch a hole in the group), but counting all of them
+    // read as "15 still to link" when 14 were already crossed off. Lead with what's actually
+    // left to do and mention the rest as done.
+    const done = group.filter(g => g.target && isTransferAlreadySettled(g.tx.id, g.target)).length;
+    const todo = group.length - done;
     document.getElementById('txGroupBannerText').textContent =
-      `${group.length} transfers look like the start of this month's saver batch.`
+      (done
+        ? `${todo} of ${group.length} in this month's saver batch still to link — the other ${done} ${done === 1 ? 'is' : 'are'} done.`
+        : `${group.length} transfers look like the start of this month's saver batch.`)
       + (unmatched ? ` ${unmatched} ${unmatched === 1 ? 'has no matching budget item' : 'have no matching budget item'} yet.` : '');
     // Nothing to commit if every one of them is unmatched - the button would be a no-op.
     document.getElementById('txGroupCommitBtn').disabled = unmatched === group.length;
+    document.getElementById('txGroupCommitBtn').textContent = done ? `Link & cross off ${todo}` : 'Link & cross off';
   } else {
     banner.style.display = 'none';
   }
