@@ -769,6 +769,24 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     exists, because `applyPayCycleFilter` needs it. That restored fetch REPLACES the ordinary
     one rather than running after it, or the tab loads unfiltered and then reloads.
 
+45. **Cold-start Up load: fast, and no longer racing itself.** Three symptoms, one area.
+    (a) Restoring "since last pay" took ~5s because `applyPayCycleFilter` read only
+    `getIncomeSourceOccurrences()` (i.e. `upTransactions`, empty on a cold load) and so fell
+    through to its six-month broad scan — up to 20 sequential requests — purely to rediscover
+    paydays already sitting in the `payDates` cache. `knownPayOccurrences()` merges cache +
+    loaded transactions and is now what both that filter and `payCycleStarts()` use; the broad
+    scan also caches whatever it finds, so it happens at most once. Measured: first run 1 broad
+    scan, every later load a single narrow fetch.
+    `knownPayOccurrences` is deliberately NOT gated on `periodMode` (unlike `payCycleStarts`) —
+    the Up tab's filter needs paydays whichever way the budget is being kept.
+    (b) Switching to the Up tab mid-load started a SECOND, unfiltered fetch that overwrote the
+    one in flight, which is why a restored filter only appeared after switching away and back.
+    `upLoadInFlight` (set by both `refreshUpData` and `applyPayCycleFilter`, cleared in a
+    `finally` and on every early return) makes `activateTab` leave a running load alone.
+    (c) Up data feeds the ledger's badges/amounts and the dashboard, all rendered before the
+    fetch lands. `applyUpDataToAllViews()` runs when a load finishes so every tab reflects it
+    without needing to be visited.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as

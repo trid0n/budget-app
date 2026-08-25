@@ -6179,7 +6179,10 @@ function activateTab(view){
   // hidden - and the list is usually first rendered at boot, from another tab. Re-measure
   // once it's genuinely on screen (renderTransferGroupRail only reads layout and rebuilds
   // its own elements, so this is cheap and safe to repeat).
-  if(view==='up'){ renderUpConnectState(); if(upToken && upTransactions.length === 0) refreshUpData(); requestAnimationFrame(() => { sizeUpTxList(); renderTransferGroupRail(); }); }
+  // ...but only when nothing is already fetching. Arriving here mid-load used to start a
+  // SECOND, unfiltered fetch that overwrote the one in flight - which is why a restored
+  // "since last pay" only appeared after switching away and back.
+  if(view==='up'){ renderUpConnectState(); if(upToken && upTransactions.length === 0 && !upLoadInFlight) refreshUpData(); requestAnimationFrame(() => { sizeUpTxList(); renderTransferGroupRail(); }); }
   if(view==='template') renderTemplateEditor();
   if(view==='ledger'){
     updateAllStrikeWidths(); updateAllCatNameWidths(); updateAllItemNameWidths();
@@ -7236,12 +7239,18 @@ function cachedPayDates(){
 function cachePayDates(times){
   try{ localStorage.setItem(PAY_DATES_CACHE_KEY, JSON.stringify({userId: authUserId, key: upIncomeSourceKey, times})); }catch(e){}
 }
-function payCycleStarts(){
-  if(settings.periodMode !== 'paycycle' || !upIncomeSourceKey) return [];
+// Every payday we know about: the ones visible in the loaded transactions plus the cached ones.
+// Independent of periodMode, because the Up tab's "since last pay" filter needs them whichever
+// way the budget is being kept.
+function knownPayOccurrences(){
   const seen = new Set();
   return [...getIncomeSourceOccurrences(), ...cachedPayDates()]
     .filter(t => seen.has(t) ? false : (seen.add(t), true))
     .sort((a, b) => b - a);
+}
+function payCycleStarts(){
+  if(settings.periodMode !== 'paycycle' || !upIncomeSourceKey) return [];
+  return knownPayOccurrences();
 }
 // Cycle boundaries are pay transactions, so a period can only be worked out if the pay that
 // started it is known. The Up tab holds whatever timeframe was last fetched - often one payslip -
@@ -7900,9 +7909,13 @@ async function applyPayCycleFilter(mode){
   sinceBtn.disabled = true; betweenBtn.disabled = true;
   document.getElementById('upTxLoadingBar').style.display = '';
   const neededCount = mode === 'between' ? 2 : 1;
-  let occurrences = getIncomeSourceOccurrences();
+  // Cached paydays included, so a cold load can go straight to the narrow window fetch. Without
+  // them this fell through to the six-month scan below - up to 20 sequential requests - purely
+  // to rediscover dates it already knew, which is what made restoring this filter take seconds.
+  let occurrences = knownPayOccurrences();
   const errEl = document.getElementById('upError');
   errEl.textContent = '';
+  upLoadInFlight = true;
   try{
     // Once we've had to fall back to a broad fetch (below), upTransactions already
     // covers everything from 6 months ago to now \u2014 which fully contains whatever
@@ -7916,10 +7929,14 @@ async function applyPayCycleFilter(mode){
       upTransactions = await loadTransactionsForRange(sixMonthsAgo.toISOString());
       upTxNextUrl = null;
       haveBroadWindow = true;
-      occurrences = getIncomeSourceOccurrences();
+      occurrences = knownPayOccurrences();
+      // Remember what that expensive scan found, so this only ever happens once.
+      if(occurrences.length) cachePayDates(occurrences);
       if(occurrences.length < neededCount){
         toast(`Found only ${occurrences.length} matching income transaction${occurrences.length===1?'':'s'} in the last 6 months \u2014 not enough for this filter`);
+        upLoadInFlight = false;
         renderUpTxList();
+        applyUpDataToAllViews();
         return;
       }
     }
@@ -7937,13 +7954,17 @@ async function applyPayCycleFilter(mode){
     upTxNextUrl = null;
   }catch(e){
     errEl.textContent = e.isRateLimit ? 'Checking in a bit too often \u2014 Up asked us to slow down. It\u2019ll catch up automatically shortly.' : (e.message || 'Couldn\u2019t reach Up.');
+    upLoadInFlight = false;
     renderUpTxList();
+    applyUpDataToAllViews();
     return;
   }
+  upLoadInFlight = false;
   upPayCycleFilter = mode;
   saveUpTimeframePrefs();
   clearAllTimeframeActive();
   renderUpTxList();
+  applyUpDataToAllViews();
 }
 document.getElementById('upPayCycleSinceBtn').addEventListener('click', () => {
   if(!upIncomeSourceKey) return;
@@ -9169,10 +9190,25 @@ async function fetchUpCategories(){
     (res.data||[]).forEach(c => { upCategoriesCache[c.id] = c.attributes.name; });
   }catch(e){ /* silently skip - guessing just falls back to other tiers */ }
 }
+// True while any Up load is running, so a tab switch doesn't kick off a competing one. Set here
+// and by applyPayCycleFilter, since either can be the load in progress.
+let upLoadInFlight = false;
+// Up data feeds more than the Up tab - the ledger's transaction badges and amounts, the
+// dashboard's charts. They're all rendered before the fetch lands on a cold start, so they need
+// telling once it does rather than waiting for the user to visit them.
+function applyUpDataToAllViews(){
+  if(monthData){ renderGroups(); updateSummary(); }
+  const dash = document.getElementById('view-dashboard');
+  if(dash){ renderDashboard(); renderInsights(); }
+  if(document.getElementById('view-up').classList.contains('active')){
+    requestAnimationFrame(() => { sizeUpTxList(); renderTransferGroupRail(); });
+  }
+}
 async function refreshUpData(){
   const errEl = document.getElementById('upError');
   errEl.textContent = '';
   if(!upToken) return;
+  upLoadInFlight = true;
   try{
     await fetchUpCategories();
     const accountsRes = await upFetch('/accounts');
@@ -9209,6 +9245,9 @@ async function refreshUpData(){
     document.getElementById('upMeta').textContent = 'Updated ' + new Date().toLocaleTimeString('en-AU', {hour:'2-digit', minute:'2-digit'});
   }catch(e){
     errEl.textContent = e.isRateLimit ? 'Checking in a bit too often — Up asked us to slow down. It\u2019ll catch up automatically on the next refresh.' : (e.message || 'Couldn\u2019t reach Up.');
+  }finally{
+    upLoadInFlight = false;
+    applyUpDataToAllViews();
   }
 }
 // Click a saver chip to see its transaction history in a floating panel (reusing the
