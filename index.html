@@ -1380,6 +1380,25 @@ body.dark .auth-box{box-shadow:0 24px 60px -20px rgba(0,0,0,.6), var(--shadow);}
 </style>
 </head>
 <body>
+<!-- Covers the app until it has real data, so the first thing seen isn't an empty ledger
+     filling in piecemeal. In the markup and visible by default rather than added by JS, so it's
+     already painted before any script runs. Inline styles for the same reason: it must look
+     right on the very first frame, before the stylesheet below has necessarily applied. -->
+<div id="appSplash" style="position:fixed; inset:0; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; background:#F5F6F8; transition:opacity .28s ease;">
+  <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#3B6FE0" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M7 8h10l1.4 11.2a1.6 1.6 0 0 1-1.6 1.8H7.2a1.6 1.6 0 0 1-1.6-1.8L7 8Z"/>
+    <path d="M9 8V6.2A1.2 1.2 0 0 1 10.2 5h3.6A1.2 1.2 0 0 1 15 6.2V8"/>
+    <path d="M12 12.2v4.4M13.4 13.2a1.6 1.6 0 0 0-2.8.8c0 1.6 2.8.8 2.8 2.4a1.6 1.6 0 0 1-2.8.8"/>
+  </svg>
+  <div id="appSplashBar" style="width:132px; height:3px; border-radius:999px; background:rgba(59,111,224,.2); overflow:hidden;">
+    <i style="display:block; height:100%; width:38%; border-radius:999px; background:#3B6FE0; animation:splashSlide 1.15s cubic-bezier(.5,0,.5,1) infinite;"></i>
+  </div>
+</div>
+<style>
+  @keyframes splashSlide{0%{transform:translateX(-110%)} 100%{transform:translateX(300%)}}
+  body.dark #appSplash{background:#12151B;}
+  #appSplash.done{opacity:0; pointer-events:none;}
+</style>
 <!-- TEMPORARY diagnostic overlay - remove once the real-device pull/scroll bug is
      actually root-caused. Shows live touch/scroll state so a screenshot mid-gesture
      reveals whether this app's own JS is doing anything at that moment, instead of
@@ -1407,6 +1426,21 @@ function dbgOverlay(text){
 // immediately; applyTheme() below still runs once real settings load, correcting this
 // if it was ever wrong (e.g. changed on another device) and keeping the cache in sync.
 try{ if(localStorage.getItem('theme') === 'dark') document.body.classList.add('dark'); }catch(e){}
+// The splash must ALWAYS lift - one that sticks is far worse than a moment of half-drawn app,
+// because it locks you out of a budget that doesn't need the bank to be useful. So it's armed
+// with a hard deadline the moment the page parses, independent of whether init gets that far or
+// throws on the way. dismissSplash() below is the normal path; this is the backstop.
+window.__splashDeadline = setTimeout(function(){ dismissSplash(); }, 6000);
+function dismissSplash(){
+  clearTimeout(window.__splashDeadline);
+  var el = document.getElementById('appSplash');
+  if(!el || el.classList.contains('done')) return;
+  el.classList.add('done');
+  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 320);
+}
+// Sign-in is its own screen, so the splash has to get out of the way for it rather than sitting
+// on top of a login form nobody can see.
+window.addEventListener('error', dismissSplash);
 // Same problem, same fix, for tab visibility: the sidebar buttons are in the HTML as
 // visible, and renderFeatureToggle() only hides the disabled ones once Supabase settings
 // arrive - so a tab you've turned off still flashed on screen first and then vanished.
@@ -2020,7 +2054,7 @@ window.dumpSaveLog = function(){
 };
 window.stopSaveDebug = function(){ try{ localStorage.removeItem('debugSaves'); localStorage.removeItem(SAVE_LOG_KEY); }catch(e){} return 'Save logging OFF'; };
 
-function showAuthOverlay(){ document.getElementById('authOverlay').classList.remove('hidden'); }
+function showAuthOverlay(){ dismissSplash(); document.getElementById('authOverlay').classList.remove('hidden'); }
 function hideAuthOverlay(){ document.getElementById('authOverlay').classList.add('hidden'); }
 
 let authMode = 'login';
@@ -9200,6 +9234,18 @@ async function fetchUpCategories(){
 // True while any Up load is running, so a tab switch doesn't kick off a competing one. Set here
 // and by applyPayCycleFilter, since either can be the load in progress.
 let upLoadInFlight = false;
+// Resolves when the in-flight Up load finishes, or after ms, whichever comes first. Polled
+// rather than promise-chained because either loader can be the one running, and which of them
+// it is isn't known here.
+function waitForUpSettled(ms){
+  if(!upToken || !upLoadInFlight) return Promise.resolve();
+  return new Promise(resolve => {
+    const poll = setInterval(() => {
+      if(!upLoadInFlight){ clearInterval(poll); clearTimeout(cap); resolve(); }
+    }, 60);
+    const cap = setTimeout(() => { clearInterval(poll); resolve(); }, ms);
+  });
+}
 // Up data feeds more than the Up tab - the ledger's transaction badges and amounts, the
 // dashboard's charts. They're all rendered before the fetch lands on a cold start, so they need
 // telling once it does rather than waiting for the user to visit them.
@@ -10549,6 +10595,12 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   updatePagerPosition(false);
   refreshInsertDropdowns();
   refreshUpSpendingBalance();
+  // Everything above is drawn; hold the splash a moment longer for Up so the first view already
+  // has its transaction badges and real amounts instead of filling in a beat later. Capped hard:
+  // Up is the slowest and least reliable link in the chain, and the budget is perfectly usable
+  // without it, so a slow or dead bank delays the reveal by at most this and never blocks it.
+  await waitForUpSettled(2500);
+  dismissSplash();
   setInterval(() => {
     if(!upToken) return;
     // Only the lightweight balance check runs automatically — refreshUpData() rebuilds

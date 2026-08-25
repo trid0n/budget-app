@@ -800,6 +800,18 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     `upFetch`, or transaction requests get the accounts payload and `isValidUpTx` filters it to
     zero — which reads as "the fetch loaded nothing" rather than as a stub bug.
 
+47. **Loading splash.** `#appSplash` covers the app until it has real data, so the first thing
+    seen isn't an empty ledger filling in piecemeal. In the MARKUP and visible by default, with
+    inline styles, so it's painted on the very first frame before any script or stylesheet is
+    guaranteed to have applied — same reasoning as the pre-paint theme/hidden-tab caches above.
+    **The design constraint is that it must always lift**, because a stuck splash locks you out
+    of a budget that doesn't need the bank. So it has three independent exits: the normal one at
+    the end of `init` after `waitForUpSettled(2500)`; `showAuthOverlay()`, so the sign-in screen
+    isn't hidden behind it; and a 6s hard deadline armed at parse time, independent of whether
+    `init` gets that far or throws. `dismissSplash()` is idempotent.
+    Up is waited for but never gated on — measured: normal load lifts at ~540ms, and with an Up
+    API that never responds it still lifts at ~2.5s with the ledger usable.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
