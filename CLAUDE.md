@@ -730,6 +730,28 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     Verified with `getAnimations()`: real `transform` transitions running from each row's old
     offset, all settled to `none` afterwards.
 
+43. **Up timeframe survives a refresh**, and **the saver batch stops clobbering existing links.**
+    `saveUpTimeframePrefs`/`restoreUpTimeframePrefs` persist `upTxTimeframe` plus the custom
+    from/to dates in `localStorage`. A view preference, not data — so no `user_settings` column
+    and no migration, and per-browser is the right scope for "which slice of history am I
+    reading". Restore runs BEFORE `refreshUpData()` in init so the restored range is what gets
+    fetched, rather than 'all' being fetched and immediately replaced; the duplicate
+    `populateCustomDateSelects` calls later in init were removed because re-populating the lists
+    drops the restored `.selected` markers.
+    The saver batch: `isTransferNormalised` used to require that EVERY transaction on the target
+    item belong to the batch. An item that also held something assigned by hand therefore never
+    registered as settled — so the transfer was re-offered on every render, and each commit ran
+    the "detach anything else hanging off this item" step, silently unlinking that manual work
+    and dropping its value from the amount. The exclusivity test is gone, nothing is detached
+    any more, and the amount is set to `spentOnItem()` (everything linked) rather than just the
+    batch's share — skipped entirely when a source table owns the amount. `batchIds` fell out of
+    both signatures, which also removes an expensive `transferBatchCandidates()` fallback.
+    Verified: an Education saver holding a hand-linked $25 kept it through a commit and came out
+    at $85 with the $60 transfer, both transfers then read as settled, and a second commit
+    changed nothing.
+    **Testing note**: a batch needs at least TWO adjacent transfers — a single one is never a
+    group, so a one-transfer harness silently tests nothing.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as

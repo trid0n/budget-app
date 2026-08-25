@@ -6655,6 +6655,7 @@ function handleTimeframeBtnClick(e){
   btn.classList.add('active');
   updateUpTxMoreToggleIndicator();
   upTxTimeframe = btn.dataset.tf;
+  saveUpTimeframePrefs();
   const rangeRow = document.getElementById('upTxCustomRange');
   if(upTxTimeframe === 'custom'){
     rangeRow.style.display = 'flex';
@@ -6687,7 +6688,7 @@ document.getElementById('upTxMoreToggle').addEventListener('click', () => {
   closeFloatingMenus();
   if(open){ positionFloatingMenu(panel, btn); panel.classList.add('open'); btn.classList.add('open'); }
 });
-document.getElementById('upTxApplyRangeBtn').addEventListener('click', fetchUpTransactionsFresh);
+document.getElementById('upTxApplyRangeBtn').addEventListener('click', () => { saveUpTimeframePrefs(); fetchUpTransactionsFresh(); });
 document.getElementById('dashTimeframeRow').addEventListener('click', (e) => {
   const btn = e.target.closest('.timeframe-btn');
   if(!btn) return;
@@ -7073,6 +7074,34 @@ function updateTxSelectionVisuals(){
 function isValidUpTx(t){ return !!(t && t.attributes && t.attributes.amount && typeof t.attributes.amount.value === 'string'); }
 let upTxNextUrl = null;
 let upTxTimeframe = 'all';
+// Which timeframe (and custom range) the Up tab was last looking at. A view preference rather
+// than data, so localStorage rather than a user_settings column - it also means no migration,
+// which this app can't apply on its own. Per browser is right for it: which slice of history
+// you're reading is a property of where you're sitting, not of the account.
+const UP_TIMEFRAME_KEY = 'upTimeframe';
+function saveUpTimeframePrefs(){
+  try{
+    localStorage.setItem(UP_TIMEFRAME_KEY, JSON.stringify({
+      tf: upTxTimeframe,
+      from: getCustomDateFromSelects('upTxFrom') || null,
+      to: getCustomDateFromSelects('upTxTo') || null,
+    }));
+  }catch(e){}
+}
+// Restores state only - deliberately does NOT fetch. Called before the Up tab's own initial
+// load, so that load picks these up and there's one request rather than two.
+function restoreUpTimeframePrefs(){
+  let p = null;
+  try{ p = JSON.parse(localStorage.getItem(UP_TIMEFRAME_KEY) || 'null'); }catch(e){}
+  if(!p || !p.tf) return;
+  upTxTimeframe = p.tf;
+  if(p.from) setCustomDateSelects('upTxFrom', p.from);
+  if(p.to) setCustomDateSelects('upTxTo', p.to);
+  const btn = document.querySelector(`.timeframe-btn[data-tf="${CSS.escape(p.tf)}"]`);
+  if(btn){ clearAllTimeframeActive(); btn.classList.add('active'); }
+  document.getElementById('upTxCustomRange').style.display = (p.tf === 'custom') ? 'flex' : 'none';
+  updateUpTxMoreToggleIndicator();
+}
 function upTxSinceParam(){
   const now = new Date();
   if(upTxTimeframe === 'all') return '';
@@ -8547,11 +8576,19 @@ function canJoinTransferGroup(t){
 // transaction on the item belongs to this batch, and the amount equals their total" rather
 // than a literal "exactly one transaction", so two transfers legitimately landing on the
 // same item settle instead of fighting each other forever.
-function isTransferNormalised(txId, target, batchIds){
+// It used to also demand that EVERY transaction on the item belong to this batch. That made an
+// item which legitimately already holds something else - a purchase assigned by hand - never
+// register as settled: the transfer was re-offered on every render, and each commit detached
+// that manual assignment and dropped its value from the item. Now it only asks that this
+// transfer is linked and the item's amount matches everything linked to it, so an item can hold
+// a batch transfer alongside other work without the two fighting.
+function isTransferNormalised(txId, target){
   if(!target) return false;
   const txs = getTxsForItem(target.cat.id, target.item.id);
   if(!txs.length || !txs.some(x => x.txId === txId)) return false;
-  if(!txs.every(x => batchIds.has(x.txId))) return false;
+  // A source-synced item's amount is owned by its table, so it will never equal the transaction
+  // total and there's nothing to normalise against.
+  if(isSourceSyncedItem(target.item.name)) return true;
   const total = Math.round(txs.reduce((s,x)=>s+(Number(x.amt)||0),0) * 100) / 100;
   return Math.abs((Number(target.item.amount)||0) - total) < 0.005;
 }
@@ -8559,11 +8596,14 @@ function isTransferNormalised(txId, target, batchIds){
 // left in the state a commit produces. A batch committed before that last rule existed
 // fails this and so is offered again - pressing "Link & cross off" once brings it into
 // line, which is how an older month gets fixed up retrospectively.
-function isTransferAlreadySettled(txId, target, batchIds){
+// batchIds is no longer needed now that normalisation doesn't require exclusivity. Kept in the
+// signature so the several call sites don't all have to change, and so the expensive
+// transferBatchCandidates() fallback they existed to avoid is simply gone.
+function isTransferAlreadySettled(txId, target){
   if(!target || !target.item.charged) return false;
   const a = txAssignments[txId];
   if(!(a && !a.excluded && a.catId === target.cat.id && a.itemId === target.item.id)) return false;
-  return isTransferNormalised(txId, target, batchIds || new Set(transferBatchCandidates().map(c => c.tx.id)));
+  return isTransferNormalised(txId, target);
 }
 // Every transfer that could belong to a batch on its own merits, BEFORE the "must be
 // touching another one" rule is applied - shared by the live-batch and the settled-remnant
@@ -8919,14 +8959,10 @@ document.getElementById('txGroupCommitBtn').addEventListener('click', () => {
     byItem.get(key).entries.push(entry);
   });
   byItem.forEach(({cat, item, entries}) => {
-    // Detach anything else currently hanging off this item - it's being replaced, not
-    // added to. Marked unassignedManually (rather than deleted) so autoApplyTxRules reads
-    // it as a deliberate choice and doesn't immediately re-attach it.
-    getTxsForItem(cat.id, item.id).forEach(other => {
-      if(entries.some(e => e.tx.id === other.txId)) return;
-      txAssignments[other.txId] = {monthKey: settings.currentMonth, unassignedManually: true};
-    });
-    let total = 0;
+    // Anything already linked to this item STAYS. It used to be detached on the reasoning that
+    // a saver transfer IS the item's cost for the month, but that quietly undid work you'd done
+    // by hand - an expense assigned to the same item lost its link and its value - and because
+    // such an item could never look "settled", every commit did it again.
     entries.forEach(({tx, target}) => {
       const accountId = tx.relationships.transferAccount.data.id;
       if(target.isNewRule) transferRules[accountId] = {categoryName: target.categoryName, itemName: target.itemName, accountName: upAccountNameCache[accountId] || ''};
@@ -8937,10 +8973,11 @@ document.getElementById('txGroupCommitBtn').addEventListener('click', () => {
       reverseTxAssignment(tx.id);
       const merchantKey = extractMerchantKey(tx.attributes.description, amt);
       txAssignments[tx.id] = {monthKey: settings.currentMonth, catId: cat.id, itemId: item.id, itemName: item.name, categoryName: cat.name, merchantKey, txAmt: Math.abs(amt), desc: tx.attributes.description, date: tx.attributes.createdAt};
-      total += Math.abs(amt);
       linkedCount++;
     });
-    item.amount = Math.round(total * 100) / 100;
+    // Everything linked to the item, not just this batch's share - the batch adds to what's
+    // there rather than replacing it. Left alone entirely when a source table owns the amount.
+    if(!isSourceSyncedItem(item.name)) item.amount = spentOnItem(cat.id, item.id);
     item.charged = true;
   });
   saveTransferRules();
@@ -10387,6 +10424,11 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   // could realistically reach the Dashboard tab - previously it only started once several
   // sequential awaits had already finished, which was often still mid-flight by the time
   // someone scrolled/switched there right after opening the app.
+  // Before refreshUpData, so the restored timeframe is what gets fetched rather than the
+  // default 'all' being fetched first and immediately replaced.
+  populateCustomDateSelects('upTxFrom');
+  populateCustomDateSelects('upTxTo');
+  restoreUpTimeframePrefs();
   if(upToken) refreshUpData();
   recomputeEffectivePeriod();
   await detectEffectivePeriodAtBoot();
@@ -10411,8 +10453,6 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   document.getElementById('groceryEatOut').value = grocery.eatOut || 0;
   renderGroceryRows(); updateGroceryTotal();
 
-  populateCustomDateSelects('upTxFrom');
-  populateCustomDateSelects('upTxTo');
   renderRecurringRows();
   renderMtgRows();
   renderMonthlyCostRows();
