@@ -7085,6 +7085,9 @@ function saveUpTimeframePrefs(){
       tf: upTxTimeframe,
       from: getCustomDateFromSelects('upTxFrom') || null,
       to: getCustomDateFromSelects('upTxTo') || null,
+      // "Since last pay" / "between last 2 pays" are a separate control from the timeframe
+      // buttons, so saving only upTxTimeframe left them reverting to All time on refresh.
+      pc: upPayCycleFilter || null,
     }));
   }catch(e){}
 }
@@ -7093,14 +7096,31 @@ function saveUpTimeframePrefs(){
 function restoreUpTimeframePrefs(){
   let p = null;
   try{ p = JSON.parse(localStorage.getItem(UP_TIMEFRAME_KEY) || 'null'); }catch(e){}
-  if(!p || !p.tf) return;
-  upTxTimeframe = p.tf;
+  if(!p || (!p.tf && !p.pc)) return;
+  if(p.tf) upTxTimeframe = p.tf;
   if(p.from) setCustomDateSelects('upTxFrom', p.from);
   if(p.to) setCustomDateSelects('upTxTo', p.to);
-  const btn = document.querySelector(`.timeframe-btn[data-tf="${CSS.escape(p.tf)}"]`);
-  if(btn){ clearAllTimeframeActive(); btn.classList.add('active'); }
   document.getElementById('upTxCustomRange').style.display = (p.tf === 'custom') ? 'flex' : 'none';
+  // A saved pay-cycle filter wins over the timeframe buttons - they're mutually exclusive, and
+  // it's what was actually on screen. Its fetch needs the income source, which loadEverything
+  // has by now; restoreUpPayCycleFilter() below does the fetching once Up data is available.
+  upPayCycleFilter = p.pc || null;
+  if(upPayCycleFilter){
+    clearAllTimeframeActive();
+  } else {
+    const btn = document.querySelector(`.timeframe-btn[data-tf="${CSS.escape(p.tf || 'all')}"]`);
+    if(btn){ clearAllTimeframeActive(); btn.classList.add('active'); }
+  }
   updateUpTxMoreToggleIndicator();
+}
+// applyPayCycleFilter does its own fetch and needs upIncomeSourceKey, so the restore is split:
+// state first (above, before the initial load) and the fetch here, once there's an income
+// source to work from. Without this the buttons would look right but show unfiltered data.
+async function restoreUpPayCycleFilter(){
+  if(!upPayCycleFilter || !upIncomeSourceKey || !upToken) return;
+  const mode = upPayCycleFilter;
+  upPayCycleFilter = null;   // applyPayCycleFilter sets it again once its fetch succeeds
+  await applyPayCycleFilter(mode);
 }
 function upTxSinceParam(){
   const now = new Date();
@@ -7917,17 +7937,18 @@ async function applyPayCycleFilter(mode){
     return;
   }
   upPayCycleFilter = mode;
+  saveUpTimeframePrefs();
   clearAllTimeframeActive();
   renderUpTxList();
 }
 document.getElementById('upPayCycleSinceBtn').addEventListener('click', () => {
   if(!upIncomeSourceKey) return;
-  if(upPayCycleFilter === 'since'){ upPayCycleFilter = null; renderUpTxList(); return; }
+  if(upPayCycleFilter === 'since'){ upPayCycleFilter = null; saveUpTimeframePrefs(); renderUpTxList(); return; }
   applyPayCycleFilter('since');
 });
 document.getElementById('upPayCycleBetweenBtn').addEventListener('click', () => {
   if(!upIncomeSourceKey) return;
-  if(upPayCycleFilter === 'between'){ upPayCycleFilter = null; renderUpTxList(); return; }
+  if(upPayCycleFilter === 'between'){ upPayCycleFilter = null; saveUpTimeframePrefs(); renderUpTxList(); return; }
   applyPayCycleFilter('between');
 });
 document.getElementById('upPayCycleClearBtn').addEventListener('click', () => {
@@ -10429,7 +10450,9 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   populateCustomDateSelects('upTxFrom');
   populateCustomDateSelects('upTxTo');
   restoreUpTimeframePrefs();
-  if(upToken) refreshUpData();
+  // A restored pay-cycle filter does its own fetch, so it replaces the ordinary one rather
+  // than running alongside it - otherwise the tab loads unfiltered and then re-loads.
+  if(upToken) { if(upPayCycleFilter) restoreUpPayCycleFilter(); else refreshUpData(); }
   recomputeEffectivePeriod();
   await detectEffectivePeriodAtBoot();
   await seedStarterDataIfNewAccount(todaysEffectiveMonthKey);
