@@ -848,6 +848,18 @@ body.saver-dragging-active{user-select:none; -webkit-user-select:none;}
 .up-tx-month-hdr.cycle{border-top:2px solid var(--gold);}
 .up-tx-month-hdr.cycle:first-child{border-top:none;}
 .up-tx-assign-btn.guess.overflowed{border-style:dashed;}
+.tx-rules-subhead{padding:10px 2px 4px; font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint);}
+/* Press-and-hold feedback. The fill sweeps across the button over exactly the hold duration, so
+   letting go early visibly means "I didn't do the strong thing" - without it the gesture is an
+   invisible timer and rules get created by accident. ::after rather than a background so it sits
+   over whatever the button already looks like, and pointer-events:none so it can't eat the tap. */
+.up-tx-assign-btn, .up-tx-status, .up-tx-exclude-btn{position:relative; overflow:hidden;}
+.up-tx-assign-btn.holding::after, .up-tx-status.holding::after, .up-tx-exclude-btn.holding::after{
+  content:''; position:absolute; inset:0; background:currentColor; opacity:.28;
+  transform-origin:left center; transform:scaleX(0); pointer-events:none;
+  animation:holdFill var(--hold-ms, 480ms) linear forwards;
+}
+@keyframes holdFill{to{transform:scaleX(1);}}
 .tpl-overflow-btn{font-size:.9rem; line-height:1;}
 .tpl-overflow-btn.set{color:var(--gold);}
 .overflow-panel{max-height:320px; overflow-y:auto; min-width:210px;}
@@ -2676,6 +2688,10 @@ function findTransferGuess(transferAccountId){
 function findGuessForTx(desc, amt, tx){
   const guess = findRawGuessForTx(desc, amt, tx);
   if(!guess || !monthData) return guess;
+  // Held down the × on this exact pairing before, so don't offer it again. Returning nothing
+  // rather than a second-choice guess: the transaction arrives unassigned, and whatever it's
+  // then assigned to becomes the past-assignment the next guess copies.
+  if(isGuessBlocked(extractMerchantKey(desc, amt), guess.itemName)) return null;
   const found = findCatItemByName(guess.categoryName, guess.itemName);
   if(!found) return guess;
   const dest = routeThroughOverflow(found, amt);
@@ -8289,6 +8305,24 @@ function completeTxAssignment(catId, itemId, itemName){
 // this exact assignment (nothing new to learn). If a rule exists but points somewhere
 // else, this still prompts - confirming here either updates it (tick) or leaves the
 // stale rule in place for the user to clear from Manage merchant rules (cross).
+// "Never suggest this merchant for this item." Stored as an ordinary tx_rules row under a
+// namespaced merchant_key ("!key|item") rather than a new column, since merchant_key is free
+// text and this app can't run its own migrations. One row per blocked pairing, so blocking
+// Coles->Groceries doesn't stop Coles->Excess spend on food being suggested later.
+function blockedGuessKey(merchantKey, itemName){
+  return '!' + merchantKey + '|' + (itemName||'').trim().toLowerCase();
+}
+function isGuessBlocked(merchantKey, itemName){
+  return !!(merchantKey && txRules[blockedGuessKey(merchantKey, itemName)]);
+}
+function blockGuessPairing(merchantKey, categoryName, itemName){
+  if(!merchantKey || !itemName) return;
+  txRules[blockedGuessKey(merchantKey, itemName)] = {categoryName, itemName};
+  // A positive rule for the same pairing would contradict the block outright, so it goes.
+  const pos = txRules[merchantKey];
+  if(pos && (pos.itemName||'').trim().toLowerCase() === (itemName||'').trim().toLowerCase()) delete txRules[merchantKey];
+  saveTxRules();
+}
 function maybeShowRememberPopup(txId, merchantKey, merchantDesc, categoryName, itemName){
   if(!merchantKey) return;
   const existing = txRules[merchantKey];
@@ -8549,7 +8583,7 @@ document.getElementById('txAssignExcludeBtn').addEventListener('click', () => {
   closeTxAssignModal();
 });
 document.getElementById('txAssignOverlay').addEventListener('click', (e) => { if(e.target.id === 'txAssignOverlay') closeTxAssignModal(); });
-function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date, transferAccountId, overflowFromCat, overflowFromItem){
+function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date, transferAccountId, overflowFromCat, overflowFromItem, rememberRule){
   if(!monthData) return;
   const found = findCatItemByName(categoryName, itemName);
   if(!found){ toast(`Couldn\u2019t find "${itemName}" in this month \u2014 assign manually instead`); openTxAssignModal(txId, amt, desc, date, transferAccountId); return; }
@@ -8574,11 +8608,22 @@ function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date, t
     // up_transfer_rules) - remembering it as a merchant rule here would misapply to
     // every OTHER saver too. Always go through the account-keyed transfer popup instead.
     maybeShowTransferRememberPopup(txId, transferAccountId, found.cat.name, found.item.name);
-  } else if(reason !== 'merchant'){
-    // A 'merchant' guess already came straight from an existing rule matching this exact
-    // item (findGuessForTx defers to getRuleTargetForTx for merchants with a saved rule),
-    // so there's nothing new to ask about remembering.
-    maybeShowRememberPopup(txId, merchantKey, desc, found.cat.name, found.item.name);
+  } else if(rememberRule){
+    // Only when the confirm was a press-and-hold. A plain tap is a one-off and asks nothing -
+    // the popup that used to appear here fired after every single assignment, and dismissing it
+    // recorded nothing, so the same merchant asked again forever.
+    // Gated on whether a rule actually exists, NOT on reason !== 'merchant': the
+    // copy-a-past-assignment strategy also reports 'merchant' despite there being no rule, so
+    // that test silently swallowed the save for exactly the guesses worth remembering.
+    const already = merchantKey && txRules[merchantKey];
+    if(already && already.categoryName === found.cat.name && already.itemName === found.item.name){
+      toast(`Already always sending “${humanizeMerchantKey(merchantKey)}” to “${found.item.name}”.`);
+    } else if(merchantKey){
+      txRules[merchantKey] = {categoryName: found.cat.name, itemName: found.item.name};
+      delete txRules[blockedGuessKey(merchantKey, found.item.name)];   // an explicit yes overrides an earlier no
+      saveTxRules();
+      toast(`Always sending “${humanizeMerchantKey(merchantKey)}” to “${found.item.name}” from now on.`);
+    }
   }
 }
 function humanizeMerchantKey(key){
@@ -8588,8 +8633,20 @@ function humanizeMerchantKey(key){
 let txRulesSearchTerm = '';
 function renderTxRulesList(){
   const list = document.getElementById('txRulesList');
-  const allKeys = Object.keys(txRules);
-  if(!allKeys.length){ list.innerHTML = '<div class="tx-assign-empty">No merchant rules yet — tick "always" on the popup after assigning a transaction.</div>'; return; }
+  // Blocked pairings share this table under a "!key|item" merchant_key (see blockedGuessKey), so
+  // they'd otherwise render here as though they were rules doing the opposite of what they do.
+  // Listed in their own section below instead, where they can still be removed.
+  const allKeys = Object.keys(txRules).filter(k => k[0] !== '!');
+  const blockedKeys = Object.keys(txRules).filter(k => k[0] === '!');
+  const blockedHtml = blockedKeys.length ? `<div class="tx-rules-subhead">Never suggested</div>` + blockedKeys.map(key => {
+    const r = txRules[key];
+    const merchant = humanizeMerchantKey(key.slice(1).split('|')[0]);
+    return `<div class="tx-rule-row"><div><div class="tx-rule-merchant">${escapeAttr(merchant)}</div><div class="tx-rule-target">never suggest ${escapeAttr(r.itemName||'')}</div></div><button class="tx-rule-del" data-tx-rule-del="${escapeAttr(key)}" title="Allow this suggestion again">${X_SVG}</button></div>`;
+  }).join('') : '';
+  if(!allKeys.length){
+    list.innerHTML = '<div class="tx-assign-empty">No merchant rules yet — press and hold a guess to always send that merchant to the same item.</div>' + blockedHtml;
+    return;
+  }
   const term = txRulesSearchTerm.trim().toLowerCase();
   const keys = term
     ? allKeys.filter(key => {
@@ -8602,7 +8659,7 @@ function renderTxRulesList(){
     const r = txRules[key];
     const targetLbl = `${categoryEmoji(r.categoryName)} ${escapeAttr(r.itemName)}${r.threshold!=null ? ` — above ${money(r.threshold)}` : ''}`;
     return `<div class="tx-rule-row"><div><div class="tx-rule-merchant">${escapeAttr(humanizeMerchantKey(key))}</div><div class="tx-rule-target">${targetLbl}</div></div><button class="tx-rule-del" data-tx-rule-del="${escapeAttr(key)}" title="Remove this rule">${X_SVG}</button></div>`;
-  }).join('');
+  }).join('') + blockedHtml;
 }
 function renderTransferRulesList(){
   const list = document.getElementById('transferRulesList');
@@ -9104,7 +9161,29 @@ document.getElementById('transferRulesList').addEventListener('click', (e) => {
   saveTransferRules();
   renderTransferRulesList();
 });
+// Press and hold the guess to confirm it AND remember the merchant; press and hold the × to
+// record that this pairing should never be suggested again. A plain tap on either is unchanged.
+bindHoldAction(document.getElementById('upTxList'), '[data-tx-guess]', (btn) => {
+  confirmTxGuess(btn.dataset.txGuess, btn.dataset.txAmt, btn.dataset.txDesc, btn.dataset.guessCat,
+    btn.dataset.guessItem, btn.dataset.guessReason, btn.dataset.txDate, btn.dataset.txTransferAccount,
+    btn.dataset.guessOverflowCat, btn.dataset.guessOverflowItem, true);
+});
+bindHoldAction(document.getElementById('upTxList'), '[data-tx-assign]', (btn) => {
+  // Only meaningful on the "wrong guess" × - a row that's already assigned has no guess to
+  // reject, and its × is a plain re-assign button.
+  const row = btn.closest('.up-tx-row2, .up-tx-row');
+  const guessBtn = row && row.querySelector('[data-tx-guess]');
+  if(!guessBtn) return;
+  const merchantKey = extractMerchantKey(btn.dataset.txDesc, parseFloat(btn.dataset.txAmt));
+  blockGuessPairing(merchantKey, guessBtn.dataset.guessCat, guessBtn.dataset.guessItem);
+  toast(`Won’t suggest “${guessBtn.dataset.guessItem}” for “${humanizeMerchantKey(merchantKey)}” again.`);
+  renderUpTxList();
+  openTxAssignModal(btn.dataset.txAssign, btn.dataset.txAmt, btn.dataset.txDesc, btn.dataset.txDate, btn.dataset.txTransferAccount);
+});
 document.getElementById('upTxList').addEventListener('click', (e) => {
+  // A completed hold already did the work; the browser fires click on release regardless, and
+  // without this the tap action would run on top of it.
+  if(holdSuppressedClick){ holdSuppressedClick = false; e.preventDefault(); e.stopPropagation(); return; }
   // Ctrl/Cmd-click anywhere on a row toggles it into the multi-selection instead of
   // performing whatever that spot would normally do (assign/exclude/view note/etc) -
   // takes priority over every other handler below.
@@ -9694,6 +9773,45 @@ document.addEventListener('click', (e) => { if(!e.target.closest('[data-donut-sl
 // synthetic click afterwards) has to be blocked unconditionally and up front, since it
 // can't be un-done retroactively once a long-press is detected. A short tap then
 // manually re-focuses the field on touchend to restore normal editing.
+// Tap does one thing, press-and-hold does a stronger version of it. Pointer events rather than
+// touch, so a mouse and a finger behave identically - the older bindLongPressReveal below is
+// touch-only because it exists to replace a tap that desktop doesn't make.
+// The element gets a .holding class for the whole press, which is what drives the fill animation
+// - an invisible timer is how you end up creating rules by accident.
+// A completed hold sets holdSuppressedClick, because the browser still fires click on release
+// and the delegated handlers would otherwise run the tap action on top of the hold action.
+const HOLD_MS = 480;
+let holdSuppressedClick = false;
+function bindHoldAction(container, selector, onHold){
+  let timer = null, el = null, startX = 0, startY = 0, fired = false;
+  const cancel = () => {
+    clearTimeout(timer); timer = null;
+    if(el) el.classList.remove('holding');
+    el = null;
+  };
+  container.addEventListener('pointerdown', (e) => {
+    if(e.button != null && e.button !== 0) return;   // left button / touch / pen only
+    const t = e.target.closest(selector);
+    if(!t) return;
+    el = t; fired = false; startX = e.clientX; startY = e.clientY;
+    el.classList.add('holding');
+    el.style.setProperty('--hold-ms', HOLD_MS + 'ms');
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      fired = true;
+      const target = el;
+      cancel();
+      holdSuppressedClick = true;
+      onHold(target);
+    }, HOLD_MS);
+  });
+  container.addEventListener('pointermove', (e) => {
+    if(!el) return;
+    if(Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) cancel();
+  }, {passive:true});
+  ['pointerup','pointercancel','pointerleave'].forEach(ev =>
+    container.addEventListener(ev, () => { if(!fired) cancel(); }));
+}
 function bindLongPressReveal(container, selector, getText, opts={}){
   const THRESHOLD_MS = 480, MOVE_TOLERANCE = 10;
   let timer = null, longPressed = false, moved = false, startX = 0, startY = 0, activeEl = null;

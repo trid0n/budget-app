@@ -812,6 +812,29 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     Up is waited for but never gated on — measured: normal load lifts at ~540ms, and with an Up
     API that never responds it still lifts at ~2.5s with the ledger usable.
 
+48. **Press-and-hold replaces the remember-this-merchant popup.** That popup fired after EVERY
+    manual assignment, and dismissing it recorded nothing — so the same merchant asked again
+    forever. There was no "no, stop asking" state, only "yes". Now the intent rides on the same
+    gesture as the action: **tap a guess = confirm once; hold it = confirm and always remember.
+    Tap the × = wrong guess, open search; hold the × = never suggest that pairing again**, and
+    the search still opens so it can be assigned.
+    `bindHoldAction` is pointer-based (mouse and touch identically, unlike the touch-only
+    `bindLongPressReveal`), 480ms, and adds `.holding` for the whole press — the `::after` fill
+    sweeping over exactly that duration is essential, since an invisible timer is how rules get
+    created by accident. A completed hold sets `holdSuppressedClick` because the browser still
+    fires `click` on release and the delegated handlers would otherwise run the tap action too.
+    **Negative rules need no migration**: stored as ordinary `tx_rules` rows under a namespaced
+    `merchant_key` of `"!key|item"`, since that column is free text. One row per blocked pairing,
+    so blocking Coles→Groceries leaves Coles→Excess spend on food available. `renderTxRulesList`
+    filters them into their own "Never suggested" section — otherwise they render as rules doing
+    the opposite of what they do. An explicit hold-yes deletes any matching block, and vice versa.
+    **The gate is whether a rule EXISTS, not `reason !== 'merchant'`** — the copy-a-past-
+    assignment guess strategy also reports `'merchant'` despite there being no rule, so the old
+    test silently swallowed the save for exactly the guesses worth remembering. Caught only by
+    testing the hold and finding zero rules written.
+    The threshold ("only above $X") option has no home in a two-state gesture, so it stays on the
+    assign-modal path, which keeps the old popup.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
