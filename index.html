@@ -649,8 +649,6 @@ html:has(.modal-overlay.show){overflow:hidden;}
 @media (max-width:700px){
   .topbar{gap:10px;}
   .assign-card{padding:10px 14px; gap:14px;}
-  /* Only surfaced on phones - see the element's own comment for why it's hidden by default. */
-  #dbgOverlay{display:block !important;}
 }
 @media (min-width:1700px){
   .wrap{max-width:1900px; padding:34px 56px 56px;}
@@ -1273,6 +1271,20 @@ select.mini-select{font-family:'Inter',sans-serif; font-size:.78rem; border:1px 
      field - the earlier 64px was tuned before input font-size was bumped to 16px (for
      the iOS zoom fix below), which needs more room to show the same digits. */
   .lrow.leaf{grid-template-columns:20px 1fr 96px 52px;}
+  /* Both of these are absolutely positioned over the row, and their desktop anchors put them
+     in the middle of it - which on a phone is the middle of the NAME, so they landed on the
+     text, on the strike-through, and (when a row had both) on each other. Park them in the
+     gap just before the amount column instead, one slot each, measured from the right edge so
+     they hold their positions at any screen width. updateItemNameWidthFor already subtracts
+     both icons' widths from the name's cap, so the text now stops short of a lane that is
+     finally where that reservation assumes it is. */
+  .lrow .tx-link-badge{right:160px;}
+  .lrow .price-change-ind{left:auto; right:204px; transform:translateY(-50%);}
+  /* With no paperclip beside it the inner slot is free, and taking it gives the name back the
+     44px the outer slot would have cost it. Written as the exception rather than the rule so a
+     browser without :has() falls back to two separate slots - a little name width lost, rather
+     than both icons stacked on the same spot, which is the bug this is fixing. */
+  .lrow .price-change-ind:not(:has(~ .tx-link-badge)){right:160px;}
   .amt-wrap{width:96px; min-width:0;}
   .leaf-name{flex:1; min-width:0;}
   .grow{grid-template-columns:20px 1fr 96px 52px;}
@@ -1417,26 +1429,6 @@ body.dark .auth-box{box-shadow:0 24px 60px -20px rgba(0,0,0,.6), var(--shadow);}
   /* Always dark, whatever the app theme - it's a brand moment, not a themed surface. */
   #appSplash.done{opacity:0; pointer-events:none;}
 </style>
-<!-- TEMPORARY diagnostic overlay - remove once the real-device pull/scroll bug is
-     actually root-caused. Shows live touch/scroll state so a screenshot mid-gesture
-     reveals whether this app's own JS is doing anything at that moment, instead of
-     guessing blind from a static after-the-fact screenshot. Anchored to the BOTTOM of the
-     screen, not the top - it grew to 8 lines/~120px tall as more fields got added, which at
-     top:2px;right:2px was directly covering the real month-nav button and Today button
-     (confirmed via getBoundingClientRect() overlap, not a guess) - meaning it had been
-     hiding the exact controls it was supposed to help diagnose, on top of whatever the
-     actual app bug was. The bottom of the screen has no fixed-position app UI on mobile
-     (the tab strip is fixed to the top) so nothing real should ever end up under it there. -->
-<!-- Hidden on desktop: this only ever existed to debug the mobile pull/pager saga, and on
-     a big screen it's just green text sitting in the corner of the app. Still available on
-     phones, where that investigation may need it again. -->
-<div id="dbgOverlay" style="position:fixed; bottom:2px; right:2px; z-index:999999; background:rgba(0,0,0,.8); color:#4f8; font:10px/1.4 monospace; padding:4px 6px; border-radius:4px; pointer-events:none; white-space:pre; max-width:55vw; display:none;"></div>
-<script>
-function dbgOverlay(text){
-  const el = document.getElementById('dbgOverlay');
-  if(el) el.textContent = text;
-}
-</script>
 <script>
 // Applying the theme happens after the async Supabase settings load, which is too late
 // to avoid a light-mode flash for anyone using dark mode - localStorage is readable
@@ -3419,7 +3411,11 @@ function updateStrikeWidth(row){
   const cs = getComputedStyle(input);
   const w = measureTextWidth(input.value, cs);
   const safeW = isWidthSane(input.value, w) ? w : Math.max(w, (input.value||'').length * 7);
-  row.style.setProperty('--strike-w', Math.max(0, safeW + 3) + 'px');
+  // Measured from the whole name, but the input shows an ellipsis once the name outgrows its
+  // column - so on a narrow screen the line kept going where the text had stopped, out across
+  // the paperclip and the price arrow. Cap it at what's actually visible.
+  const visibleW = input.clientWidth - (parseFloat(cs.paddingLeft)||0) - (parseFloat(cs.paddingRight)||0);
+  row.style.setProperty('--strike-w', Math.max(0, Math.min(safeW + 3, visibleW)) + 'px');
   const strikeTop = computeStrikeTop(input, cs);
   if(strikeTop != null) row.style.setProperty('--strike-top', strikeTop + 'px');
   if(!isWidthSane(input.value, w)) requestAnimationFrame(() => requestAnimationFrame(() => updateStrikeWidth(row)));
@@ -6684,36 +6680,6 @@ document.addEventListener('touchmove', (e) => {
   pullDrag.active = true;
   if(!pullDrag.suppressVisual) wrapEl.style.transform = `translateY(${pull}px)`;
 }, {passive:false});
-// TEMPORARY - continuous rAF poll rather than only updating on touchmove, purely for the
-// on-screen debug readout. The touchmove-only version went stale the instant a touch ended
-// (it would just sit on its last value, appending "(released)"), which was a real blind
-// spot - it meant the overlay couldn't show anything about the ~1s window AFTER a swipe
-// where the month-nav row was reported to stay missing, exactly the window that actually
-// needed diagnosing. Polling every frame means it's always live, whether or not a touch is
-// currently happening.
-let lastTouchY = null;
-document.addEventListener('touchmove', (e) => { lastTouchY = Math.round(e.touches[0].clientY); }, {passive:true});
-// Bumped by hand on every change to this overlay or the code it's diagnosing - lets a
-// glance at the phone confirm it's actually running the latest deploy, not a stale cached
-// copy, before spending another round chasing a bug that might already be fixed.
-const DBG_BUILD = 'v14-maxheight-clip';
-function dbgTick(){
-  const view = document.querySelector('.side-icon.active')?.dataset.view;
-  const topRight = document.querySelector('.top-right');
-  dbgOverlay(
-    `build:${DBG_BUILD}\n` +
-    `view:${view}\n` +
-    `pullDrag:${pullDrag ? (pullDrag.axis||'?')+(pullDrag.active?' ACTIVE':'') : 'null'}\n` +
-    `pagerDrag:${pagerDrag ? (pagerDrag.axis||'?') : 'null'}\n` +
-    `wrap.transform:${wrapEl.style.transform || 'none'}\n` +
-    `wrap.scrollTop:${Math.round(wrapEl.scrollTop)} touchY:${lastTouchY}\n` +
-    `mastEmpty:${document.querySelector('header.mast').classList.contains('mast-empty')}\n` +
-    `monthNavDisplay:${getComputedStyle(document.getElementById('monthNavWrap')).display}\n` +
-    `topRight:${getComputedStyle(topRight).position} ${topRight.style.transform || 'none'}`
-  );
-  requestAnimationFrame(dbgTick);
-}
-requestAnimationFrame(dbgTick);
 function endPullDrag(){
   if(!pullDrag) return;
   if(pullDrag.active){
