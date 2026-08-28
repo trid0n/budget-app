@@ -6451,7 +6451,13 @@ document.addEventListener('keydown', (e) => {
 // table actually has anything to scroll horizontally (Monthly costs/MTG do; the Savings
 // Dashboard's own table doesn't anymore now that the Running total column is gone), which
 // a fixed selector can't express.
-const PAGER_DRAG_BLOCKED_SELECTOR = '.grip-handle, .chart, .custom-select-list, .date-select-row, .inline-source-panel, .month-dropdown, .month-dropdown-list, textarea, input, .sidebar, .modal-overlay, .month-actions-panel, #inlinePanelHost';
+// Ledger rows are almost entirely made of the name and amount inputs, so a blanket "input"
+// here meant most of the Budget tab couldn't be swiped from at all - the finger nearly always
+// lands on one. They're excluded: a tap still focuses the field and a stationary press still
+// reveals the full name (bindLongPressReveal), while an actual drag now reaches the pager like
+// it does from anywhere else on the row. Every other input still blocks, where a horizontal
+// drag is more likely to be someone selecting text than changing tabs.
+const PAGER_DRAG_BLOCKED_SELECTOR = '.grip-handle, .chart, .custom-select-list, .date-select-row, .inline-source-panel, .month-dropdown, .month-dropdown-list, textarea, input:not(.name-input):not(.amt-input), .sidebar, .modal-overlay, .month-actions-panel, #inlinePanelHost';
 let pagerDrag = null;
 const viewPagerTrack = document.getElementById('viewPagerTrack');
 // Undo/month-nav/Today only make sense on the Ledger tab and are already hidden on every
@@ -9864,6 +9870,10 @@ function bindLongPressReveal(container, selector, getText, opts={}){
     if(Math.abs(t.clientX-startX) > MOVE_TOLERANCE || Math.abs(t.clientY-startY) > MOVE_TOLERANCE){
       clearTimeout(timer);
       moved = true;
+      // Once the finger is travelling this is a swipe, not a press - including when the hold
+      // already fired and the tooltip is up. It gets out of the way rather than floating over
+      // a tab change or a scroll.
+      if(longPressed){ longPressed = false; hideFloatTooltip(); }
     }
   }, {passive:true});
   container.addEventListener('touchend', (e) => {
