@@ -460,6 +460,9 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .lrow.leaf{transition:opacity .3s ease;}
 .lrow.charged{opacity:.65;}
 .lrow.charged .leaf-name::after{width:var(--strike-w, 0px);}
+/* A row rendered already-crossed has no --strike-w until the measuring pass runs, so it would
+   draw its line in from nothing every time the list is rebuilt. See releaseInstantStrikes. */
+.lrow.strike-instant .leaf-name::after{transition:none;}
 .lrow.charged:hover{opacity:.8;}
 .lrow.leaf.flash{animation:chargeFlash .5s ease;}
 @keyframes chargeFlash{
@@ -3233,7 +3236,7 @@ function renderIncome(){
     const txPanelOpen = expandedTxPanels.has(`income:${i.id}`);
     const txOver = linkedTxCount > 0 && itemAmountExceedsTxTotal('income', i.id, i.amount);
     const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}${txOver?' over':''}" data-tx-view-item="${i.id}" data-tx-view-cat="income" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked${txOver?' \u2014 amount is higher than they add up to':''} \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg></button>` : '';
-    return `<div class="lrow ${charged?'charged':''}" data-item-row="${i.id}" data-cat="income" data-item="${i.id}">
+    return `<div class="lrow ${charged?'charged strike-instant':''}" data-item-row="${i.id}" data-cat="income" data-item="${i.id}">
       <div class="leaf-name"><input class="name-input" type="text" placeholder="e.g. salary" value="${escapeAttr(i.name)}" data-cat="income" data-item="${i.id}" data-field="name"></div>
       ${txBadge}
       <div class="amt-wrap plain"><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${i.amount||''}" data-cat="income" data-item="${i.id}" data-field="amount"></div>
@@ -3423,7 +3426,19 @@ function updateStrikeWidth(row){
 }
 function updateAllStrikeWidths(){
   document.querySelectorAll('#view-ledger .lrow').forEach(updateStrikeWidth);
+  releaseInstantStrikes();
   renderStrikeDebugPanel();
+}
+// Rows render already-crossed with their strike transition off (.strike-instant), because a
+// fresh element starts at --strike-w:0 and would draw its line in from nothing the moment the
+// pass above measures it - so adding or deleting one item flashed every other row uncrossed and
+// crossed it again. The width is flushed with the transition still off, then it goes back on so
+// crossing a row off by hand still animates.
+function releaseInstantStrikes(){
+  const rows = document.querySelectorAll('#view-ledger .lrow.strike-instant');
+  if(!rows.length) return;
+  void document.body.offsetHeight;
+  rows.forEach(r => r.classList.remove('strike-instant'));
 }
 function updateCatNameWidth(input){
   if(!input || input.offsetParent === null) return;
@@ -4336,7 +4351,7 @@ function leafRowHtml(catId, item){
     ? `<span class="amt-spent" data-tip="${money(spent)} spent so far this month across ${linkedTxCount} transaction${linkedTxCount>1?'s':''} — separate from the goal, which covers the days still to come">${money(spent)}</span>`
     : '';
   const txBadge = linkedTxCount > 0 ? `<button class="tx-link-badge${txPanelOpen?' open':''}${txOver?' over':''}" data-tx-view-item="${item.id}" data-tx-view-cat="${catId}" data-tip="${linkedTxCount} transaction${linkedTxCount>1?'s':''} linked${txOver?' \u2014 amount is higher than they add up to':''} \u2014 click to ${txPanelOpen?'hide':'view'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg></button>` : '';
-  return `<div class="lrow leaf ${charged?'charged':''}" data-leaf-row="${item.id}" data-cat="${catId}" data-item="${item.id}">
+  return `<div class="lrow leaf ${charged?'charged strike-instant':''}" data-leaf-row="${item.id}" data-cat="${catId}" data-item="${item.id}">
     <span class="grip-handle" title="Drag to reorder">${GRIP_SVG}</span>
     ${priceChangeHtml(item)}
     ${txBadge}
