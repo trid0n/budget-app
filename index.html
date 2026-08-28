@@ -4280,11 +4280,33 @@ function priceChangeHtml(item){
 }
 // Crossed-off rows sink to the bottom so what's still outstanding stays at the top, where the
 // work is. Display order only - the stored order is untouched, and Array.sort is stable so
-// everything keeps its relative position within the two groups. Dragging still reorders freely
+// everything keeps its relative position within its own group. Dragging still reorders freely
 // (syncItemOrderFromDOM writes the DOM order back); dragging a crossed-off row above an
 // outstanding one just settles back down on the next render, which is the intent.
+// A row you've just added sits below even the crossed-off ones until it has both a name and an
+// amount - an empty row hasn't earned a place among what's still outstanding, and jumping it up
+// there the instant it's created moves the list under you before you've said what it is.
+// Promotion happens on the way out of the row (promotePendingNewItems), never mid-keystroke,
+// which would re-render the input out from under the caret.
+const pendingNewItemIds = new Set();
+function itemRowRank(item){
+  if(pendingNewItemIds.has(item.id)) return 2;
+  return item.charged ? 1 : 0;
+}
 function itemsForDisplay(items){
-  return [...(items||[])].sort((a, b) => (a.charged ? 1 : 0) - (b.charged ? 1 : 0));
+  return [...(items||[])].sort((a, b) => itemRowRank(a) - itemRowRank(b));
+}
+function promotePendingNewItems(catId){
+  const list = findList(catId);
+  if(!list) return false;
+  let moved = false;
+  list.forEach(i => {
+    if(pendingNewItemIds.has(i.id) && String(i.name||'').trim() && Number(i.amount)){
+      pendingNewItemIds.delete(i.id);
+      moved = true;
+    }
+  });
+  return moved;
 }
 function leafRowHtml(catId, item){
   const charged = !!item.charged;
@@ -5353,6 +5375,7 @@ async function switchToMonth(key){
   // under the incoming key, or lose it outright when monthData is replaced below. Flush first.
   saveLog('month.switch', {from: settings.currentMonth, to: key, hadPendingSave: !!saveTimer});
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; await saveCurrentMonth(); }
+  pendingNewItemIds.clear();   // "just added" only means in the month you added it in
   settings.currentMonth = key;
   saveSettings();
   renderMonthDropdown();
@@ -5452,12 +5475,18 @@ function addLine(catId){
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
   const list = findList(catId);
   if(!list) return;
+  // Enter in a row adds the next one, so settle the row being left before pushing a new one -
+  // otherwise a finished row stays pinned to the bottom with the blank one below it.
+  promotePendingNewItems(catId);
   if(catId==='income'){
-    list.push({id:uid(), name:'', amount:0, charged:false});
+    const newItem = {id:uid(), name:'', amount:0, charged:false};
+    list.push(newItem);
+    pendingNewItemIds.add(newItem.id);
     renderIncome();
   } else {
     const newItem = {id:uid(), name:'', amount:0, planned:0, charged:false};
     list.push(newItem);
+    pendingNewItemIds.add(newItem.id);
     const container = document.querySelector(`[data-cat-rows="${catId}"]`);
     const cat = monthData.categories.find(c=>c.id===catId);
     if(container) container.innerHTML = itemsForDisplay(cat.items).map(i=>leafRowHtml(catId,i)).join('');
@@ -5517,6 +5546,19 @@ document.getElementById('view-template').addEventListener('change', (e) => {
     if(undoStack.length > 60) undoStack.shift();
     pendingTplSnapshot = null;
   }
+});
+// Deferred to a task so document.activeElement has settled: tabbing from the name to the amount
+// of the same row is still editing it, and re-rendering there would throw away the focus.
+document.getElementById('view-ledger').addEventListener('focusout', (e) => {
+  const t = e.target;
+  if(!t.dataset || !t.dataset.cat || !t.dataset.item) return;
+  if(!pendingNewItemIds.has(t.dataset.item)) return;
+  const catId = t.dataset.cat;
+  const row = t.closest('.lrow');
+  setTimeout(() => {
+    if(row && row.contains(document.activeElement)) return;
+    if(promotePendingNewItems(catId)) rerenderCategoryRows(catId);
+  }, 0);
 });
 document.getElementById('view-ledger').addEventListener('keydown', (e) => {
   if(e.key==='Enter' && e.target.matches('.name-input, .amt-input')){
