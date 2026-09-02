@@ -6917,7 +6917,7 @@ function findMisfiledAssignments(){
     const a = txAssignments[txId];
     if(a.excluded || !a.catId) continue;
     if(!a.date){ undatable.push(txId); continue; }
-    const should = periodKeyForDate(a.date, starts, true);
+    const should = periodKeyFor(a.date, isIncomeSourcePay(a.desc, a.txAmt), starts, true);
     if(!should){ undatable.push(txId); continue; }
     if(should === a.monthKey) continue;
     out.push({txId, a, from: a.monthKey, to: should});
@@ -6929,11 +6929,24 @@ function findMisfiledAssignments(){
 // month still counting the money and the new one still not. Destination items are matched by
 // category name + item name, since ids are per-month. Anything that can't be placed is left
 // exactly as it was rather than guessed at; the count of those is reported back.
-async function refileAssignmentsToCurrentMode(moves){
+async function refileAssignmentsToCurrentMode(moves, opts){
   const lc = s => (s||'').trim().toLowerCase();
   const keys = [...new Set(moves.flatMap(m => [m.from, m.to]))];
   const months = {};
   for(const k of keys) months[k] = (k === settings.currentMonth) ? monthData : monthRowToData(await db.loadMonth(k));
+  // The period a month's own pay belongs to may not have been started yet - the usual case for
+  // a pay that arrives days before the month it funds. Started from the template so it reads as
+  // an ordinary month rather than a stub holding a single line.
+  if(opts && opts.createMissing){
+    let made = false;
+    for(const k of keys){
+      if(months[k]) continue;
+      months[k] = monthTemplate ? buildFromTemplate() : blankMonth();
+      if(!existingMonths.includes(k)){ existingMonths.push(k); existingMonths.sort(); }
+      made = true;
+    }
+    if(made) renderMonthDropdown();
+  }
   let moved = 0, skipped = 0, created = 0;
   const touched = new Set();
   for(const mv of moves){
@@ -6978,7 +6991,14 @@ async function refileAssignmentsToCurrentMode(moves){
     if(!dstItem){ skipped++; continue; }
     const amt = Number(mv.a.txAmt) || 0;
     if(srcItem && !isApportionedItem(srcItem.name)){
-      srcItem.amount = Math.round(((Number(srcItem.amount)||0) - amt) * 100) / 100;
+      // The mirror of the destination rule below: income's FIRST pay replaces the template
+      // estimate rather than adding to it, so moving the last one out has to put the estimate
+      // back rather than subtract the pay from it and leave a bare 0.
+      const stillLinked = Object.keys(txAssignments).some(id => id !== mv.txId && !txAssignments[id].excluded
+        && txAssignments[id].monthKey === mv.from && txAssignments[id].catId === mv.a.catId && txAssignments[id].itemId === mv.a.itemId);
+      const tplInc = (isIncome && !stillLinked && monthTemplate) ? monthTemplate.income.find(i => lc(i.name) === lc(srcItem.name)) : null;
+      if(isIncome && !stillLinked) srcItem.amount = tplInc ? (Number(tplInc.amount)||0) : 0;
+      else srcItem.amount = Math.round(((Number(srcItem.amount)||0) - amt) * 100) / 100;
     }
     const prior = Object.values(txAssignments).filter(x => !x.excluded && x.monthKey === mv.to && x.catId === dstCatId && x.itemId === dstItem.id).length;
     if(!isApportionedItem(dstItem.name)){
@@ -7000,6 +7020,20 @@ async function refileAssignmentsToCurrentMode(moves){
   flashChangedItems([...touched]);
   saveLog('refile', {moved, skipped, created, flashed: touched.size});
   return {moved, skipped, created};
+}
+// A pay from the linked income source that landed in the last week of the month belongs to the
+// next one (see periodKeyFor). Manual assignment always files into the month on screen, so the
+// assignment is made normally and then moved - reusing the re-file the period-mode toggle uses,
+// which already knows how to adjust both months' totals and add a missing line at the far end.
+async function refileLatePayIfNeeded(txId){
+  const a = txAssignments[txId];
+  if(!a || a.excluded || !a.catId) return;
+  const t = upTransactions.find(x => x.id === txId);
+  if(!t || !isIncomeSourceTx(t)) return;
+  const should = periodKeyForTx(t);
+  if(!should || should === a.monthKey) return;
+  const {moved} = await refileAssignmentsToCurrentMode([{txId, a, from: a.monthKey, to: should}], {createMissing: true});
+  if(moved) toast(`Filed into ${monthLabel(should)} \u2014 a pay this late in the month counts towards the next one.`);
 }
 document.getElementById('periodModeGroup').addEventListener('click', async (e) => {
   const btn = e.target.closest('.period-mode-btn');
@@ -7397,8 +7431,33 @@ function periodKeyForDate(dateish, starts, strict){
   if(!cycle) return strict ? null : dateToKey(d);
   return addMonths(dateToKey(new Date(cycle.startTs)), 1);
 }
+// A pay landing in the last week of a calendar month funds the month about to start, not the
+// one that's ending. Only the linked income source moves - ordinary spending on the 29th is
+// still that month's spending, which is what calendar mode means.
+const LATE_PAY_DAYS = 7;
+function isLatePayDate(d){
+  const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  return daysInMonth - d.getDate() < LATE_PAY_DAYS;
+}
+// txAmt is stored absolute and a pay is a credit anyway, so this answers the same for a stored
+// assignment (which carries no merchant key of its own) as for the live transaction.
+function isIncomeSourcePay(desc, amt){
+  return !!upIncomeSourceKey && extractMerchantKey(desc, Math.abs(Number(amt) || 0)) === upIncomeSourceKey;
+}
+function isIncomeSourceTx(t){
+  return isIncomeSourcePay(t.attributes.description, parseFloat(t.attributes.amount.value));
+}
+// periodKeyForDate plus the late-pay rule. It only ever shifts an answer that came from the
+// plain calendar month: in paycycle mode the cycle boundary already says exactly this, since
+// the pay STARTS the cycle it funds, and shifting that again would push it a month too far.
+function periodKeyFor(dateish, isPay, starts, strict){
+  const key = periodKeyForDate(dateish, starts, strict);
+  if(!key || !isPay) return key;
+  const d = new Date(dateish);
+  return (key === dateToKey(d) && isLatePayDate(d)) ? addMonths(key, 1) : key;
+}
 function periodKeyForTx(t){
-  return periodKeyForDate(t.attributes.createdAt);
+  return periodKeyFor(t.attributes.createdAt, isIncomeSourceTx(t));
 }
 function payCycleLabel(cycle){
   if(!cycle) return { name: 'Before your earliest loaded pay', range: '' };
@@ -7433,6 +7492,15 @@ async function detectEffectivePeriodAtBoot(){
     });
     if(mostRecent) todaysEffectiveMonthKey = addMonths(dateToKey(mostRecent), 1);
   }catch(e){ /* silent - keeps the calendar-month fallback recomputeEffectivePeriod() already set */ }
+}
+// Up pays interest into each saver at the start of every month, which lands as a handful of
+// small credits that are neither income nor spending. Recognised here so they can be excluded
+// on sight instead of being dismissed one at a time every month. Credits only: nothing Up takes
+// out is called this, and the sign stops a merchant whose name merely starts with the word from
+// being swallowed along with them.
+function isInterestTx(t){
+  const amt = parseFloat(t.attributes.amount.value);
+  return amt > 0 && /^(bonus\s+)?interest\b/i.test((t.attributes.description||'').trim());
 }
 function autoApplyTxRules(){
   let changed = false;
@@ -7472,6 +7540,14 @@ function autoApplyTxRules(){
         txAssignments[t.id] = {monthKey: settings.currentMonth, excluded: true};
         changed = true;
       }
+      return;
+    }
+    // Same first-time-only rule as the transfer default below - excluded on sight, but an
+    // explicit choice to assign or un-exclude one afterwards is never overwritten.
+    if(isInterestTx(t)){
+      if(existing) return;
+      txAssignments[t.id] = {monthKey: settings.currentMonth, excluded: true};
+      changed = true;
       return;
     }
     if(isCoverOrTransfer && !transferRule){
@@ -8326,6 +8402,8 @@ function completeTxAssignment(catId, itemId, itemName){
   toast(bulkCount ? `Added "${itemName}" to ${bulkCount+1} transactions` : `Added ${money(Math.abs(txAssignCurrent.amt))} to "${itemName}"`);
   const txId = txAssignCurrent.id, desc = txAssignCurrent.desc, transferAccountId = txAssignCurrent.transferAccountId;
   closeTxAssignModal();
+  // Not awaited: it repairs a period that isn't on screen and mustn't make the click wait.
+  refileLatePayIfNeeded(txId);
   if(bulkCount) selectedTxIds.clear();
   if(transferAccountId) maybeShowTransferRememberPopup(txId, transferAccountId, cat.name, itemName);
   else maybeShowRememberPopup(txId, merchantKey, desc, cat.name, itemName);
@@ -8631,6 +8709,7 @@ function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date, t
   scheduleSave();
   renderGroups(); updateSummary(); renderUpTxList();
   toast(bulkCount ? `Confirmed "${found.item.name}" for ${bulkCount+1} transactions` : `Confirmed — added ${money(Math.abs(Number(amt)))} to "${found.item.name}".`);
+  refileLatePayIfNeeded(txId);
   if(bulkCount) selectedTxIds.clear();
   if(transferAccountId){
     // A transfer's merchant key is generic/identical across every saver (see

@@ -835,6 +835,39 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     The threshold ("only above $X") option has no home in a two-state gesture, so it stays on the
     assign-modal path, which keeps the old popup.
 
+49. **Saver interest is excluded on sight, and a late pay counts towards the next month.**
+    Two unrelated asks, both in the Up attribution path.
+    `isInterestTx` (credit, description `^(bonus )?interest\b`) gets the same first-time-only
+    exclude as the transfer default in `autoApplyTxRules`, so the dozen small credits Up pays
+    into the savers on the 1st stop needing to be dismissed one at a time. Un-excluding one
+    sticks, because the un-exclude button writes `{excluded:false}` rather than deleting the
+    entry (the bug from item 11 would otherwise re-exclude it on the next render — checked).
+    Note these only reach `upTransactions` at all when the fetch went to `/transactions` rather
+    than `/accounts/<spending>/transactions`, which is the case on a cold load, before
+    `refreshUpData` has resolved the accounts list.
+    The late pay: `periodKeyFor(date, isPay, starts, strict)` wraps `periodKeyForDate` and moves
+    a pay from the linked income source landing in the final `LATE_PAY_DAYS` (7) of a calendar
+    month into the following month. Only the income source moves — spending on the 29th is still
+    that month's spending, which is what calendar mode means. It **only shifts an answer that came
+    from the plain calendar month**, so paycycle mode is untouched: the cycle boundary already
+    says exactly this, since the pay STARTS the cycle it funds, and shifting again would push it
+    a month too far. Verified both modes agree on 28 Aug → September.
+    `findMisfiledAssignments` asks the same question (via `isIncomeSourcePay(a.desc, a.txAmt)` —
+    `merchant_key` is NOT a column on `tx_assignments`, but `txAmt` is stored absolute and a pay
+    is a credit anyway, so the key recomputes correctly from what IS stored), otherwise a mode
+    toggle would drag every late pay back a month.
+    Manual assignment still files into the month on screen, so `refileLatePayIfNeeded` runs after
+    `confirmTxGuess`/`completeTxAssignment` and moves it, reusing `refileAssignmentsToCurrentMode`
+    — not awaited, same reasoning as `reverseTxAssignmentInOtherMonth`. That re-file gained
+    `{createMissing:true}`, which starts the destination period from the template when it doesn't
+    exist yet: the usual case, since a pay arrives days before the month it funds.
+    It also gained the mirror of its own income rule — the first pay REPLACES the template
+    estimate, so moving the last one out has to put the estimate back rather than subtract the pay
+    and leave a bare 0. Without that, filing the pay forward left the month it came from showing
+    income of $0 instead of its estimate. Verified: August kept its $4,000 estimate, September
+    took the real $4,200, a 29 Aug purchase stayed in August, and a 28 Sep pay created October
+    from the template with the pay already in it.
+
 ## Data repairs (a fix to the code is not a fix to the data)
 
 - **229 cross-month `tx_assignments` re-stamped** (2026-08-24). Symptom reported as
