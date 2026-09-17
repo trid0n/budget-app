@@ -956,3 +956,18 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     `renderGroups()`. Category paperclips therefore appeared immediately while a linked pay's never
     did. Each of those sites now calls `renderIncome()` first. If you add a new place that changes
     `txAssignments`, redraw both.
+
+54. **Tech "Last purchased" uses a custom date picker, not `<input type="date">`.** Asked for as
+    "smarter, less browsery", plus the native calendar glyph was black in dark mode. The cell is a
+    `.pdate-btn` (stroke `CAL_SVG` in `currentColor`, so it follows the theme) opening one shared
+    `pdatePanel` (a `.month-actions-panel`, appended to `<body>` for the transformed-pager reason
+    in item 4's neighbourhood). Panel: a text box parsed by `parsePurchaseDate` ("today", "3 weeks
+    ago", "2 years ago", "mar 2024", "15/3/24" — day-first — "2024", a bare month = its most recent
+    past occurrence), quick chips, a year + month grid, then a Monday-first day grid with "don't
+    know the day" (uses the 1st). Future dates are disabled everywhere, since it's a purchase date.
+    Text box is autofocused on desktop only — on a phone the keyboard would cover the grid.
+    `setPurchaseDate` pushes undo, re-renders just that button and updates the progress bar.
+    The panel's own click handler calls `stopPropagation` because re-rendering detaches the clicked
+    node, which a document-level "clicked outside?" check would otherwise read as outside.
+    Recurring costs' "Last charged" is still a native date input.
+    **Harness gotcha**: the Browser pane's `computer` key "Return" dispatches `key: ''`; use "Enter".
