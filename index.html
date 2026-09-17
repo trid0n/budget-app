@@ -863,6 +863,7 @@ body.saver-dragging-active{user-select:none; -webkit-user-select:none;}
 @keyframes holdFill{to{transform:scaleX(1);}}
 .tpl-overflow-btn{font-size:.9rem; line-height:1;}
 .tpl-overflow-btn.set{color:var(--gold);}
+.tpl-pay-target-btn.set{color:var(--credit);}
 .overflow-panel{max-height:320px; overflow-y:auto; min-width:210px;}
 .overflow-panel-hdr{padding:6px 10px 4px; font-size:.64rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint);}
 .overflow-panel .tf-toggle-btn{display:flex; align-items:baseline; justify-content:space-between; gap:10px; width:100%; text-align:left;}
@@ -5029,8 +5030,13 @@ function tplIncomeRowHtml(item){
   return `<div class="lrow" data-tpl-item-row="${item.id}">
     <input class="name-input" type="text" placeholder="e.g. salary" value="${escapeAttr(item.name)}" data-tpl-cat="income" data-tpl-item="${item.id}" data-tpl-field="name">
     <div class="amt-wrap plain"><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-tpl-cat="income" data-tpl-item="${item.id}" data-tpl-field="amount"></div>
-    <div class="del-cell"><button data-tpl-cat="income" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
+    <div class="del-cell"><button class="item-menu-toggle month-actions-gear tpl-pay-target-btn${item.payTarget?' set':''}" data-tpl-pay-target="${item.id}" data-tip="${item.payTarget?'Your income source’s pays are assigned here automatically — click to stop':'Assign your income source’s pays to this line automatically'}">${DOLLAR_SVG}</button><button data-tpl-cat="income" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
   </div>`;
+}
+// Stored as a flag on the template income item (month_template.income is JSONB, so no
+// migration). At most one line carries it.
+function payTargetTemplateItem(){
+  return monthTemplate && (monthTemplate.income||[]).find(i => i.payTarget && (i.name||'').trim()) || null;
 }
 function tplLeafRowHtml(catId, item){
   const source = tplSourceFor(item.name);
@@ -5345,6 +5351,20 @@ document.getElementById('templateCard').addEventListener('click', async (e) => {
     }
     scheduleTemplateSave();
     updateAllTplItemNameWidths();
+    return;
+  }
+  const payBtn = e.target.closest('[data-tpl-pay-target]');
+  if(payBtn){
+    const item = monthTemplate.income.find(i => i.id === payBtn.dataset.tplPayTarget);
+    if(!item) return;
+    const on = !item.payTarget;
+    monthTemplate.income.forEach(i => { delete i.payTarget; });
+    if(on) item.payTarget = true;
+    scheduleTemplateSave();
+    document.getElementById('tplIncomeRows').innerHTML = monthTemplate.income.map(tplIncomeRowHtml).join('');
+    updateAllTplItemNameWidths();
+    toast(on ? `Pays from your income source will go to “${item.name || 'this line'}”` : 'Pays won’t be assigned automatically');
+    if(on) renderUpTxList();
     return;
   }
   const ovBtn = e.target.closest('[data-tpl-overflow]');
@@ -6060,7 +6080,9 @@ document.getElementById('useAsTemplateBtn').addEventListener('click', async () =
   if(!monthData) return;
   if(!await customConfirm('This replaces your current template with this month\u2019s categories, items, and goal. Continue?')) return;
   monthTemplate = {
-    income: monthData.income.map(i => ({id:uid(), name:i.name, amount:i.amount})),
+    // The pay-target mark lives only on the template, so carry it across by name or replacing the
+    // template would silently switch off pay auto-assignment.
+    income: monthData.income.map(i => ({id:uid(), name:i.name, amount:i.amount, ...(payTargetTemplateItem() && (payTargetTemplateItem().name||'').trim().toLowerCase() === (i.name||'').trim().toLowerCase() ? {payTarget:true} : {})})),
     categories: monthData.categories.map(c => ({id:uid(), name:c.name, ...(c.emoji!=null?{emoji:c.emoji}:{}), items:c.items.map(i=>({id:uid(), name:i.name, amount:i.amount}))})),
     goal: Number(monthData.goal)||0, ...(monthData.incomeEmoji!=null?{incomeEmoji:monthData.incomeEmoji}:{})
   };
@@ -7541,21 +7563,20 @@ function isInterestTx(t){
   const amt = parseFloat(t.attributes.amount.value);
   return amt > 0 && /^(bonus\s+)?interest\b/i.test((t.attributes.description||'').trim());
 }
-// A chosen income source files its own pays, with no merchant rule needed: into the income line
-// this payer's pays went to before, or failing that the largest income line - the big monthly
-// pay rather than a side income.
+// A chosen income source files its own pays, with no merchant rule needed, into the template
+// income line marked as the pay target - and only that. No mark, no auto-assign: guessing the
+// line (largest, or wherever earlier pays went) is exactly the kind of choice made on the user's
+// behalf that they asked not to have. A month missing that line gets it, as a transaction-created
+// line does anywhere else.
 function incomeSourceTargetForTx(t){
   if(!monthData || !isIncomeSourceTx(t)) return null;
+  const tpl = payTargetTemplateItem();
+  if(!tpl) return null;
   const lc = s => (s||'').trim().toLowerCase();
-  const named = monthData.income.filter(i => lc(i.name));
-  for(const id in txAssignments){
-    const a = txAssignments[id];
-    if(a.catId === 'income' && !a.excluded && isIncomeSourcePay(a.desc, a.txAmt) && named.some(i => lc(i.name) === lc(a.itemName))){
-      return {categoryName: 'Income', itemName: a.itemName};
-    }
+  if(!monthData.income.some(i => lc(i.name) === lc(tpl.name))){
+    monthData.income.push({id: uid(), name: tpl.name, amount: 0, charged: true});
   }
-  const biggest = named.reduce((b, i) => (!b || (Number(i.amount)||0) > (Number(b.amount)||0)) ? i : b, null);
-  return biggest ? {categoryName: 'Income', itemName: biggest.name} : null;
+  return {categoryName: 'Income', itemName: tpl.name};
 }
 function autoApplyTxRules(){
   let changed = false;
@@ -9382,7 +9403,9 @@ document.getElementById('upTxList').addEventListener('click', (e) => {
     upChoosingIncome = false;
     upIncomeFilterActive = false;
     updateIncomeOnlyControls();
-    toast(`"${t.attributes.description}" set as your income source`);
+    toast(payTargetTemplateItem()
+      ? `"${t.attributes.description}" set as your income source — pays go to “${payTargetTemplateItem().name}”`
+      : `"${t.attributes.description}" set as your income source. Mark which income line pays go to with $ on the Template tab.`);
     saveIncomeSource();
     renderPayCycleRow();
     renderUpTxList();

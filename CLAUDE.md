@@ -922,3 +922,13 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     Verified: a stray tap sets nothing; ACME PTY LTD chosen → its pays go to Pay while ACME REFUNDS
     and an outgoing ACME STORE don't match; assigning the refund to Side income leaves the source
     and later pays alone; after ✕ no further pay is auto-assigned.
+    **Superseded the same day — the line is chosen, not guessed.** `incomeSourceTargetForTx` no
+    longer picks "where earlier pays went, else the largest income line". The user marks one
+    template income line with the `$` button (`payTarget: true` on the item in
+    `month_template.income`, JSONB, no migration; `payTargetTemplateItem()`); at most one carries
+    it. No mark → no auto-assign, and setting the income source says so. A month missing that line
+    gets it (crossed off, per item 50). "Use this month as template" carries the mark across by
+    name, since it otherwise rebuilds the income list from scratch. Changing the mark doesn't move
+    pays already assigned — it only decides where new ones go.
+    Payer identity is the Up `description` (the sender's name for incoming payments); the payment's
+    wording is `message` and is never compared.
