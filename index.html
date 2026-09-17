@@ -7072,7 +7072,7 @@ async function refileAssignmentsToCurrentMode(moves, opts){
   for(const k of keys){ if(k !== settings.currentMonth && months[k]) await db.saveMonth(k, months[k]); }
   await saveTxAssignments();
   await saveCurrentMonth();
-  renderGroups(); updateSummary(); renderUpTxList();
+  renderIncome(); renderGroups(); updateSummary(); renderUpTxList();
   flashChangedItems([...touched]);
   saveLog('refile', {moved, skipped, created, flashed: touched.size});
   return {moved, skipped, created};
@@ -7678,7 +7678,7 @@ function autoApplyTxRules(){
   });
   if(changed){
     saveTxAssignments();
-    if(monthData){ scheduleSave(); renderGroups(); updateSummary(); }
+    if(monthData){ scheduleSave(); renderIncome(); renderGroups(); updateSummary(); }
   }
 }
 function findCoverSourceForTx(tx){
@@ -8480,7 +8480,7 @@ function completeTxAssignment(catId, itemId, itemName){
   const merchantKey = extractMerchantKey(txAssignCurrent.desc, txAssignCurrent.amt);
   saveTxAssignments();
   scheduleSave();
-  renderGroups(); updateSummary(); renderUpTxList();
+  renderIncome(); renderGroups(); updateSummary(); renderUpTxList();
   toast(bulkCount ? `Added "${itemName}" to ${bulkCount+1} transactions` : `Added ${money(Math.abs(txAssignCurrent.amt))} to "${itemName}"`);
   const txId = txAssignCurrent.id, desc = txAssignCurrent.desc, transferAccountId = txAssignCurrent.transferAccountId;
   closeTxAssignModal();
@@ -8673,7 +8673,7 @@ function createAndAssignItem(catId, name){
   txAssignments[txAssignCurrent.id] = {monthKey: settings.currentMonth, catId, itemId: newItem.id, itemName: name, categoryName: cat.name, merchantKey, txAmt: Math.abs(txAssignCurrent.amt), desc: txAssignCurrent.desc, date: txAssignCurrent.date};
   saveTxAssignments();
   scheduleSave();
-  renderGroups(); updateSummary(); renderUpTxList();
+  renderIncome(); renderGroups(); updateSummary(); renderUpTxList();
   toast(`Created "${name}" with ${money(Math.abs(txAssignCurrent.amt))}`);
   const txId = txAssignCurrent.id, desc = txAssignCurrent.desc, transferAccountId = txAssignCurrent.transferAccountId;
   closeTxAssignModal();
@@ -8728,7 +8728,7 @@ document.body.addEventListener('click', (e) => {
     txAssignments[txId] = {monthKey: settings.currentMonth, unassignedManually: true};
     saveTxAssignments();
     scheduleSave();
-    renderGroups(); updateSummary(); renderUpTxList();
+    renderIncome(); renderGroups(); updateSummary(); renderUpTxList();
     return;
   }
   const jumpRow = e.target.closest('[data-tx-jump]');
@@ -8747,7 +8747,7 @@ document.body.addEventListener('click', (e) => {
     pushUndo('month', monthData, {monthKey: settings.currentMonth});
     item.amount = Math.round(total * 100) / 100;
     scheduleSave();
-    renderGroups(); updateSummary();
+    renderIncome(); renderGroups(); updateSummary();
     toast(`Set "${item.name}" to ${money(item.amount)}`);
     return;
   }
@@ -8767,7 +8767,7 @@ document.getElementById('txAssignExcludeBtn').addEventListener('click', () => {
     selectedTxIds.clear();
   }
   scheduleSave();
-  renderGroups(); updateSummary();
+  renderIncome(); renderGroups(); updateSummary();
   saveTxAssignments();
   renderUpTxList();
   toast(bulkCount ? `Excluded ${bulkCount+1} transactions` : 'Transaction excluded');
@@ -8791,7 +8791,7 @@ function confirmTxGuess(txId, amt, desc, categoryName, itemName, reason, date, t
   const merchantKey = extractMerchantKey(desc, amt);
   saveTxAssignments();
   scheduleSave();
-  renderGroups(); updateSummary(); renderUpTxList();
+  renderIncome(); renderGroups(); updateSummary(); renderUpTxList();
   toast(bulkCount ? `Confirmed "${found.item.name}" for ${bulkCount+1} transactions` : `Confirmed — added ${money(Math.abs(Number(amt)))} to "${found.item.name}".`);
   refileLatePayIfNeeded(txId);
   if(bulkCount) selectedTxIds.clear();
@@ -9331,7 +9331,7 @@ document.getElementById('txGroupCommitBtn').addEventListener('click', () => {
   saveTransferRules();
   saveTxAssignments();
   scheduleSave();
-  renderGroups(); updateSummary(); renderUpTxList();
+  renderIncome(); renderGroups(); updateSummary(); renderUpTxList();
   toast(`Linked and crossed off ${linkedCount} transfer${linkedCount!==1?'s':''}.`
     + (alreadyDone ? ` ${alreadyDone} already done.` : '')
     + (unmatched ? ` ${unmatched} still need a budget item.` : ''));
@@ -9428,7 +9428,7 @@ document.getElementById('upTxList').addEventListener('click', (e) => {
       selectedTxIds.clear();
     }
     scheduleSave();
-    renderGroups(); updateSummary();
+    renderIncome(); renderGroups(); updateSummary();
     saveTxAssignments();
     renderUpTxList();
     if(bulkCount) toast(`Excluded ${bulkCount+1} transactions`);
@@ -9468,7 +9468,7 @@ document.getElementById('upTxList').addEventListener('click', (e) => {
     // reads as settled and would otherwise outlive the change that was meant to undo it.
     delete txAssignments[txId];
     saveTxAssignments();
-    renderUpTxList(); renderGroups(); updateSummary();
+    renderUpTxList(); renderIncome(); renderGroups(); updateSummary();
     toast(wasOn ? `Covers from “${src}” are excluded again` : `Covers from “${src}” now count against “${target.itemName}”`);
     return;
   }
@@ -9519,7 +9519,7 @@ function waitForUpSettled(ms){
 // dashboard's charts. They're all rendered before the fetch lands on a cold start, so they need
 // telling once it does rather than waiting for the user to visit them.
 function applyUpDataToAllViews(){
-  if(monthData){ renderGroups(); updateSummary(); }
+  if(monthData){ renderIncome(); renderGroups(); updateSummary(); }
   const dash = document.getElementById('view-dashboard');
   if(dash){ renderDashboard(); renderInsights(); }
   if(document.getElementById('view-up').classList.contains('active')){

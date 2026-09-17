@@ -947,3 +947,12 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     A manual pick still files into the month on screen, even if the transaction belongs to another
     cycle — deliberate, it isn't duplication, and the next mode toggle re-files it.
     Harness note: the fake db must survive reload (sessionStorage) or a reload test proves nothing.
+
+53. **Income rows now redraw when a transaction is linked.** Reported as "the paperclip doesn't
+    show on the Budget tab until I refresh". `renderGroups()` renders only the category columns —
+    the Income section is `renderIncome()`, a separate function — and every transaction path
+    (assign modal, create-and-assign, confirm guess, exclude, unlink/fix-total in the panel, saver
+    batch, cover toggle, `autoApplyTxRules`, `applyUpDataToAllViews`, re-file) called only
+    `renderGroups()`. Category paperclips therefore appeared immediately while a linked pay's never
+    did. Each of those sites now calls `renderIncome()` first. If you add a new place that changes
+    `txAssignments`, redraw both.
