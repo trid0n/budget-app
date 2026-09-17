@@ -933,3 +933,17 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     pays already assigned — it only decides where new ones go.
     Payer identity is the Up `description` (the sender's name for incoming payments); the payment's
     wording is `message` and is never compared.
+
+52. **Audit (2026-09-17): paycycle mode does not double-count.** No code change; recorded so it
+    needn't be re-derived. Test that decides it: every template/month amount starts at 0, so each
+    line's amount must equal the sum of the `txAssignments` filed against that month + item id —
+    any transaction counted twice shows up as a line higher than its own transactions. Also check
+    each assignment's `monthKey` against `periodKeyFor(date, isIncomeSourcePay(...), starts)`.
+    Scenario: pays 27 Jun / 28 Jul / 28 Aug, a merchant-ruled transaction every few days across
+    both sides of each payday and month end. Held through: auto-assignment across visiting every
+    month; calendar↔paycycle toggled twice (late pays move with the calendar rule, cycle
+    boundaries with paycycle); a Sep-cycle transaction re-picked by hand while August was open
+    (moved — Sep −16, Aug +16 — never counted in both); exclude then un-exclude; reload.
+    A manual pick still files into the month on screen, even if the transaction belongs to another
+    cycle — deliberate, it isn't duplication, and the next mode toggle re-files it.
+    Harness note: the fake db must survive reload (sessionStorage) or a reload test proves nothing.
