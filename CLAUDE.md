@@ -899,4 +899,4 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     progress bar from that date to date + lifespan (`techReplacementProgress`), green "Ready now"
     once due. `saveTechItems` is delete-then-insert, so a missing column would have emptied the
     table — it now drops a PGRST204-named column and retries, same shape as `saveSettings`.
-    Until the SQL is run, the dates show for the session but don't survive a reload.
+    User reported running the SQL 2026-09-17 (not independently verified from here).
