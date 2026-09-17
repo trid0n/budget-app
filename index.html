@@ -1049,6 +1049,13 @@ table.rtable input:not(.num-in){width:var(--rt-name-w, 100%); max-width:100%; mi
 table.rtable input:hover, table.rtable input:focus{background:var(--paper-dim); outline:none;}
 table.rtable input.num-in{text-align:right;}
 table.rtable select.mc-round-select{width:100%; border:1px solid var(--rule); border-radius:6px; background:var(--surface); font-family:'Inter',sans-serif; font-size:.76rem; padding:4px 5px; color:var(--ink); cursor:pointer;}
+.tech-prog{display:flex; flex-direction:column; gap:3px; min-width:90px;}
+.tech-prog-track{height:6px; border-radius:3px; background:var(--paper-dim); overflow:hidden;}
+.tech-prog-fill{height:100%; border-radius:3px; background:var(--gold); transition:width .3s;}
+.tech-prog.ready .tech-prog-fill{background:var(--credit);}
+.tech-prog-lbl{font-size:.68rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap;}
+.tech-prog.ready .tech-prog-lbl{color:var(--credit); font-weight:600;}
+.tech-prog-empty{color:var(--ink-faint);}
 table.rtable tr.total-row td{font-weight:700; border-top:2px solid var(--ink); border-bottom:none;}
 .pos{color:var(--credit); font-weight:600;} .neg{color:var(--debit); font-weight:600;}
 .rec-table-wrap{max-height:340px; overflow-y:auto; overflow-x:auto; border:1px solid var(--rule); scrollbar-width:thin; scrollbar-color:var(--ink-faint) var(--paper-dim);}
@@ -1799,7 +1806,7 @@ try{
       <div class="rec-body"><div class="rec-body-inner">
         <div class="rec-table-wrap">
         <table class="rtable">
-          <thead><tr><th>Item</th><th style="text-align:right;">Total cost</th><th style="text-align:right;">Lifespan (yrs)</th><th style="text-align:right;">Monthly</th><th></th></tr></thead>
+          <thead><tr><th>Item</th><th style="text-align:right;">Total cost</th><th style="text-align:right;">Lifespan (yrs)</th><th style="text-align:right;">Last purchased</th><th>Next purchase</th><th style="text-align:right;">Monthly</th><th></th></tr></thead>
           <tbody id="techRows"></tbody>
         </table>
         </div>
@@ -2260,15 +2267,24 @@ const db = {
   async loadTechItems(){
     const { data, error } = await sb.from('tech_items').select('*').eq('user_id', authUserId).order('sort_order', { ascending: true });
     if(error) throw error;
-    return (data||[]).map(r => ({ id: r.id, name: r.name, cost: Number(r.cost)||0, lifespan: r.lifespan==null ? null : Number(r.lifespan) }));
+    return (data||[]).map(r => ({ id: r.id, name: r.name, cost: Number(r.cost)||0, lifespan: r.lifespan==null ? null : Number(r.lifespan), lastPurchased: r.last_purchased || '' }));
   },
   async saveTechItems(items){
     const { error: delErr } = await sb.from('tech_items').delete().eq('user_id', authUserId);
     if(delErr) throw delErr;
     if(items.length){
-      const rows = items.map((t, idx) => ({ id: t.id, user_id: authUserId, name: t.name, cost: Number(t.cost)||0, lifespan: t.lifespan==null ? null : Number(t.lifespan), sort_order: idx }));
-      const { error } = await sb.from('tech_items').insert(rows);
-      if(error) throw error;
+      const rows = items.map((t, idx) => ({ id: t.id, user_id: authUserId, name: t.name, cost: Number(t.cost)||0, lifespan: t.lifespan==null ? null : Number(t.lifespan), last_purchased: t.lastPurchased || null, sort_order: idx }));
+      // This runs AFTER the delete, so a column the database lacks (last_purchased before its
+      // migration) would otherwise leave the table empty. Drop the named column and retry.
+      for(let attempt = 0; attempt < 4; attempt++){
+        const { error } = await sb.from('tech_items').insert(rows);
+        if(!error) return;
+        const missing = error.code === 'PGRST204' && (String(error.message).match(/'([^']+)' column/) || [])[1];
+        if(!missing || !(missing in rows[0])) throw error;
+        rows.forEach(r => { delete r[missing]; });
+        console.warn(`[budget] tech_items has no "${missing}" column — that field won't persist until the migration in supabase/schema.sql is run.`);
+      }
+      throw new Error('tech_items save failed after dropping unknown columns');
     }
   },
   async loadGrocery(){
@@ -4451,7 +4467,7 @@ function renderInlineSourceTable(source){
   if(source === 'tech'){
     return `<div class="rec-table-wrap">
       <table class="rtable">
-        <thead><tr><th>Item</th><th style="text-align:right;">Total cost</th><th style="text-align:right;">Lifespan (yrs)</th><th style="text-align:right;">Monthly</th><th></th></tr></thead>
+        <thead><tr><th>Item</th><th style="text-align:right;">Total cost</th><th style="text-align:right;">Lifespan (yrs)</th><th style="text-align:right;">Last purchased</th><th>Next purchase</th><th style="text-align:right;">Monthly</th><th></th></tr></thead>
         <tbody data-inline-tech-tbody="1">${techItems.map(techRowHtml).join('')}</tbody>
       </table>
     </div>
@@ -6960,7 +6976,7 @@ async function refileAssignmentsToCurrentMode(moves, opts){
       dstCatId = 'income';
       dstItem = dst.income.find(i => lc(i.name) === lc(mv.a.itemName));
       if(!dstItem && mv.a.itemName){
-        dstItem = {id: uid(), name: mv.a.itemName, amount: 0, charged: false};
+        dstItem = {id: uid(), name: mv.a.itemName, amount: 0, charged: true};
         dst.income.push(dstItem); created++;
       }
     } else {
@@ -6983,7 +6999,7 @@ async function refileAssignmentsToCurrentMode(moves, opts){
         }
         if(!cat) cat = dst.categories[0];
         if(cat){
-          dstItem = {id: uid(), name: mv.a.itemName, amount: 0, planned: 0, charged: false};
+          dstItem = {id: uid(), name: mv.a.itemName, amount: 0, planned: 0, charged: true};
           cat.items.push(dstItem); dstCatId = cat.id; created++;
         }
       }
@@ -8583,7 +8599,9 @@ function createAndAssignItem(catId, name){
   if(!cat) return;
   pushUndo('month', monthData, {monthKey: settings.currentMonth});
   reverseTxAssignment(txAssignCurrent.id);
-  const newItem = {id: uid(), name, amount: Math.abs(txAssignCurrent.amt), planned: Math.abs(txAssignCurrent.amt), charged: false};
+  // Crossed off from the start: a line that only exists because a transaction created it is a
+  // cost already paid, not one still to come. Same for lines a re-file creates.
+  const newItem = {id: uid(), name, amount: Math.abs(txAssignCurrent.amt), planned: Math.abs(txAssignCurrent.amt), charged: true};
   cat.items.push(newItem);
   const merchantKey = extractMerchantKey(txAssignCurrent.desc, txAssignCurrent.amt);
   txAssignments[txAssignCurrent.id] = {monthKey: settings.currentMonth, catId, itemId: newItem.id, itemName: name, categoryName: cat.name, merchantKey, txAmt: Math.abs(txAssignCurrent.amt), desc: txAssignCurrent.desc, date: txAssignCurrent.date};
@@ -10064,9 +10082,32 @@ function techRowHtml(t){
       <td><input value="${escapeAttr(t.name)}" data-tech="${t.id}" data-field="name"></td>
       <td><input class="num-in" type="number" value="${t.cost||''}" data-tech="${t.id}" data-field="cost"></td>
       <td><input class="num-in" type="number" value="${t.lifespan||''}" data-tech="${t.id}" data-field="lifespan"></td>
+      <td><input type="date" class="num-in" value="${escapeAttr(t.lastPurchased||'')}" data-tech="${t.id}" data-field="lastPurchased"></td>
+      <td data-tech-progress="${t.id}"></td>
       <td class="num" data-tech-monthly="${t.id}"></td>
       <td class="num"><button class="item-del rtable-del" data-tech-del="${t.id}" title="Remove">${X_SVG}</button></td>
     </tr>`;
+}
+function techReplacementProgress(t){
+  const years = Number(t.lifespan)||0;
+  if(!t.lastPurchased || years <= 0) return '<span class="tech-prog-empty">—</span>';
+  const bought = new Date(t.lastPurchased + 'T00:00:00');
+  if(isNaN(bought)) return '<span class="tech-prog-empty">—</span>';
+  // Whole months, then the fractional remainder in days - adding years*365 days drifts off the
+  // anniversary, and a lifespan like 2.5 has to land on a real calendar date.
+  const due = new Date(bought);
+  const wholeMonths = Math.floor(years * 12);
+  due.setMonth(due.getMonth() + wholeMonths);
+  due.setDate(due.getDate() + Math.round((years * 12 - wholeMonths) * 30.44));
+  const today = new Date(); today.setHours(0,0,0,0);
+  const pct = Math.max(0, Math.min(100, (today - bought) / (due - bought) * 100));
+  const ready = today >= due;
+  const dueLbl = due.toLocaleDateString('en-AU', {day:'numeric', month:'short', year:'numeric'});
+  const tip = ready ? `Due since ${dueLbl}` : `${Math.round(pct)}% of its lifespan · replace from ${dueLbl}`;
+  return `<div class="tech-prog${ready?' ready':''}" title="${escapeAttr(tip)}">
+      <div class="tech-prog-track"><div class="tech-prog-fill" style="width:${pct.toFixed(1)}%"></div></div>
+      <span class="tech-prog-lbl">${ready ? 'Ready now' : dueLbl}</span>
+    </div>`;
 }
 function renderTechRows(){
   document.getElementById('techRows').innerHTML = techItems.map(techRowHtml).join('');
@@ -10081,6 +10122,8 @@ function updateTechTotal(){
     const m = months>0 ? (Number(t.cost)||0)/months : 0;
     total += m;
     document.querySelectorAll(`[data-tech-monthly="${t.id}"]`).forEach(cell => { cell.textContent = money(m); });
+    const prog = techReplacementProgress(t);
+    document.querySelectorAll(`[data-tech-progress="${t.id}"]`).forEach(cell => { cell.innerHTML = prog; });
   });
   document.getElementById('techMonthlyTotal').textContent = money(total);
   syncTechToTemplate(total);
@@ -10096,7 +10139,9 @@ document.body.addEventListener('keydown', (e) => { if(e.key==='Enter' && e.targe
 document.body.addEventListener('input', (e) => {
   const t = e.target; if(!t.dataset.tech) return;
   const item = techItems.find(i=>i.id===t.dataset.tech); if(!item) return;
-  if(t.dataset.field==='name'){ item.name = t.value; updateRtableNameWidth(t); } else item[t.dataset.field] = parseFloat(t.value)||0;
+  if(t.dataset.field==='name'){ item.name = t.value; updateRtableNameWidth(t); }
+  else if(t.dataset.field==='lastPurchased') item.lastPurchased = t.value;
+  else item[t.dataset.field] = parseFloat(t.value)||0;
   document.querySelectorAll(`[data-tech="${item.id}"][data-field="${t.dataset.field}"]`).forEach(el => { if(el !== t) el.value = t.value; });
   updateTechTotal(); saveTech();
 });

@@ -117,8 +117,10 @@ create table if not exists public.tech_items (
   name        text not null default '',
   cost        numeric not null default 0,
   lifespan    numeric,
+  last_purchased date,  -- drives the "next purchase" progress bar (lifespan measured from here)
   sort_order  int not null default 0
 );
+alter table public.tech_items add column if not exists last_purchased date;
 
 create table if not exists public.grocery_items (
   id          text primary key,

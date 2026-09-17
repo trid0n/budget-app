@@ -889,3 +889,14 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
   fixes the future and nothing else. Ask separately what is already in the database, and
   repair it in the same change — a masking read filter is not a repair, and whoever removes
   the mask later (for good reasons) gets the original bug back with no idea why.
+
+50. **Lines created by a transaction start crossed off**, and **Tech replacement tracks when each
+    item can next be bought.** `createAndAssignItem` and the two `createMissing` branches of
+    `refileAssignmentsToCurrentMode` now create the line with `charged:true` — a line that only
+    exists because a transaction made it is a cost already paid. Existing lines are untouched;
+    assigning onto them still doesn't cross anything off.
+    Tech gained `lastPurchased` (`tech_items.last_purchased date`, **needs the migration**) and a
+    progress bar from that date to date + lifespan (`techReplacementProgress`), green "Ready now"
+    once due. `saveTechItems` is delete-then-insert, so a missing column would have emptied the
+    table — it now drops a PGRST204-named column and retries, same shape as `saveSettings`.
+    Until the SQL is run, the dates show for the session but don't survive a reload.
