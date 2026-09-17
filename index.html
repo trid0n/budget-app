@@ -2754,9 +2754,14 @@ function findRawGuessForTx(desc, amt, tx){
       }
       return null;
     }
+    // The key is only the first word, so a different payer starting the same way would copy your
+    // pay's line - skip pays unless this transaction is one too.
+    const thisIsPay = isIncomeSourcePay(desc, amt) && Number(amt) > 0;
     for(const txId in txAssignments){
       const a = txAssignments[txId];
-      if(a.merchantKey === key) return {categoryName: a.categoryName, itemName: a.itemName, reason: 'merchant'};
+      if(a.merchantKey !== key) continue;
+      if(!thisIsPay && a.catId === 'income' && isIncomeSourcePay(a.desc, a.txAmt)) continue;
+      return {categoryName: a.categoryName, itemName: a.itemName, reason: 'merchant'};
     }
   }
   if(!monthData) return null;
@@ -6371,7 +6376,7 @@ async function jumpToUpTransaction(txId){
     document.getElementById('upTxSearchClear').style.display = 'none';
     document.getElementById('upTxSearchToggle').classList.remove('has-active-filter');
   }
-  if(upIncomeFilterActive){ upIncomeFilterActive = false; updateIncomeOnlyControls(); }
+  if(upIncomeFilterActive){ upIncomeFilterActive = false; upChoosingIncome = false; updateIncomeOnlyControls(); }
   renderUpTxList();
   setTimeout(() => {
     const row = document.querySelector(`[data-tx-row-id="${CSS.escape(txId)}"]`);
@@ -6741,13 +6746,20 @@ function updateUpTxMoreToggleIndicator(){
 // menu both drive the same underlying flag, so either one changing has to update both.
 function updateIncomeOnlyControls(){
   const chooseBtn = document.getElementById('upChooseIncomeBtn');
-  chooseBtn.textContent = upIncomeFilterActive ? 'Showing income only ✕' : 'Choose income';
-  chooseBtn.classList.toggle('gold', upIncomeFilterActive);
+  chooseBtn.textContent = upChoosingIncome ? 'Pick your pay below ✕' : 'Choose income';
+  chooseBtn.classList.toggle('gold', upChoosingIncome);
   document.getElementById('upIncomeOnlyToggle').classList.toggle('active', upIncomeFilterActive);
   updateUpTxMoreToggleIndicator();
 }
 function toggleIncomeFilterActive(){
   upIncomeFilterActive = !upIncomeFilterActive;
+  if(!upIncomeFilterActive) upChoosingIncome = false;
+  updateIncomeOnlyControls();
+  renderUpTxList();
+}
+function toggleChoosingIncome(){
+  upChoosingIncome = !upChoosingIncome;
+  upIncomeFilterActive = upChoosingIncome;
   updateIncomeOnlyControls();
   renderUpTxList();
 }
@@ -7329,12 +7341,16 @@ async function fetchUpAccountTransactions(accountId){
 }
 let upTxSearchTerm = '';
 let upIncomeFilterActive = false;
+// Only true between pressing Choose income and picking a payment. Tapping a payment's name used
+// to set the income source at any time, which is how it got changed by taps meant for something
+// else - so outside this mode the name is inert.
+let upChoosingIncome = false;
 let upPayCycleFilter = null;
 function getIncomeSourceOccurrences(){
   if(!upIncomeSourceKey) return [];
   const matches = upTransactions.filter(t => {
     const amt = parseFloat(t.attributes.amount.value);
-    return extractMerchantKey(t.attributes.description, amt) === upIncomeSourceKey;
+    return amt > 0 && isIncomeSourceTx(t);
   });
   return matches.map(t => new Date(t.attributes.createdAt).getTime()).sort((a,b) => b-a);
 }
@@ -7369,12 +7385,12 @@ const PAY_DATES_CACHE_KEY = 'payDates';
 function cachedPayDates(){
   try{
     const c = JSON.parse(localStorage.getItem(PAY_DATES_CACHE_KEY) || 'null');
-    if(!c || c.userId !== authUserId || c.key !== upIncomeSourceKey) return [];
+    if(!c || c.userId !== authUserId || c.key !== upIncomeSourceKey || c.label !== (upIncomeSourceLabel || null)) return [];
     return Array.isArray(c.times) ? c.times : [];
   }catch(e){ return []; }
 }
 function cachePayDates(times){
-  try{ localStorage.setItem(PAY_DATES_CACHE_KEY, JSON.stringify({userId: authUserId, key: upIncomeSourceKey, times})); }catch(e){}
+  try{ localStorage.setItem(PAY_DATES_CACHE_KEY, JSON.stringify({userId: authUserId, key: upIncomeSourceKey, label: upIncomeSourceLabel || null, times})); }catch(e){}
 }
 // Every payday we know about: the ones visible in the loaded transactions plus the cached ones.
 // Independent of periodMode, because the Up tab's "since last pay" filter needs them whichever
@@ -7404,7 +7420,7 @@ async function ensurePayDatesBackTo(oldestMs){
     const txs = await loadTransactionsForRange(since.toISOString(), null, {pageSize: 100, maxPages: 150});
     txs.forEach(t => {
       const amt = parseFloat(t.attributes.amount.value);
-      if(extractMerchantKey(t.attributes.description, amt) === upIncomeSourceKey){
+      if(isIncomeSourceTx(t)){
         found.add(new Date(t.attributes.createdAt).getTime());
       }
     });
@@ -7457,11 +7473,18 @@ function isLatePayDate(d){
 }
 // txAmt is stored absolute and a pay is a credit anyway, so this answers the same for a stored
 // assignment (which carries no merchant key of its own) as for the live transaction.
+// The merchant key is only the description's FIRST word, so on its own it can't tell your pay
+// from another payment that happens to start the same way - and did, filing that payment as pay.
+// The whole payer name (letters only, so spacing and reference digits don't matter) has to match
+// the payment that was actually chosen. A source saved without a label falls back to the key.
+function payerName(desc){ return (desc || '').toLowerCase().replace(/[^a-z]/g, ''); }
 function isIncomeSourcePay(desc, amt){
-  return !!upIncomeSourceKey && extractMerchantKey(desc, Math.abs(Number(amt) || 0)) === upIncomeSourceKey;
+  if(!upIncomeSourceKey || extractMerchantKey(desc, Math.abs(Number(amt) || 0)) !== upIncomeSourceKey) return false;
+  return !upIncomeSourceLabel || payerName(desc) === payerName(upIncomeSourceLabel);
 }
 function isIncomeSourceTx(t){
-  return isIncomeSourcePay(t.attributes.description, parseFloat(t.attributes.amount.value));
+  const amt = parseFloat(t.attributes.amount.value);
+  return amt > 0 && isIncomeSourcePay(t.attributes.description, amt);
 }
 // periodKeyForDate plus the late-pay rule. It only ever shifts an answer that came from the
 // plain calendar month: in paycycle mode the cycle boundary already says exactly this, since
@@ -7502,7 +7525,7 @@ async function detectEffectivePeriodAtBoot(){
     let mostRecent = null;
     recentTxs.forEach(t => {
       const amt = parseFloat(t.attributes.amount.value);
-      if(extractMerchantKey(t.attributes.description, amt) !== upIncomeSourceKey) return;
+      if(!isIncomeSourceTx(t)) return;
       const d = new Date(t.attributes.createdAt);
       if(!mostRecent || d > mostRecent) mostRecent = d;
     });
@@ -7517,6 +7540,22 @@ async function detectEffectivePeriodAtBoot(){
 function isInterestTx(t){
   const amt = parseFloat(t.attributes.amount.value);
   return amt > 0 && /^(bonus\s+)?interest\b/i.test((t.attributes.description||'').trim());
+}
+// A chosen income source files its own pays, with no merchant rule needed: into the income line
+// this payer's pays went to before, or failing that the largest income line - the big monthly
+// pay rather than a side income.
+function incomeSourceTargetForTx(t){
+  if(!monthData || !isIncomeSourceTx(t)) return null;
+  const lc = s => (s||'').trim().toLowerCase();
+  const named = monthData.income.filter(i => lc(i.name));
+  for(const id in txAssignments){
+    const a = txAssignments[id];
+    if(a.catId === 'income' && !a.excluded && isIncomeSourcePay(a.desc, a.txAmt) && named.some(i => lc(i.name) === lc(a.itemName))){
+      return {categoryName: 'Income', itemName: a.itemName};
+    }
+  }
+  const biggest = named.reduce((b, i) => (!b || (Number(i.amount)||0) > (Number(b.amount)||0)) ? i : b, null);
+  return biggest ? {categoryName: 'Income', itemName: biggest.name} : null;
 }
 function autoApplyTxRules(){
   let changed = false;
@@ -7596,7 +7635,7 @@ function autoApplyTxRules(){
     // enough that a plain calendar test both failed to assign those transactions to the cycle
     // they belong to AND assigned them into the previous one while it was on screen.
     if(periodKeyForTx(t) !== settings.currentMonth) return;
-    const target = getRuleTargetForTx(t.attributes.description, amt) || (transferRule ? {categoryName: transferRule.categoryName, itemName: transferRule.itemName} : null);
+    const target = getRuleTargetForTx(t.attributes.description, amt) || (transferRule ? {categoryName: transferRule.categoryName, itemName: transferRule.itemName} : null) || incomeSourceTargetForTx(t);
     if(!target) return;
     const found = findCatItemByName(target.categoryName, target.itemName);
     if(!found) return;
@@ -7841,11 +7880,11 @@ function buildUpTxRowHtml(t){
   const statusHtml = buildUpTxStatusHtml(t, amt, transferAttr);
   const coverSource = findCoverSourceForTx(t);
   const coverIcon = coverSource ? coverIconHtml(t, amt, coverSource, 12) : '';
-  const merchantKeyHere = extractMerchantKey(t.attributes.description, amt);
-  const isIncomeSource = upIncomeSourceKey && merchantKeyHere === upIncomeSourceKey;
+  const isIncomeSource = isIncomeSourceTx(t);
   const isGroupHighlighted = transferGroupHighlightIds.has(t.id);
-  const descClickable = amt > 0 ? ` data-tx-income-select="${t.id}"` : (isGroupHighlighted ? ` data-tx-group-toggle="${t.id}"` : '');
-  const descTip = amt > 0 ? (isIncomeSource ? 'This is your set income source \u2014 tap to unset' : 'Tap to set as your income source') : (isGroupHighlighted ? 'Part of this month\u2019s transfer batch \u2014 tap to remove from the group' : '');
+  const choosable = upChoosingIncome && amt > 0;
+  const descClickable = choosable ? ` data-tx-income-select="${t.id}"` : (isGroupHighlighted ? ` data-tx-group-toggle="${t.id}"` : '');
+  const descTip = choosable ? 'Tap to set as your income source' : (isGroupHighlighted ? 'Part of this month\u2019s transfer batch \u2014 tap to remove from the group' : '');
   // Up's own transaction message is read-only bank data (e.g. a note the sender attached
   // to a payment) - this app has no way to write one back, so tapping a row just shows
   // whatever's already there rather than opening an editor.
@@ -7892,11 +7931,11 @@ function buildUpTxRowHtmlDesktop(t){
   const excludeGuessBtn = showWrongGuessBtn ? `<button class="up-tx-exclude-btn" data-tx-exclude="${t.id}" data-tip="Exclude this transaction from the budget">–</button>` : '';
   const coverSource = findCoverSourceForTx(t);
   const coverIcon = coverSource ? coverIconHtml(t, amt, coverSource, 13) : '';
-  const merchantKeyHere = extractMerchantKey(t.attributes.description, amt);
-  const isIncomeSource = upIncomeSourceKey && merchantKeyHere === upIncomeSourceKey;
+  const isIncomeSource = isIncomeSourceTx(t);
   const isGroupHighlighted = transferGroupHighlightIds.has(t.id);
-  const descClickable = amt > 0 ? ` data-tx-income-select="${t.id}"` : (isGroupHighlighted ? ` data-tx-group-toggle="${t.id}"` : '');
-  const descTip = amt > 0 ? (isIncomeSource ? 'This is your set income source. Click to unset.' : `${t.attributes.description} — click to set as your income source`) : (isGroupHighlighted ? 'Part of this month’s transfer batch — click to remove from the group' : `${t.attributes.description}${held}`);
+  const choosable = upChoosingIncome && amt > 0;
+  const descClickable = choosable ? ` data-tx-income-select="${t.id}"` : (isGroupHighlighted ? ` data-tx-group-toggle="${t.id}"` : '');
+  const descTip = choosable ? `${t.attributes.description} — click to set as your income source` : (isGroupHighlighted ? 'Part of this month’s transfer batch — click to remove from the group' : `${t.attributes.description}${held}${isIncomeSource ? ' · your income source' : ''}`);
   const noteHtml = t.attributes.message ? `<div class="up-tx-note" data-tip="${escapeAttr(t.attributes.message)}">${escapeAttr(t.attributes.message)}</div>` : '';
   return `<div class="up-tx-row${isGroupHighlighted?' tx-group-highlight':''}" data-tx-row-id="${escapeAttr(t.id)}"><div class="up-tx-desc-chip${isIncomeSource?' is-income-source':''}"${descClickable} data-tip="${escapeAttr(descTip)}">${escapeAttr(t.attributes.description)}${held}</div>${assignBtn}${wrongGuessBtn}${excludeGuessBtn}${noteHtml}<div class="up-tx-date">${date}</div>${coverIcon}<div class="up-tx-amt ${amt<0?'neg':'pos'}">${amt<0?'-':'+'}${money(Math.abs(amt))}</div></div>`;
 }
@@ -8051,7 +8090,7 @@ document.getElementById('upTxSearchToggle').addEventListener('click', () => {
   closeFloatingMenus();
   if(open){ positionFloatingMenu(panel, btn); panel.classList.add('open'); btn.classList.add('open'); document.getElementById('upTxSearch').focus(); }
 });
-document.getElementById('upChooseIncomeBtn').addEventListener('click', toggleIncomeFilterActive);
+document.getElementById('upChooseIncomeBtn').addEventListener('click', toggleChoosingIncome);
 document.getElementById('upIncomeOnlyToggle').addEventListener('click', () => {
   toggleIncomeFilterActive();
   document.getElementById('upTxMorePanel').classList.remove('open');
@@ -9330,27 +9369,20 @@ document.getElementById('upTxList').addEventListener('click', (e) => {
     return;
   }
   const incomeSelectChip = e.target.closest('[data-tx-income-select]');
-  if(incomeSelectChip){
+  // Set only, never unset: clearing is the chip's own ✕, so no single tap on a row can take
+  // the income source away either.
+  if(incomeSelectChip && upChoosingIncome){
     const txId = incomeSelectChip.dataset.txIncomeSelect;
     const t = upTransactions.find(tx => tx.id === txId);
     if(!t) return;
     const amt = parseFloat(t.attributes.amount.value);
-    const merchantKeyHere = extractMerchantKey(t.attributes.description, amt);
-    if(upIncomeSourceKey === merchantKeyHere){
-      upIncomeSourceKey = null;
-      upIncomeSourceLabel = null;
-      upPayCycleFilter = null;
-      toast('Income source unset');
-    } else {
-      upIncomeSourceKey = merchantKeyHere;
-      upIncomeSourceLabel = t.attributes.description;
-      upPayCycleFilter = null;
-      toast(`"${t.attributes.description}" set as your income source`);
-      if(upIncomeFilterActive){
-        upIncomeFilterActive = false;
-        updateIncomeOnlyControls();
-      }
-    }
+    upIncomeSourceKey = extractMerchantKey(t.attributes.description, amt);
+    upIncomeSourceLabel = t.attributes.description;
+    upPayCycleFilter = null;
+    upChoosingIncome = false;
+    upIncomeFilterActive = false;
+    updateIncomeOnlyControls();
+    toast(`"${t.attributes.description}" set as your income source`);
     saveIncomeSource();
     renderPayCycleRow();
     renderUpTxList();

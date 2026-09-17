@@ -900,3 +900,25 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     once due. `saveTechItems` is delete-then-insert, so a missing column would have emptied the
     table — it now drops a PGRST204-named column and retries, same shape as `saveSettings`.
     User reported running the SQL 2026-09-17 (not independently verified from here).
+
+51. **Income source is only ever set through Choose income, and its pays file themselves.**
+    Reported as "assigning a payment to a different item set it as my income source". Two causes.
+    (a) Every incoming transaction's name was permanently a set/unset-income-source button, so a
+    tap meant for anything else changed it. Now only live while `upChoosingIncome` is true (pressed
+    Choose income, not yet picked); picking sets and leaves the mode, and the only way to unset is
+    the chip's ✕. The "Incoming only" menu toggle still shares `upIncomeFilterActive` but does NOT
+    enter choosing mode.
+    (b) Identity was `extractMerchantKey`, i.e. the description's FIRST WORD + direction, so any
+    payer starting with the same word as the pay WAS the pay — pay cycles, late-pay re-filing,
+    highlighting, and the guesser copying the pay's line. `isIncomeSourcePay` now also requires
+    `payerName(desc)` (letters only) to equal the saved `upIncomeSourceLabel`; every former
+    `extractMerchantKey(...) === upIncomeSourceKey` site goes through `isIncomeSourceTx`, which
+    also requires a credit. The pay-dates cache is keyed on the label too, so dates cached under
+    the old loose match are dropped. Merchant rules still use the first-word key; only income
+    identity changed.
+    `incomeSourceTargetForTx` makes `autoApplyTxRules` assign the source's pays with no rule: the
+    income line its earlier pays used, else the largest income line. Same period gate as every
+    other auto-rule, so a late pay (last week of the month) waits until its own month is open.
+    Verified: a stray tap sets nothing; ACME PTY LTD chosen → its pays go to Pay while ACME REFUNDS
+    and an outgoing ACME STORE don't match; assigning the refund to Side income leaves the source
+    and later pays alone; after ✕ no further pay is auto-assigned.
