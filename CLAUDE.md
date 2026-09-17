@@ -926,7 +926,8 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     longer picks "where earlier pays went, else the largest income line". The user marks one
     template income line with the `$` button (`payTarget: true` on the item in
     `month_template.income`, JSONB, no migration; `payTargetTemplateItem()`); at most one carries
-    it. No mark → no auto-assign, and setting the income source says so. A month missing that line
+    it, and once one is marked the button is hidden on every other line until it's unmarked
+    (`payTargetBtnHtml`). No mark → no auto-assign, and setting the income source says so. A month missing that line
     gets it (crossed off, per item 50). "Use this month as template" carries the mark across by
     name, since it otherwise rebuilds the income list from scratch. Changing the mark doesn't move
     pays already assigned — it only decides where new ones go.

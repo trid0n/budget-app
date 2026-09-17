@@ -5030,13 +5030,19 @@ function tplIncomeRowHtml(item){
   return `<div class="lrow" data-tpl-item-row="${item.id}">
     <input class="name-input" type="text" placeholder="e.g. salary" value="${escapeAttr(item.name)}" data-tpl-cat="income" data-tpl-item="${item.id}" data-tpl-field="name">
     <div class="amt-wrap plain"><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-tpl-cat="income" data-tpl-item="${item.id}" data-tpl-field="amount"></div>
-    <div class="del-cell"><button class="item-menu-toggle month-actions-gear tpl-pay-target-btn${item.payTarget?' set':''}" data-tpl-pay-target="${item.id}" data-tip="${item.payTarget?'Your income source’s pays are assigned here automatically — click to stop':'Assign your income source’s pays to this line automatically'}">${DOLLAR_SVG}</button><button data-tpl-cat="income" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
+    <div class="del-cell">${payTargetBtnHtml(item)}<button data-tpl-cat="income" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
   </div>`;
 }
 // Stored as a flag on the template income item (month_template.income is JSONB, so no
 // migration). At most one line carries it.
 function payTargetTemplateItem(){
   return monthTemplate && (monthTemplate.income||[]).find(i => i.payTarget && (i.name||'').trim()) || null;
+}
+// Once a line is marked, only that line keeps the button - unmarking it brings the rest back.
+function payTargetBtnHtml(item){
+  const marked = monthTemplate && (monthTemplate.income||[]).find(i => i.payTarget);
+  if(marked && marked !== item) return '';
+  return `<button class="item-menu-toggle month-actions-gear tpl-pay-target-btn${item.payTarget?' set':''}" data-tpl-pay-target="${item.id}" data-tip="${item.payTarget?'Your income source’s pays are assigned here automatically — click to stop':'Assign your income source’s pays to this line automatically'}">${DOLLAR_SVG}</button>`;
 }
 function tplLeafRowHtml(catId, item){
   const source = tplSourceFor(item.name);
