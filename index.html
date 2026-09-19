@@ -1085,6 +1085,11 @@ table.rtable select.mc-round-select{width:100%; border:1px solid var(--rule); bo
 .tech-prog-lbl{font-size:.68rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap;}
 .tech-prog.ready .tech-prog-lbl{color:var(--credit); font-weight:600;}
 .tech-prog-empty{color:var(--ink-faint);}
+.tech-monthly{margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end;}
+.tech-monthly-sugg{font-size:.78rem; color:var(--ink-soft); font-variant-numeric:tabular-nums;}
+.tech-monthly-lbl{font-weight:700; display:flex; align-items:center; gap:2px;}
+.tech-monthly-lbl input{width:90px; text-align:right; font-weight:700;}
+#techUseSuggestedBtn[hidden]{display:none;}
 .tech-fund{margin-top:12px; padding:10px 12px; border:1px solid var(--rule); border-radius:10px; background:var(--paper-dim); display:flex; flex-direction:column; gap:6px; font-size:.8rem;}
 .tech-fund-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
 .tech-fund-head .rc-saver-select{max-width:180px; font-size:.75rem;}
@@ -1851,10 +1856,14 @@ try{
         </div>
         <div class="rec-actions">
           <button class="mini-btn" id="addTechRowBtn">+ Add item</button>
-          <span style="margin-left:auto; font-weight:700;">Monthly total: <span id="techMonthlyTotal"></span></span>
+          <div class="tech-monthly">
+            <span class="tech-monthly-sugg">Suggested <span id="techMonthlyTotal"></span></span>
+            <label class="tech-monthly-lbl">Monthly transfer $<input class="num-in" type="number" step="0.01" min="0" id="techMonthlyInput" title="What you actually move into the saver each month. Your template and the fund maths use this. Leave blank to follow the suggestion."></label>
+            <button class="mini-btn" id="techUseSuggestedBtn" title="Clear your figure and follow the suggestion">Use suggested</button>
+          </div>
         </div>
         <div class="tech-fund" id="techFund"></div>
-        <div class="sync-note">Automatically kept in sync with "Tech replacements" in your template.</div>
+        <div class="sync-note">"Tech replacements" in your template follows your monthly transfer — or the suggestion, if you leave it blank.</div>
       </div></div>
     </div>
 
@@ -2549,6 +2558,9 @@ let saverOrder = [];
 // The Up saver the Tech replacements fund lives in, so its real balance can be checked against
 // what the fund should hold. Needs the tech_saver_account_id migration to persist.
 let techSaverAccountId = null;
+// The monthly transfer the user actually makes into the Tech saver. null = follow the table's
+// suggested total. Whichever wins is what the template and the fund maths use.
+let techMonthlyOverride = null;
 let displayName = '';
 // The calendar-month key "today" belongs to for budgeting purposes. Equal to the real
 // calendar month unless periodMode is 'paycycle', in which case it's the month after
@@ -3104,6 +3116,7 @@ async function loadEverything(){
     platformHidden = settingsRow.platform_hidden || {};
     saverOrder = Array.isArray(settingsRow.saver_order) ? settingsRow.saver_order : [];
     techSaverAccountId = settingsRow.tech_saver_account_id || null;
+    techMonthlyOverride = settingsRow.tech_monthly_amount == null ? null : Number(settingsRow.tech_monthly_amount);
     displayName = settingsRow.display_name || '';
   }
   // A name entered at sign-up can't be saved until authUserId exists, which only
@@ -10395,14 +10408,40 @@ function updateTechTotal(){
     document.querySelectorAll(`[data-tech-progress="${t.id}"]`).forEach(cell => { cell.innerHTML = prog; });
   });
   document.getElementById('techMonthlyTotal').textContent = money(total);
-  syncTechToTemplate(total);
+  const input = document.getElementById('techMonthlyInput');
+  input.placeholder = total.toFixed(2);
+  if(document.activeElement !== input) input.value = techMonthlyOverride == null ? '' : techMonthlyOverride;
+  document.getElementById('techUseSuggestedBtn').hidden = techMonthlyOverride == null;
+  // The table's total is only a suggestion; the transfer the user actually makes is what the
+  // template carries and what the fund maths plans around.
+  const monthly = techMonthlyOverride == null ? total : techMonthlyOverride;
+  syncTechToTemplate(monthly);
   // Cached so templateAmountForItem() can read it without calling this - that function
   // runs per row on every ledger render, and this one writes to the DOM and re-syncs the
   // template on the way past.
-  cachedTechMonthlyTotal = total;
+  cachedTechMonthlyTotal = monthly;
   renderTechFund();
-  return total;
+  return monthly;
 }
+let techMonthlySaveTimer = null;
+document.getElementById('techMonthlyInput').addEventListener('input', (e) => {
+  const v = e.target.value.trim();
+  techMonthlyOverride = v === '' || isNaN(parseFloat(v)) ? null : Math.max(0, parseFloat(v));
+  updateTechTotal();
+  clearTimeout(techMonthlySaveTimer);
+  techMonthlySaveTimer = setTimeout(() => { db.saveSettings({ tech_monthly_amount: techMonthlyOverride }).catch(() => {}); }, 500);
+});
+// Leaving the field saves straight away, so a refresh right after typing doesn't beat the debounce.
+document.getElementById('techMonthlyInput').addEventListener('change', () => {
+  clearTimeout(techMonthlySaveTimer);
+  db.saveSettings({ tech_monthly_amount: techMonthlyOverride }).catch(() => {});
+});
+document.getElementById('techUseSuggestedBtn').addEventListener('click', () => {
+  techMonthlyOverride = null;
+  updateTechTotal();
+  clearTimeout(techMonthlySaveTimer);
+  db.saveSettings({ tech_monthly_amount: null }).catch(() => {});
+});
 // What the fund has to hold TODAY so that, with `monthly` going in around the 1st of each month,
 // it never runs dry: walk every purchase coming due (repeats included) and, at each one, compare
 // everything bought so far against what will have gone in by then. The worst of those gaps is

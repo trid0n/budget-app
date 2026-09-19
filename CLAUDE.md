@@ -990,3 +990,9 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     over. Deliberately not proportional — the point is to answer "is this one covered when it's
     due?", and a proportional split shows everything partly funded and nothing buyable.
     "—" without a linked saver.
+    **Monthly transfer override** (`techMonthlyOverride` → `user_settings.tech_monthly_amount`,
+    **needs the migration**): the table's total is now labelled "Suggested"; a figure typed into
+    "Monthly transfer" replaces it everywhere — `cachedTechMonthlyTotal`, the template sync and
+    the fund maths all carry the effective figure. Blank / "Use suggested" = null = follow the
+    suggestion. The input's value isn't rewritten while it has focus, since `updateTechTotal`
+    re-runs on every keystroke.
