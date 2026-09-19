@@ -1095,6 +1095,14 @@ table.rtable select.mc-round-select{width:100%; border:1px solid var(--rule); bo
 .tech-xfer-cur{color:var(--ink-faint); font-weight:600; font-size:.86rem;}
 .tech-xfer-field input{width:72px; border:none; outline:none; background:transparent; padding:0; font-family:'Inter',sans-serif; font-size:.95rem; font-weight:700; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums;}
 .tech-xfer-field input::placeholder{color:var(--ink-faint); font-weight:500;}
+.tech-jar-cell{display:inline-flex; align-items:center; gap:7px; justify-content:flex-end;}
+.tech-jar{position:relative; width:13px; height:18px; margin-top:3px; border:1.5px solid var(--ink-faint); border-radius:2px 2px 5px 5px; flex:none;}
+.tech-jar::before{content:''; position:absolute; top:-4.5px; left:-3px; right:-3px; height:3px; border-radius:1.5px; background:var(--ink-faint);}
+.tech-jar-fill{position:absolute; left:0; right:0; bottom:0; background:var(--teal); border-radius:0 0 3.5px 3.5px; transition:height .3s;}
+.tech-jar-cell.full .tech-jar{border-color:var(--teal);}
+.tech-jar-cell.full .tech-jar::before{background:var(--teal);}
+.tech-jar-lbl{font-size:.74rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap; min-width:62px; text-align:right;}
+.tech-jar-cell.full .tech-jar-lbl{color:var(--teal); font-weight:600;}
 .tech-fund{margin-top:12px; padding:10px 12px; border:1px solid var(--rule); border-radius:10px; background:var(--paper-dim); display:flex; flex-direction:column; gap:6px; font-size:.8rem;}
 .tech-fund-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
 .tech-fund-head .rc-saver-select{max-width:180px; font-size:.75rem;}
@@ -10502,9 +10510,10 @@ function techSavedAllocation(balance){
 function techSavedCellHtml(saved, cost){
   if(saved == null || !(cost > 0)) return '<span class="tech-prog-empty">—</span>';
   const pct = Math.min(100, saved / cost * 100);
-  return `<div class="tech-prog${pct >= 100 ? ' ready' : ''}" title="${escapeAttr(`${money(saved)} of ${money(cost)} set aside`)}">
-      <div class="tech-prog-track"><div class="tech-prog-fill" style="width:${pct.toFixed(1)}%"></div></div>
-      <span class="tech-prog-lbl">${money(saved)}</span>
+  // A jar rather than a second bar, so it can't be mistaken for the time-to-replace bar beside it.
+  return `<div class="tech-jar-cell${pct >= 100 ? ' full' : ''}" title="${escapeAttr(`${money(saved)} of ${money(cost)} set aside`)}">
+      <span class="tech-jar"><span class="tech-jar-fill" style="height:${pct.toFixed(1)}%"></span></span>
+      <span class="tech-jar-lbl">${money(saved)}</span>
     </div>`;
 }
 function renderTechFund(){
