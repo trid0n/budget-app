@@ -1095,7 +1095,6 @@ table.rtable select.mc-round-select{width:100%; border:1px solid var(--rule); bo
 .tech-xfer-cur{color:var(--ink-faint); font-weight:600; font-size:.86rem;}
 .tech-xfer-field input{width:72px; border:none; outline:none; background:transparent; padding:0; font-family:'Inter',sans-serif; font-size:.95rem; font-weight:700; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums;}
 .tech-xfer-field input::placeholder{color:var(--ink-faint); font-weight:500;}
-#techUseSuggestedBtn[hidden]{display:none;}
 .tech-fund{margin-top:12px; padding:10px 12px; border:1px solid var(--rule); border-radius:10px; background:var(--paper-dim); display:flex; flex-direction:column; gap:6px; font-size:.8rem;}
 .tech-fund-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
 .tech-fund-head .rc-saver-select{max-width:180px; font-size:.75rem;}
@@ -1868,7 +1867,6 @@ try{
               <span class="tech-xfer-lbl">Monthly transfer</span>
               <span class="tech-xfer-field"><span class="tech-xfer-cur">$</span><input type="text" inputmode="decimal" autocomplete="off" id="techMonthlyInput"></span>
             </label>
-            <button class="mini-btn" id="techUseSuggestedBtn" title="Clear your figure and follow the suggestion">Use suggested</button>
           </div>
         </div>
         <div class="tech-fund" id="techFund"></div>
@@ -10419,7 +10417,6 @@ function updateTechTotal(){
   const input = document.getElementById('techMonthlyInput');
   input.placeholder = total.toFixed(2);
   if(document.activeElement !== input) input.value = techMonthlyOverride == null ? '' : techMonthlyOverride.toFixed(2);
-  document.getElementById('techUseSuggestedBtn').hidden = techMonthlyOverride == null;
   // The table's total is only a suggestion; the transfer the user actually makes is what the
   // template carries and what the fund maths plans around.
   const monthly = techMonthlyOverride == null ? total : techMonthlyOverride;
@@ -10448,12 +10445,6 @@ document.getElementById('techMonthlyInput').addEventListener('keydown', (e) => {
 // Tidies what was typed ("150" -> "150.00") once focus has actually left - updateTechTotal
 // leaves the field alone while it's focused.
 document.getElementById('techMonthlyInput').addEventListener('blur', () => { setTimeout(updateTechTotal); });
-document.getElementById('techUseSuggestedBtn').addEventListener('click', () => {
-  techMonthlyOverride = null;
-  updateTechTotal();
-  clearTimeout(techMonthlySaveTimer);
-  db.saveSettings({ tech_monthly_amount: null }).catch(() => {});
-});
 // What the fund has to hold TODAY so that, with `monthly` going in around the 1st of each month,
 // it never runs dry: walk every purchase coming due (repeats included) and, at each one, compare
 // everything bought so far against what will have gone in by then. The worst of those gaps is
