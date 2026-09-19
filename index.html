@@ -1845,7 +1845,7 @@ try{
       <div class="rec-body"><div class="rec-body-inner">
         <div class="rec-table-wrap">
         <table class="rtable">
-          <thead><tr><th>Item</th><th style="text-align:right;">Total cost</th><th style="text-align:right;">Lifespan (yrs)</th><th style="text-align:right;">Last purchased</th><th>Next purchase</th><th style="text-align:right;">Monthly</th><th></th></tr></thead>
+          <thead><tr><th>Item</th><th style="text-align:right;">Total cost</th><th style="text-align:right;">Lifespan (yrs)</th><th style="text-align:right;">Last purchased</th><th>Next purchase</th><th style="text-align:right;">Saved</th><th style="text-align:right;">Monthly</th><th></th></tr></thead>
           <tbody id="techRows"></tbody>
         </table>
         </div>
@@ -4516,7 +4516,7 @@ function renderInlineSourceTable(source){
   if(source === 'tech'){
     return `<div class="rec-table-wrap">
       <table class="rtable">
-        <thead><tr><th>Item</th><th style="text-align:right;">Total cost</th><th style="text-align:right;">Lifespan (yrs)</th><th style="text-align:right;">Last purchased</th><th>Next purchase</th><th style="text-align:right;">Monthly</th><th></th></tr></thead>
+        <thead><tr><th>Item</th><th style="text-align:right;">Total cost</th><th style="text-align:right;">Lifespan (yrs)</th><th style="text-align:right;">Last purchased</th><th>Next purchase</th><th style="text-align:right;">Saved</th><th style="text-align:right;">Monthly</th><th></th></tr></thead>
         <tbody data-inline-tech-tbody="1">${techItems.map(techRowHtml).join('')}</tbody>
       </table>
     </div>
@@ -10189,6 +10189,7 @@ function techRowHtml(t){
       <td><input class="num-in" type="number" value="${t.lifespan||''}" data-tech="${t.id}" data-field="lifespan"></td>
       <td class="num">${purchaseDateBtnHtml(t)}</td>
       <td data-tech-progress="${t.id}"></td>
+      <td class="num" data-tech-saved="${t.id}"></td>
       <td class="num" data-tech-monthly="${t.id}"></td>
       <td class="num"><button class="item-del rtable-del" data-tech-del="${t.id}" title="Remove">${X_SVG}</button></td>
     </tr>`;
@@ -10437,6 +10438,33 @@ function techFundTarget(monthly){
   });
   return {target: worst.need, tightest: worst.ev, contribs: worst.contribs, undated};
 }
+// One saver holds the whole fund, so "saved towards each item" is an earmarking, not a real split:
+// the balance goes to purchases in the order they come due, each filled to its full cost before
+// the next gets anything. That makes an item's figure answer "is this one covered when it's
+// due?" - a proportional split would show every item partly funded and none of them buyable.
+// Undated items have no place in the queue, so they only get what's left after the rest.
+function techSavedAllocation(balance){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dueOf = t => {
+    const years = Number(t.lifespan)||0;
+    const bought = t.lastPurchased ? new Date(t.lastPurchased + 'T00:00:00') : null;
+    return years > 0 && bought && !isNaN(bought) ? addLifespan(bought, years) : null;
+  };
+  const queue = techItems.map(t => ({t, due: dueOf(t)}))
+    .sort((a, b) => (a.due ? a.due : Infinity) - (b.due ? b.due : Infinity));
+  const out = {};
+  let left = Math.max(0, balance);
+  queue.forEach(({t}) => { const got = Math.min(left, Math.max(0, Number(t.cost)||0)); out[t.id] = got; left -= got; });
+  return {saved: out, spare: left};
+}
+function techSavedCellHtml(saved, cost){
+  if(saved == null || !(cost > 0)) return '<span class="tech-prog-empty">—</span>';
+  const pct = Math.min(100, saved / cost * 100);
+  return `<div class="tech-prog${pct >= 100 ? ' ready' : ''}" title="${escapeAttr(`${money(saved)} of ${money(cost)} set aside`)}">
+      <div class="tech-prog-track"><div class="tech-prog-fill" style="width:${pct.toFixed(1)}%"></div></div>
+      <span class="tech-prog-lbl">${money(saved)}</span>
+    </div>`;
+}
 function renderTechFund(){
   const host = document.getElementById('techFund'); if(!host) return;
   if(!techItems.length){ host.innerHTML = ''; return; }
@@ -10444,6 +10472,11 @@ function renderTechFund(){
   const {target, tightest, contribs, undated} = techFundTarget(monthly);
   const saver = techSaverAccountId ? upSaverAccounts.find(s => s.id === techSaverAccountId) : null;
   const balance = saver && !isNaN(saver.balance) ? saver.balance : null;
+  const alloc = balance != null ? techSavedAllocation(balance) : null;
+  techItems.forEach(t => {
+    const html = techSavedCellHtml(alloc ? alloc.saved[t.id] : null, Number(t.cost)||0);
+    document.querySelectorAll(`[data-tech-saved="${t.id}"]`).forEach(cell => { cell.innerHTML = html; });
+  });
   const options = `<option value=""${!techSaverAccountId?' selected':''}>Not linked</option>`
     + upSaverAccounts.map(s => `<option value="${escapeAttr(s.id)}"${techSaverAccountId===s.id?' selected':''}>${escapeAttr(s.name)}</option>`).join('')
     + (techSaverAccountId && !saver ? `<option value="${escapeAttr(techSaverAccountId)}" selected>Linked saver (Up not loaded)</option>` : '');
@@ -10465,6 +10498,7 @@ function renderTechFund(){
   } else if(!undated.length){
     notes.push('Add a lifespan and last-purchased date to an item to see what the saver should hold.');
   }
+  if(alloc) notes.push(`“Saved” sets the balance against purchases soonest-due first${alloc.spare >= 0.01 ? ` — ${money(alloc.spare)} is left over after covering every item in full` : ''}.`);
   if(undated.length) notes.push(`${undated.length} item${undated.length===1?' has':'s have'} no last-purchased date, so ${undated.length===1?'isn’t':'aren’t'} counted.`);
   if(!upSaverAccounts.length && !techSaverAccountId) notes.push('Connect Up Bank to link the saver this fund lives in.');
   host.innerHTML = `<div class="tech-fund-head">Fund saver

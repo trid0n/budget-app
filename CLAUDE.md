@@ -983,3 +983,9 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     The link is `techSaverAccountId` → `user_settings.tech_saver_account_id` (**needs the
     migration**; `saveSettings` drops the column until then, so the link just won't survive a
     reload). The balance is read live from `upSaverAccounts`, never stored.
+    **Per-item "Saved" column** (`techSavedAllocation`): with a saver linked, its balance is
+    earmarked against items soonest-due first, each filled to full cost before the next gets
+    anything; undated items come last and anything beyond every full cost is reported as left
+    over. Deliberately not proportional — the point is to answer "is this one covered when it's
+    due?", and a proportional split shows everything partly funded and nothing buyable.
+    "—" without a linked saver.
