@@ -1096,10 +1096,9 @@ table.rtable select.mc-round-select{width:100%; border:1px solid var(--rule); bo
 .tech-xfer-field input{width:72px; border:none; outline:none; background:transparent; padding:0; font-family:'Inter',sans-serif; font-size:.95rem; font-weight:700; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums;}
 .tech-xfer-field input::placeholder{color:var(--ink-faint); font-weight:500;}
 .tech-saved-cell{display:inline-flex; align-items:center; gap:7px; justify-content:flex-end;}
-.tech-meter{display:flex; flex-direction:column-reverse; gap:2px; flex:none; padding:2px; border:1.5px solid var(--ink-faint); border-radius:4px;}
-.tech-meter span{width:12px; height:4px; border-radius:1px; background:var(--paper-dim); transition:background-color .2s;}
-.tech-meter span.on{background:var(--teal);}
-.tech-saved-cell.full .tech-meter{border-color:var(--teal);}
+.tech-meter{display:flex; flex-direction:column-reverse; gap:2px; flex:none;}
+.tech-meter span{width:10px; height:3px; border-radius:1.5px; box-shadow:inset 0 0 0 1px var(--ink-faint); opacity:.55; transition:background-color .2s, opacity .2s;}
+.tech-meter span.on{background:var(--teal); box-shadow:none; opacity:1;}
 .tech-saved-lbl{font-size:.74rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap; min-width:62px; text-align:right;}
 .tech-saved-cell.full .tech-saved-lbl{color:var(--teal); font-weight:600;}
 .tech-fund{margin-top:12px; padding:10px 12px; border:1px solid var(--rule); border-radius:10px; background:var(--paper-dim); display:flex; flex-direction:column; gap:6px; font-size:.8rem;}
