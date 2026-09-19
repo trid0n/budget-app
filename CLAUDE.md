@@ -997,6 +997,6 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     the fund maths all carry the effective figure. Clearing the field = null = follow the
     suggestion. The input's value isn't rewritten while it has focus, since `updateTechTotal`
     re-runs on every keystroke.
-    The Saved column is a slim upright capsule (`.tech-cap`, teal fill rising to the saved share,
-    label turns teal when full), not a second horizontal bar — picked by the user from mockups
-    (a jar was tried first and rejected) so it can't be confused with the time-to-replace bar.
+    The Saved column is a 4-block level meter (`.tech-meter`, lit in quarters; all four ONLY at 100%,
+    none only at 0), not a second horizontal bar — picked by the user from mockups after a jar
+    and then a capsule (too hard to tell when full) were rejected.
