@@ -980,7 +980,8 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     exactly cost × fraction of lifespan elapsed; with several it also catches a run of close
     purchases. Items without a last-purchased date can't be placed and are listed as not counted.
     Behind → the extra per month that would close the gap by the tightest point.
-    The link is `techSaverAccountId` → `user_settings.tech_saver_account_id` (**needs the
+    The link is `techSaverAccountId` → `user_settings.tech_saver_account_id` (user reported
+    running the migration 2026-09-19, not independently verified; before it, it **needed the
     migration**; `saveSettings` drops the column until then, so the link just won't survive a
     reload). The balance is read live from `upSaverAccounts`, never stored.
     **Per-item "Saved" column** (`techSavedAllocation`): with a saver linked, its balance is
