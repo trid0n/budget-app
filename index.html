@@ -1049,6 +1049,9 @@ table.rtable input{width:100%; border:none; background:transparent; font-family:
 table.rtable input:not(.num-in){width:var(--rt-name-w, 100%); max-width:100%; min-width:20px;}
 table.rtable input:hover, table.rtable input:focus{background:var(--paper-dim); outline:none;}
 table.rtable input.num-in{text-align:right;}
+/* The Tech table is wider than a phone, and auto layout takes the width from the width:100%
+   inputs first - the cost box shrank to ~35px and cut "2400" to "240". */
+table.rtable input[data-tech][data-field="cost"]{min-width:72px;}
 table.rtable select.mc-round-select{width:100%; border:1px solid var(--rule); border-radius:6px; background:var(--surface); font-family:'Inter',sans-serif; font-size:.76rem; padding:4px 5px; color:var(--ink); cursor:pointer;}
 .pdate-btn{display:inline-flex; align-items:center; gap:6px; border:1px solid transparent; background:transparent; color:var(--ink); font-family:'Inter',sans-serif; font-size:.8rem; padding:4px 7px; border-radius:6px; cursor:pointer; white-space:nowrap; font-variant-numeric:tabular-nums;}
 .pdate-btn svg{color:var(--ink-soft); flex-shrink:0;}
