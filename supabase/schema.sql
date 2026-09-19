@@ -45,6 +45,7 @@ create table if not exists public.user_settings (
   feature_template     boolean not null default true,  -- Template tab — admin-toggleable per user from the Users tab, default on
   platform_hidden      jsonb not null default '{}'::jsonb,  -- self-service, NOT admin-controlled — {featureKey: ['mobile'|'pc', ...]} — which platforms each user has personally hidden a feature/tab on, layered on top of (not instead of) the feature_* grant above. See index.html's isFeatureVisibleNow().
   saver_order          jsonb not null default '[]'::jsonb,  -- Up Bank saver account ids in the order the user dragged their chips into on the Up tab. Anything absent sorts after these by balance (highest first), which is also the default for an empty array. See index.html's sortSaversForDisplay().
+  tech_saver_account_id text,  -- Up saver the Tech replacements fund is kept in; its balance is compared with what the fund should hold. See index.html's renderTechFund().
   updated_at     timestamptz not null default now()
 );
 

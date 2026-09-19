@@ -1085,6 +1085,16 @@ table.rtable select.mc-round-select{width:100%; border:1px solid var(--rule); bo
 .tech-prog-lbl{font-size:.68rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap;}
 .tech-prog.ready .tech-prog-lbl{color:var(--credit); font-weight:600;}
 .tech-prog-empty{color:var(--ink-faint);}
+.tech-fund{margin-top:12px; padding:10px 12px; border:1px solid var(--rule); border-radius:10px; background:var(--paper-dim); display:flex; flex-direction:column; gap:6px; font-size:.8rem;}
+.tech-fund-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.tech-fund-head .rc-saver-select{max-width:180px; font-size:.75rem;}
+.tech-fund-figs{display:flex; gap:18px; flex-wrap:wrap; font-variant-numeric:tabular-nums;}
+.tech-fund-fig{display:flex; flex-direction:column;}
+.tech-fund-fig small{font-size:.66rem; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.04em;}
+.tech-fund-fig b{font-size:.95rem;}
+.tech-fund-fig.ahead b{color:var(--credit);}
+.tech-fund-fig.behind b{color:var(--debit);}
+.tech-fund-note{color:var(--ink-soft); font-size:.74rem;}
 table.rtable tr.total-row td{font-weight:700; border-top:2px solid var(--ink); border-bottom:none;}
 .pos{color:var(--credit); font-weight:600;} .neg{color:var(--debit); font-weight:600;}
 .rec-table-wrap{max-height:340px; overflow-y:auto; overflow-x:auto; border:1px solid var(--rule); scrollbar-width:thin; scrollbar-color:var(--ink-faint) var(--paper-dim);}
@@ -1843,6 +1853,7 @@ try{
           <button class="mini-btn" id="addTechRowBtn">+ Add item</button>
           <span style="margin-left:auto; font-weight:700;">Monthly total: <span id="techMonthlyTotal"></span></span>
         </div>
+        <div class="tech-fund" id="techFund"></div>
         <div class="sync-note">Automatically kept in sync with "Tech replacements" in your template.</div>
       </div></div>
     </div>
@@ -2535,6 +2546,9 @@ let platformHidden = {};
 // and the fallback for a brand new saver - is highest balance first. Falls back to [] until
 // the saver_order migration has been run, see schema.sql.
 let saverOrder = [];
+// The Up saver the Tech replacements fund lives in, so its real balance can be checked against
+// what the fund should hold. Needs the tech_saver_account_id migration to persist.
+let techSaverAccountId = null;
 let displayName = '';
 // The calendar-month key "today" belongs to for budgeting purposes. Equal to the real
 // calendar month unless periodMode is 'paycycle', in which case it's the month after
@@ -3089,6 +3103,7 @@ async function loadEverything(){
     };
     platformHidden = settingsRow.platform_hidden || {};
     saverOrder = Array.isArray(settingsRow.saver_order) ? settingsRow.saver_order : [];
+    techSaverAccountId = settingsRow.tech_saver_account_id || null;
     displayName = settingsRow.display_name || '';
   }
   // A name entered at sign-up can't be saved until authUserId exists, which only
@@ -9574,6 +9589,7 @@ async function refreshUpData(){
     // triggered one.
     upSaverAccounts = savers.map(a => ({id: a.id, name: a.attributes.displayName || '', balance: parseFloat(a.attributes.balance.value)}));
     syncRecurringBalancesFromSavers();
+    renderTechFund();
     let html = '';
     if(spendingAcc){
       const bal = parseFloat(spendingAcc.attributes.balance.value);
@@ -10336,17 +10352,21 @@ pdatePanel.addEventListener('keydown', (e) => {
   if(iso && iso <= todayIso()) setPurchaseDate(iso);
 });
 window.addEventListener('resize', closePdatePanel);
+// Whole months, then the fractional remainder in days - adding years*365 days drifts off the
+// anniversary, and a lifespan like 2.5 has to land on a real calendar date.
+function addLifespan(date, years){
+  const due = new Date(date);
+  const wholeMonths = Math.floor(years * 12);
+  due.setMonth(due.getMonth() + wholeMonths);
+  due.setDate(due.getDate() + Math.round((years * 12 - wholeMonths) * 30.44));
+  return due;
+}
 function techReplacementProgress(t){
   const years = Number(t.lifespan)||0;
   if(!t.lastPurchased || years <= 0) return '<span class="tech-prog-empty">—</span>';
   const bought = new Date(t.lastPurchased + 'T00:00:00');
   if(isNaN(bought)) return '<span class="tech-prog-empty">—</span>';
-  // Whole months, then the fractional remainder in days - adding years*365 days drifts off the
-  // anniversary, and a lifespan like 2.5 has to land on a real calendar date.
-  const due = new Date(bought);
-  const wholeMonths = Math.floor(years * 12);
-  due.setMonth(due.getMonth() + wholeMonths);
-  due.setDate(due.getDate() + Math.round((years * 12 - wholeMonths) * 30.44));
+  const due = addLifespan(bought, years);
   const today = new Date(); today.setHours(0,0,0,0);
   const pct = Math.max(0, Math.min(100, (today - bought) / (due - bought) * 100));
   const ready = today >= due;
@@ -10379,8 +10399,86 @@ function updateTechTotal(){
   // runs per row on every ledger render, and this one writes to the DOM and re-syncs the
   // template on the way past.
   cachedTechMonthlyTotal = total;
+  renderTechFund();
   return total;
 }
+// What the fund has to hold TODAY so that, with `monthly` going in around the 1st of each month,
+// it never runs dry: walk every purchase coming due (repeats included) and, at each one, compare
+// everything bought so far against what will have gone in by then. The worst of those gaps is
+// the balance needed now. An overdue item is due today, with nothing more going in first.
+// Items without a purchase date have no due date, so they can't be placed and are left out.
+function techFundTarget(monthly){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dated = [], undated = [];
+  techItems.forEach(t => {
+    const years = Number(t.lifespan)||0, cost = Number(t.cost)||0;
+    if(years <= 0 || cost <= 0) return;
+    const bought = t.lastPurchased ? new Date(t.lastPurchased + 'T00:00:00') : null;
+    if(!bought || isNaN(bought)) undated.push(t); else dated.push({t, years, cost, bought});
+  });
+  if(!dated.length) return {target: 0, tightest: null, contribs: 0, undated};
+  // Two of the longest lifespan, so every item comes round at least twice and the gap after a
+  // run of close-together purchases has a chance to show.
+  const horizon = addLifespan(today, Math.min(30, 2 * Math.max(...dated.map(d => d.years))));
+  const events = [];
+  dated.forEach(({t, years, cost, bought}) => {
+    let due = addLifespan(bought, years);
+    if(due < today) due = new Date(today);
+    for(let i = 0; due <= horizon && i < 200; i++){ events.push({t, cost, due}); due = addLifespan(due, years); }
+  });
+  events.sort((a, b) => a.due - b.due);
+  const monthIdx = d => d.getFullYear() * 12 + d.getMonth();
+  let spent = 0, worst = {need: 0, ev: null, contribs: 0};
+  events.forEach(ev => {
+    spent += ev.cost;
+    const contribs = Math.max(0, monthIdx(ev.due) - monthIdx(today));
+    const need = spent - monthly * contribs;
+    if(need > worst.need) worst = {need, ev, contribs};
+  });
+  return {target: worst.need, tightest: worst.ev, contribs: worst.contribs, undated};
+}
+function renderTechFund(){
+  const host = document.getElementById('techFund'); if(!host) return;
+  if(!techItems.length){ host.innerHTML = ''; return; }
+  const monthly = cachedTechMonthlyTotal;
+  const {target, tightest, contribs, undated} = techFundTarget(monthly);
+  const saver = techSaverAccountId ? upSaverAccounts.find(s => s.id === techSaverAccountId) : null;
+  const balance = saver && !isNaN(saver.balance) ? saver.balance : null;
+  const options = `<option value=""${!techSaverAccountId?' selected':''}>Not linked</option>`
+    + upSaverAccounts.map(s => `<option value="${escapeAttr(s.id)}"${techSaverAccountId===s.id?' selected':''}>${escapeAttr(s.name)}</option>`).join('')
+    + (techSaverAccountId && !saver ? `<option value="${escapeAttr(techSaverAccountId)}" selected>Linked saver (Up not loaded)</option>` : '');
+  const fig = (lbl, val, cls='') => `<div class="tech-fund-fig ${cls}"><small>${lbl}</small><b>${val}</b></div>`;
+  let figs = '';
+  if(balance != null) figs += fig('In saver', money(balance));
+  figs += fig('Should hold now', money(target));
+  const gap = balance != null ? Math.round((balance - target) * 100) / 100 : null;
+  if(gap != null) figs += fig(gap >= 0 ? 'Ahead' : 'Behind', money(Math.abs(gap)), gap >= 0 ? 'ahead' : 'behind');
+  const when = tightest ? tightest.due.toLocaleDateString('en-AU', {month:'short', year:'numeric'}) : '';
+  const what = tightest ? escapeAttr(tightest.t.name || 'an item') : '';
+  const notes = [];
+  if(gap != null && gap < 0 && tightest){
+    notes.push(contribs > 0
+      ? `Short for ${what} (${when}). About ${money(-gap / contribs)}/month on top of the usual ${money(monthly)} would cover it in time.`
+      : `${what} is due now and the saver is ${money(-gap)} short of covering it.`);
+  } else if(tightest){
+    notes.push(`Tightest point is ${what} (${when}), with ${money(monthly)}/month going in around the 1st.`);
+  } else if(!undated.length){
+    notes.push('Add a lifespan and last-purchased date to an item to see what the saver should hold.');
+  }
+  if(undated.length) notes.push(`${undated.length} item${undated.length===1?' has':'s have'} no last-purchased date, so ${undated.length===1?'isn’t':'aren’t'} counted.`);
+  if(!upSaverAccounts.length && !techSaverAccountId) notes.push('Connect Up Bank to link the saver this fund lives in.');
+  host.innerHTML = `<div class="tech-fund-head">Fund saver
+      <select class="rc-saver-select" id="techSaverSelect" title="The Up saver this fund is kept in, to compare its balance with what it should hold">${options}</select>
+    </div>
+    <div class="tech-fund-figs">${figs}</div>
+    ${notes.filter(Boolean).map(n => `<div class="tech-fund-note">${n}</div>`).join('')}`;
+}
+document.body.addEventListener('change', (e) => {
+  if(e.target.id !== 'techSaverSelect') return;
+  techSaverAccountId = e.target.value || null;
+  renderTechFund();
+  db.saveSettings({ tech_saver_account_id: techSaverAccountId }).catch(() => {});
+});
 function addTechRow(){ pushUndo('tech', techItems); techItems.push({id:uid('tech'), name:'', cost:0, lifespan:0}); renderTechRows(); saveTech(); focusLastInput('techRows'); }
 document.getElementById('addTechRowBtn').addEventListener('click', addTechRow);
 document.body.addEventListener('keydown', (e) => { if(e.key==='Enter' && e.target.matches('input') && e.target.dataset.tech){ e.preventDefault(); addTechRow(); } });

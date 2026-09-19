@@ -29,7 +29,8 @@ alter table public.user_settings add column if not exists feature_records      b
 alter table public.user_settings add column if not exists feature_template     boolean not null default true;
 alter table public.user_settings add column if not exists platform_hidden      jsonb not null default '{}'::jsonb;
 alter table public.user_settings add column if not exists saver_order          jsonb not null default '[]'::jsonb;
-alter table public.user_settings add column if not exists updated_at           timestamptz not null default now();
+alter table public.user_settings add column if not exists tech_saver_account_id text;
+alter table public.user_settings add column if not exists updated_at          timestamptz not null default now();
 
 -- PostgREST caches the schema; without this the API can keep reporting a column as missing for
 -- a minute or so after it exists.

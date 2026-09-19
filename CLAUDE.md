@@ -971,3 +971,15 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     node, which a document-level "clicked outside?" check would otherwise read as outside.
     Recurring costs' "Last charged" is still a native date input.
     **Harness gotcha**: the Browser pane's `computer` key "Return" dispatches `key: ''`; use "Enter".
+
+55. **Tech replacements fund: link a saver, see where its balance should be.** `#techFund` under
+    the Tech table. `techFundTarget(monthly)` walks every purchase coming due (repeats included,
+    horizon = 2× the longest lifespan, capped at 30 years), treats anything overdue as due today,
+    and at each one compares the cumulative cost against the monthly total (`cachedTechMonthlyTotal`)
+    × the number of 1sts before it. The worst gap is "Should hold now". With a single item this is
+    exactly cost × fraction of lifespan elapsed; with several it also catches a run of close
+    purchases. Items without a last-purchased date can't be placed and are listed as not counted.
+    Behind → the extra per month that would close the gap by the tightest point.
+    The link is `techSaverAccountId` → `user_settings.tech_saver_account_id` (**needs the
+    migration**; `saveSettings` drops the column until then, so the link just won't survive a
+    reload). The balance is read live from `upSaverAccounts`, never stored.
