@@ -10486,23 +10486,27 @@ function techFundTarget(monthly){
   });
   return {target: worst.need, tightest: worst.ev, contribs: worst.contribs, undated};
 }
-// One saver holds the whole fund, so "saved towards each item" is an earmarking, not a real split:
-// the balance goes to purchases in the order they come due, each filled to its full cost before
-// the next gets anything. That makes an item's figure answer "is this one covered when it's
-// due?" - a proportional split would show every item partly funded and none of them buyable.
-// Undated items have no place in the queue, so they only get what's left after the rest.
+// One saver holds the whole fund, so "saved towards each item" is an earmarking, not a real split.
+// Each item is earmarked what steady saving since its last purchase would have put aside by now -
+// cost x the share of its lifespan already used - so its Saved meter and its Next purchase bar
+// fill together, and "both full" means "buy it". Filling the soonest-due item to its whole cost
+// first (the previous rule) marked a headset two years out as nearly paid for just because it was
+// next in line. If the balance can't cover every share, the soonest-due items are covered first.
+// Anything beyond every share is ahead of schedule and deliberately NOT given to an item, or it
+// would read as ready to buy early. Undated items have no elapsed share, so they're earmarked 0.
 function techSavedAllocation(balance){
   const today = new Date(); today.setHours(0,0,0,0);
-  const dueOf = t => {
-    const years = Number(t.lifespan)||0;
+  const queue = techItems.map(t => {
+    const years = Number(t.lifespan)||0, cost = Math.max(0, Number(t.cost)||0);
     const bought = t.lastPurchased ? new Date(t.lastPurchased + 'T00:00:00') : null;
-    return years > 0 && bought && !isNaN(bought) ? addLifespan(bought, years) : null;
-  };
-  const queue = techItems.map(t => ({t, due: dueOf(t)}))
-    .sort((a, b) => (a.due ? a.due : Infinity) - (b.due ? b.due : Infinity));
+    if(years <= 0 || !bought || isNaN(bought)) return {t, due: null, share: 0};
+    const due = addLifespan(bought, years);
+    const frac = Math.max(0, Math.min(1, (today - bought) / (due - bought)));
+    return {t, due, share: cost * frac};
+  }).sort((a, b) => (a.due ? a.due : Infinity) - (b.due ? b.due : Infinity));
   const out = {};
   let left = Math.max(0, balance);
-  queue.forEach(({t}) => { const got = Math.min(left, Math.max(0, Number(t.cost)||0)); out[t.id] = got; left -= got; });
+  queue.forEach(({t, share}) => { const got = Math.min(left, share); out[t.id] = got; left -= got; });
   return {saved: out, spare: left};
 }
 function techSavedCellHtml(saved, cost){
@@ -10551,7 +10555,7 @@ function renderTechFund(){
   } else if(!undated.length){
     notes.push('Add a lifespan and last-purchased date to an item to see what the saver should hold.');
   }
-  if(alloc && alloc.spare >= 0.01) notes.push(`${money(alloc.spare)} left over after covering every item in full.`);
+  if(alloc && alloc.spare >= 0.01) notes.push(`${money(alloc.spare)} is ahead of schedule — more than your items should have saved by now, so it isn’t earmarked to any of them.`);
   if(undated.length) notes.push(`${undated.length} item${undated.length===1?' has':'s have'} no last-purchased date, so ${undated.length===1?'isn’t':'aren’t'} counted.`);
   if(!upSaverAccounts.length && !techSaverAccountId) notes.push('Connect Up Bank to link the saver this fund lives in.');
   host.innerHTML = `<div class="tech-fund-head">Fund saver

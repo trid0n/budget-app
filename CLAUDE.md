@@ -984,11 +984,16 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     running the migration 2026-09-19, not independently verified; before it, it **needed the
     migration**; `saveSettings` drops the column until then, so the link just won't survive a
     reload). The balance is read live from `upSaverAccounts`, never stored.
-    **Per-item "Saved" column** (`techSavedAllocation`): with a saver linked, its balance is
+    **Per-item "Saved" column** (`techSavedAllocation`): with a saver linked, each item is earmarked
+    cost × the share of its lifespan already used (so Saved and Next purchase fill together; "both
+    full" = buy it), soonest-due covered first if the balance falls short, anything beyond every
+    share reported as ahead of schedule and NOT earmarked. **Superseded rule, kept for why:** its balance was
     earmarked against items soonest-due first, each filled to full cost before the next gets
     anything; undated items come last and anything beyond every full cost is reported as left
-    over. Deliberately not proportional — the point is to answer "is this one covered when it's
-    due?", and a proportional split shows everything partly funded and nothing buyable.
+    over. That filled a headset due 2+ years out almost completely just because it was next in line,
+    which the user rightly flagged — an earmark must not run ahead of the item's own clock.
+    (Old reasoning: "is this one covered when it's
+    due?", and a proportional split shows everything partly funded and nothing buyable.)
     "—" without a linked saver.
     **Monthly transfer override** (`techMonthlyOverride` → `user_settings.tech_monthly_amount`,
     migration reported run by the user 2026-09-19 — previously it
