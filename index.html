@@ -1087,8 +1087,14 @@ table.rtable select.mc-round-select{width:100%; border:1px solid var(--rule); bo
 .tech-prog-empty{color:var(--ink-faint);}
 .tech-monthly{margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end;}
 .tech-monthly-sugg{font-size:.78rem; color:var(--ink-soft); font-variant-numeric:tabular-nums;}
-.tech-monthly-lbl{font-weight:700; display:flex; align-items:center; gap:2px;}
-.tech-monthly-lbl input{width:90px; text-align:right; font-weight:700;}
+.tech-xfer{display:flex; align-items:center; gap:8px; cursor:text;}
+.tech-xfer-lbl{font-weight:700; font-size:.84rem;}
+.tech-xfer-field{display:flex; align-items:baseline; gap:2px; padding:5px 10px; border:1px solid var(--rule); border-radius:8px; background:var(--surface); box-shadow:var(--shadow); transition:border-color .15s, box-shadow .15s;}
+.tech-xfer-field:hover{border-color:var(--ink-faint);}
+.tech-xfer-field:focus-within{border-color:var(--gold); box-shadow:0 0 0 3px var(--gold-bg);}
+.tech-xfer-cur{color:var(--ink-faint); font-weight:600; font-size:.86rem;}
+.tech-xfer-field input{width:72px; border:none; outline:none; background:transparent; padding:0; font-family:'Inter',sans-serif; font-size:.95rem; font-weight:700; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums;}
+.tech-xfer-field input::placeholder{color:var(--ink-faint); font-weight:500;}
 #techUseSuggestedBtn[hidden]{display:none;}
 .tech-fund{margin-top:12px; padding:10px 12px; border:1px solid var(--rule); border-radius:10px; background:var(--paper-dim); display:flex; flex-direction:column; gap:6px; font-size:.8rem;}
 .tech-fund-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
@@ -1858,12 +1864,14 @@ try{
           <button class="mini-btn" id="addTechRowBtn">+ Add item</button>
           <div class="tech-monthly">
             <span class="tech-monthly-sugg">Suggested <span id="techMonthlyTotal"></span></span>
-            <label class="tech-monthly-lbl">Monthly transfer $<input class="num-in" type="number" step="0.01" min="0" id="techMonthlyInput" title="What you actually move into the saver each month. Your template and the fund maths use this. Leave blank to follow the suggestion."></label>
+            <label class="tech-xfer" title="What you actually move into the saver each month. Your template and the fund maths use this. Leave blank to follow the suggestion.">
+              <span class="tech-xfer-lbl">Monthly transfer</span>
+              <span class="tech-xfer-field"><span class="tech-xfer-cur">$</span><input type="text" inputmode="decimal" autocomplete="off" id="techMonthlyInput"></span>
+            </label>
             <button class="mini-btn" id="techUseSuggestedBtn" title="Clear your figure and follow the suggestion">Use suggested</button>
           </div>
         </div>
         <div class="tech-fund" id="techFund"></div>
-        <div class="sync-note">"Tech replacements" in your template follows your monthly transfer — or the suggestion, if you leave it blank.</div>
       </div></div>
     </div>
 
@@ -10410,7 +10418,7 @@ function updateTechTotal(){
   document.getElementById('techMonthlyTotal').textContent = money(total);
   const input = document.getElementById('techMonthlyInput');
   input.placeholder = total.toFixed(2);
-  if(document.activeElement !== input) input.value = techMonthlyOverride == null ? '' : techMonthlyOverride;
+  if(document.activeElement !== input) input.value = techMonthlyOverride == null ? '' : techMonthlyOverride.toFixed(2);
   document.getElementById('techUseSuggestedBtn').hidden = techMonthlyOverride == null;
   // The table's total is only a suggestion; the transfer the user actually makes is what the
   // template carries and what the fund maths plans around.
@@ -10425,8 +10433,8 @@ function updateTechTotal(){
 }
 let techMonthlySaveTimer = null;
 document.getElementById('techMonthlyInput').addEventListener('input', (e) => {
-  const v = e.target.value.trim();
-  techMonthlyOverride = v === '' || isNaN(parseFloat(v)) ? null : Math.max(0, parseFloat(v));
+  const v = parseFloat(e.target.value.replace(/[$,\s]/g, ''));
+  techMonthlyOverride = isNaN(v) ? null : Math.max(0, Math.round(v * 100) / 100);
   updateTechTotal();
   clearTimeout(techMonthlySaveTimer);
   techMonthlySaveTimer = setTimeout(() => { db.saveSettings({ tech_monthly_amount: techMonthlyOverride }).catch(() => {}); }, 500);
@@ -10436,6 +10444,10 @@ document.getElementById('techMonthlyInput').addEventListener('change', () => {
   clearTimeout(techMonthlySaveTimer);
   db.saveSettings({ tech_monthly_amount: techMonthlyOverride }).catch(() => {});
 });
+document.getElementById('techMonthlyInput').addEventListener('keydown', (e) => { if(e.key === 'Enter') e.target.blur(); });
+// Tidies what was typed ("150" -> "150.00") once focus has actually left - updateTechTotal
+// leaves the field alone while it's focused.
+document.getElementById('techMonthlyInput').addEventListener('blur', () => { setTimeout(updateTechTotal); });
 document.getElementById('techUseSuggestedBtn').addEventListener('click', () => {
   techMonthlyOverride = null;
   updateTechTotal();
@@ -10537,7 +10549,7 @@ function renderTechFund(){
   } else if(!undated.length){
     notes.push('Add a lifespan and last-purchased date to an item to see what the saver should hold.');
   }
-  if(alloc) notes.push(`“Saved” sets the balance against purchases soonest-due first${alloc.spare >= 0.01 ? ` — ${money(alloc.spare)} is left over after covering every item in full` : ''}.`);
+  if(alloc && alloc.spare >= 0.01) notes.push(`${money(alloc.spare)} left over after covering every item in full.`);
   if(undated.length) notes.push(`${undated.length} item${undated.length===1?' has':'s have'} no last-purchased date, so ${undated.length===1?'isn’t':'aren’t'} counted.`);
   if(!upSaverAccounts.length && !techSaverAccountId) notes.push('Connect Up Bank to link the saver this fund lives in.');
   host.innerHTML = `<div class="tech-fund-head">Fund saver

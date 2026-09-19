@@ -991,6 +991,7 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     due?", and a proportional split shows everything partly funded and nothing buyable.
     "—" without a linked saver.
     **Monthly transfer override** (`techMonthlyOverride` → `user_settings.tech_monthly_amount`,
+    migration reported run by the user 2026-09-19 — previously it
     **needs the migration**): the table's total is now labelled "Suggested"; a figure typed into
     "Monthly transfer" replaces it everywhere — `cachedTechMonthlyTotal`, the template sync and
     the fund maths all carry the effective figure. Blank / "Use suggested" = null = follow the
