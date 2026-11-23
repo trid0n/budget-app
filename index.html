@@ -482,6 +482,47 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .balance-bar-lbl{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin-bottom:2px;}
 .balance-bar-amt{font-size:1.5rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums;}
 .balance-bar-sub{font-size:.74rem; color:var(--ink-faint); margin-top:2px;}
+/* ---- month close ---- */
+.month-close-bar{display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:10px; margin:-6px 0 18px;}
+.month-close-bar.closed{background:var(--surface); border:1px solid var(--rule); border-radius:12px; padding:10px 16px; margin-top:-8px;}
+.month-close-state{font-size:.78rem; color:var(--ink-soft);}
+.month-close-state strong{color:var(--ink); font-variant-numeric:tabular-nums;}
+.month-close-edited{font-size:.74rem; color:var(--debit); background:var(--debit-bg); border-radius:999px; padding:2px 10px;}
+.month-close-box{max-width:560px; width:94%; display:flex; flex-direction:column; gap:10px; position:relative; max-height:calc(100vh - 48px); overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--rule) var(--paper-dim);}
+.mc-exit-btn{position:absolute; top:10px; right:10px;}
+.mc-figure{background:var(--paper-dim); border-radius:12px; padding:14px 16px; margin-top:4px;}
+.mc-figure-amt{font-size:1.9rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums; line-height:1.1;}
+.mc-figure-lbl{font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700;}
+.mc-terms{margin-top:10px; border-top:1px solid var(--rule); padding-top:8px;}
+.mc-term{display:flex; justify-content:space-between; gap:12px; font-size:.8rem; padding:2px 0;}
+.mc-term span:first-child{color:var(--ink-soft);}
+.mc-term span:last-child{font-variant-numeric:tabular-nums;}
+.mc-sec-lbl{font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin-top:14px;}
+.mc-list{border:1px solid var(--rule); border-radius:10px; overflow:hidden;}
+.mc-check{display:flex; align-items:flex-start; gap:9px; padding:9px 12px; font-size:.8rem; border-bottom:1px solid var(--rule);}
+.mc-check:last-child{border-bottom:none;}
+.mc-check-ic{flex:none; width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.62rem; font-weight:800; margin-top:1px;}
+.mc-check.ok .mc-check-ic{background:var(--credit-bg); color:var(--credit);}
+.mc-check.warn .mc-check-ic{background:var(--debit-bg); color:var(--debit);}
+.mc-check-detail{display:block; color:var(--ink-faint); font-size:.74rem; margin-top:2px;}
+.mc-split{display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid var(--rule);}
+.mc-split:last-child{border-bottom:none;}
+/* The reason wraps to a second line rather than being clipped - "Tech fund — behin" tells you
+   nothing, and the reason is the whole justification for the number beside it. */
+.mc-split-name{flex:1; font-size:.8rem; min-width:0;}
+.mc-split-why{color:var(--ink-faint); font-size:.72rem;}
+.mc-split input{width:88px; text-align:right; flex:none;}
+.mc-rest-btn{font-size:.68rem; padding:3px 8px; background:none; border:1px solid var(--rule); border-radius:999px; color:var(--ink-soft); cursor:pointer;}
+.mc-rest-btn:hover{border-color:var(--gold); color:var(--gold);}
+.mc-tally{display:flex; justify-content:space-between; font-size:.78rem; margin-top:8px; color:var(--ink-soft);}
+.mc-tally strong{font-variant-numeric:tabular-nums; color:var(--ink);}
+.mc-tally.off strong{color:var(--debit);}
+.mc-note{font-size:.74rem; color:var(--ink-faint); margin-top:10px; line-height:1.5;}
+.mc-rec{border:1px solid var(--rule); border-radius:10px; padding:10px 12px; font-size:.78rem; margin-top:8px;}
+.mc-rec-hdr{display:flex; justify-content:space-between; gap:10px; font-weight:700;}
+.mc-rec-line{color:var(--ink-soft); margin-top:3px;}
+.month-close-box .modal-actions{align-items:center; gap:12px;}
+.month-close-box .modal-actions .mini-btn{white-space:nowrap; flex:none;}
 .notes-box-hdr{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; position:relative;}
 .notes-box-hdr label{margin-bottom:0;}
 /* A real floating popup (position:fixed, JS-positioned via positionFloatingMenu() and
@@ -1653,6 +1694,8 @@ try{
           <button class="balance-live-link" id="balanceUseLiveLink" style="display:none;">Use live balance instead</button>
         </div>
 
+        <div class="month-close-bar" id="monthCloseBar"></div>
+
         <div class="income-card" id="incomeCard">
           <div class="income-hdr" data-income-toggle><span class="chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span><span id="incomeHdrEmoji" class="cat-emoji" data-income-emoji-picker="income" title="Change emoji">💵</span><span class="sh-static">Income</span><span class="section-hdr-total" id="incomeTotalDisplay"></span></div>
           <div class="income-body"><div class="income-body-inner">
@@ -2079,6 +2122,16 @@ try{
     <button class="panel-close-btn acct-exit-btn" id="acctExitBtn" title="Close"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
   </div>
 </div>
+<!-- Declared with these, before the script, rather than with the overlays after it: its exit
+     button is bound at the top level, which the post-script overlays can't be. -->
+<div class="modal-overlay" id="monthCloseOverlay">
+  <div class="modal-box month-close-box">
+    <button class="panel-close-btn mc-exit-btn" id="monthCloseExitBtn" title="Close"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
+    <div class="tx-assign-hdr" id="monthCloseTitle">Close month</div>
+    <div class="tx-assign-sub" id="monthCloseSub"></div>
+    <div id="monthCloseBody"></div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
@@ -2481,6 +2534,36 @@ const db = {
     const rows = Object.entries(rules).map(([accountId, r]) => ({ transfer_account_id: accountId, user_id: authUserId, account_name: r.accountName, category_name: r.categoryName, item_name: r.itemName }));
     if(rows.length){ const { error } = await sb.from('up_transfer_rules').insert(rows); if(error) throw error; }
   },
+  // Append-only by design - see schema.sql. There is deliberately no updateMonthClose or
+  // deleteMonthClose: a record you can edit afterwards answers nothing. Paged like
+  // loadTxAssignments, since this grows forever (a dozen rows a year, but the 1000-row REST
+  // cap is a silent truncation and not worth re-learning).
+  async loadMonthCloses(){
+    const out = [];
+    let from = 0;
+    for(;;){
+      const { data, error } = await sb.from('month_closes').select('*').eq('user_id', authUserId)
+        .order('closed_at', { ascending: true }).range(from, from + 999);
+      if(error) throw error;
+      const rows = data || [];
+      rows.forEach(r => out.push({
+        id: r.id, monthKey: r.month_key, closedAt: r.closed_at, amount: Number(r.amount)||0,
+        breakdown: r.breakdown || {}, totals: r.totals || {}, snapshot: r.snapshot || {},
+        warnings: r.warnings || [], splits: r.splits || [], note: r.note || ''
+      }));
+      if(!rows.length) break;
+      from += rows.length;
+    }
+    return out;
+  },
+  async saveMonthClose(rec){
+    const { error } = await sb.from('month_closes').insert({
+      id: rec.id, user_id: authUserId, month_key: rec.monthKey, closed_at: rec.closedAt,
+      amount: rec.amount, breakdown: rec.breakdown, totals: rec.totals, snapshot: rec.snapshot,
+      warnings: rec.warnings, splits: rec.splits, note: rec.note || ''
+    });
+    if(error) throw error;
+  },
   // Admin-only — these call security definer Postgres functions rather than reading/
   // writing user_settings directly, since a blanket "admins can see every row" RLS
   // policy would also expose other users' plaintext up_token. See schema.sql.
@@ -2586,6 +2669,8 @@ let monthData = null;
 let saveTimer = null;
 let techItems = [];
 let txAssignments = {};
+let monthCloses = [];
+let monthClosesAvailable = true;
 let txRules = {};
 // Keyed by the Up account ID a savings transfer moves money INTO (relationships.
 // transferAccount.data.id), not a description - unlike merchant rules, transfer
@@ -3096,7 +3181,8 @@ async function loadEverything(){
   // Same root cause as the month-switch delay: run them concurrently instead.
   const [
     settingsRow, monthKeys, techItemsRes, groceryRes, recurringRes, mtgRes,
-    monthlyCostItems, templateRow, txAssignmentsRes, txRulesRes, transferRulesRes, incomeSourceRow, priceChangeNotesRes
+    monthlyCostItems, templateRow, txAssignmentsRes, txRulesRes, transferRulesRes, incomeSourceRow, priceChangeNotesRes,
+    monthClosesRes
   ] = await Promise.all([
     db.loadSettings().catch(() => null),
     db.listMonthKeys().catch(() => []),
@@ -3111,8 +3197,13 @@ async function loadEverything(){
     // Falls back to {} until the up_transfer_rules migration has been run - see schema.sql.
     db.loadTransferRules().catch(() => ({})),
     db.loadIncomeSource().catch(() => null),
-    db.loadPriceChangeNotes().catch(() => ({}))
+    db.loadPriceChangeNotes().catch(() => ({})),
+    // null (not []) marks "the month_closes table isn't there yet" so the close panel can say
+    // so rather than silently presenting itself as able to record anything - see schema.sql.
+    db.loadMonthCloses().catch(() => null)
   ]);
+  monthClosesAvailable = monthClosesRes !== null;
+  monthCloses = monthClosesRes || [];
   if(settingsRow){
     settings = { currentMonth: settingsRow.current_month || settings.currentMonth, theme: settingsRow.theme || 'light', lastGoal: Number(settingsRow.last_goal)||0, balanceMode: settingsRow.balance_mode || 'live', manualBalance: Number(settingsRow.manual_balance)||0, periodMode: settingsRow.period_mode || 'calendar' };
     upToken = settingsRow.up_token || '';
@@ -3162,11 +3253,11 @@ async function loadEverything(){
 }
 
 /* ===================== ledger rendering ===================== */
-function updateSummary(){
-  if(!monthData) return;
+// Every term of the "left over" figure, in one place, so the Budget tab's headline and the
+// month-close panel can't drift apart - two different numbers for the same thing is exactly
+// what makes a sweep figure untrustworthy.
+function leftOverParts(){
   const t = monthTotals(monthData);
-  document.getElementById('miniIncome').textContent = money(t.unreceivedIncome);
-  document.getElementById('miniCost').textContent = money(t.remaining);
   const usingManual = settings.balanceMode === 'manual';
   const usingRememberedUp = !usingManual && typeof upSpendingBalance !== 'number' && typeof lastKnownUpBalance === 'number';
   const effectiveBalance = usingManual ? (Number(settings.manualBalance)||0)
@@ -3180,7 +3271,19 @@ function updateSummary(){
   // doesn't let today's number distort that month's own numbers.
   const applyBalanceToTotal = effectiveBalance != null && isCurrentPeriod(settings.currentMonth);
   const rawProjected = applyBalanceToTotal ? (effectiveBalance + t.unreceivedIncome - t.remaining) : (t.unreceivedIncome - t.remaining);
-  const inHand = rawProjected - goal;
+  return {
+    totals: t, goal, effectiveBalance, usingManual, usingRememberedUp, applyBalanceToTotal,
+    inHand: rawProjected - goal,
+    balanceSource: effectiveBalance == null ? 'none' : (usingManual ? 'manual' : (usingRememberedUp ? 'remembered' : 'live'))
+  };
+}
+function updateSummary(){
+  if(!monthData) return;
+  const parts = leftOverParts();
+  const t = parts.totals;
+  document.getElementById('miniIncome').textContent = money(t.unreceivedIncome);
+  document.getElementById('miniCost').textContent = money(t.remaining);
+  const { usingManual, usingRememberedUp, effectiveBalance, goal, applyBalanceToTotal, inHand } = parts;
   document.getElementById('rtaAmt').textContent = money(inHand);
   const anyChargedNow = t.charged > 0 || t.receivedIncome > 0;
   document.getElementById('miniUncrossWrap').innerHTML = anyChargedNow ? `<button class="uncross-all-btn" id="uncrossAllBtn">Uncross all</button>` : '';
@@ -3215,8 +3318,300 @@ function updateSummary(){
   }
   const statusEl = document.getElementById('goalStatus');
   statusEl.textContent = '';
+  renderMonthCloseBar();
   recalcTotalsInPlace();
 }
+
+/* ===================== month close (sweep record) ===================== */
+// The problem this solves: at month end you transfer what's left out of spending, and then
+// nothing anywhere records WHY that figure was that figure. Edit the month afterwards - cross
+// something off, fix an amount - and the number silently becomes unreproducible. So a close
+// (a) shows the figure with every term of its derivation and the specific things that would
+// make it wrong, and (b) writes an append-only record of all of it. See db.saveMonthClose.
+// Nothing here moves money: Up's API has no transfer endpoint, so the splits are the plan you
+// then carry out in Up, recorded so it can be checked against later.
+
+// The sweep figure deliberately folds the balance in even when the period isn't current,
+// unlike the Budget tab's headline - a sweep is a present-tense act on a real account
+// balance, whatever month's commitments it's being netted against. balanceCounted carries
+// that distinction into the record, and a check below says it out loud.
+function monthSweepFigure(){
+  const p = leftOverParts();
+  const bal = p.effectiveBalance == null ? 0 : p.effectiveBalance;
+  return {
+    ...p,
+    balanceCounted: p.effectiveBalance != null,
+    periodIsCurrent: isCurrentPeriod(settings.currentMonth),
+    amount: Math.round((bal + p.totals.unreceivedIncome - p.totals.remaining - p.goal) * 100) / 100
+  };
+}
+// Transactions the app considers part of the month being closed. periodKeyForTx is the same
+// test autoApplyTxRules files by, so this can't disagree with where the money was put.
+function txsForClosingPeriod(){
+  return upTransactions.filter(t => isValidUpTx(t) && periodKeyForTx(t) === settings.currentMonth);
+}
+// Everything that would make the figure wrong. Each is computable from what's already loaded;
+// none of them blocks a close - a warning you can't proceed past just teaches you to avoid the
+// screen. They're recorded with the close instead, so "I swept with two guesses outstanding" is
+// a fact you can look up rather than a thing you have to remember.
+function monthCloseChecks(){
+  const out = [];
+  const fig = monthSweepFigure();
+  if(!fig.balanceCounted){
+    out.push({level:'warn', key:'balance', text:'No spending balance available', detail:'Connect Up Bank on the Up tab or enter one by hand — without it the figure is only income minus costs, not what is actually in the account.'});
+  } else if(fig.balanceSource === 'remembered'){
+    out.push({level:'warn', key:'balance', text:'Balance is a remembered one, not live', detail:'Up has not responded this session, so it may be out of date.'});
+  } else if(fig.balanceSource === 'manual'){
+    out.push({level:'warn', key:'balance', text:'Balance was entered by hand', detail:'Check it still matches the account before you transfer.'});
+  } else {
+    out.push({level:'ok', key:'balance', text:'Balance is live from Up'});
+  }
+  if(!fig.periodIsCurrent && fig.balanceCounted){
+    out.push({level:'warn', key:'period', text:`${monthLabel(settings.currentMonth)} is not the current period`, detail:'The figure still uses your balance as it is right now, which is what a transfer acts on — but that balance may already include money belonging to the period after this one.'});
+  }
+  if(upToken){
+    const considered = txsForClosingPeriod().filter(t => { const a = txAssignments[t.id]; return !(a && a.excluded); });
+    let unassigned = [], guessed = [], held = [];
+    considered.forEach(t => {
+      const a = txAssignments[t.id];
+      if(t.attributes.status === 'HELD') held.push(t);
+      if(a && a.catId) return;
+      const amt = parseFloat(t.attributes.amount.value);
+      (findGuessForTx(t.attributes.description, amt, t) ? guessed : unassigned).push(t);
+    });
+    const sum = list => Math.round(list.reduce((s,t) => s + Math.abs(parseFloat(t.attributes.amount.value)||0), 0) * 100) / 100;
+    if(unassigned.length) out.push({level:'warn', key:'unassigned', text:`${unassigned.length} transaction${unassigned.length===1?'':'s'} not assigned — ${money(sum(unassigned))}`, detail:'Spending the budget has never seen, so the figure above is overstated by roughly this much.'});
+    if(guessed.length) out.push({level:'warn', key:'guesses', text:`${guessed.length} guess${guessed.length===1?'':'es'} unconfirmed — ${money(sum(guessed))}`, detail:'Attributed by a guess rather than a decision, so the budget may be holding the money against the wrong line. Confirm or correct them in the Up tab.'});
+    // Only once BOTH piles are empty, or this contradicts itself - a guessed transaction is not
+    // an assigned one, and saying "all assigned" beside "4 guesses unconfirmed" is worse than
+    // saying nothing.
+    if(!unassigned.length && !guessed.length) out.push({level:'ok', key:'unassigned', text:`All ${considered.length} transaction${considered.length===1?'':'s'} assigned`});
+    if(held.length) out.push({level:'warn', key:'held', text:`${held.length} transaction${held.length===1?'':'s'} still pending — ${money(sum(held))}`, detail:'Held by Up and not settled, so the final amount can still change.'});
+  } else {
+    out.push({level:'warn', key:'up', text:'Up Bank is not connected', detail:'Transactions cannot be checked against the budget, so only the figures you have typed are being verified.'});
+  }
+  const uncrossedWithTx = [], crossedNoTx = [], overTx = [];
+  monthData.categories.forEach(c => c.items.forEach(i => {
+    const txs = getTxsForItem(c.id, i.id);
+    if(!i.charged && txs.length) uncrossedWithTx.push({c, i});
+    if(i.charged && !txs.length && upToken && (Number(i.amount)||0) > 0) crossedNoTx.push({c, i});
+    if(!isSourceSyncedItem(i.name) && itemAmountExceedsTxTotal(c.id, i.id, i.amount)) overTx.push({c, i});
+  }));
+  const itemSum = list => Math.round(list.reduce((s,x) => s + (Number(x.i.amount)||0), 0) * 100) / 100;
+  if(uncrossedWithTx.length) out.push({level:'warn', key:'uncrossed', text:`${uncrossedWithTx.length} item${uncrossedWithTx.length===1?'':'s'} paid but not crossed off — ${money(itemSum(uncrossedWithTx))}`, detail:`The money has gone but the figure is still holding it back: ${uncrossedWithTx.slice(0,4).map(x => x.i.name).join(', ')}${uncrossedWithTx.length>4?'…':''}`});
+  else out.push({level:'ok', key:'uncrossed', text:'Nothing is paid-but-still-reserved'});
+  // The dangerous direction: crossed off means "the figure stops holding this money back", so if
+  // it hasn't actually left the account the balance still contains it and a sweep sends it away.
+  if(crossedNoTx.length) out.push({level:'warn', key:'crossed', text:`${crossedNoTx.length} crossed-off item${crossedNoTx.length===1?'':'s'} with no transaction — ${money(itemSum(crossedNoTx))}`, detail:`If one of these has not actually been charged yet, its money is still in the balance and would be swept away: ${crossedNoTx.slice(0,4).map(x => x.i.name).join(', ')}${crossedNoTx.length>4?'…':''}`});
+  if(overTx.length) out.push({level:'warn', key:'overtx', text:`${overTx.length} item${overTx.length===1?'':'s'} budgeted above ${overTx.length===1?'its':'their'} transactions`, detail:`Either more is still to come out, or the amount needs pulling down: ${overTx.slice(0,4).map(x => x.i.name).join(', ')}${overTx.length>4?'…':''}`});
+  return out;
+}
+// What each fund can justify asking for this month. Only where the app has a defensible number
+// of its own: the tech fund's own should-hold-now target against the saver's real balance, and
+// each recurring cost's monthly set-aside (which already includes its catch-up when a charge is
+// closer than the balance covers). Everything else is left at 0 for you to type.
+function sweepSuggestions(){
+  const out = {};
+  const reasons = {};
+  if(techSaverAccountId && techItems.length){
+    const saver = upSaverAccounts.find(s => s.id === techSaverAccountId);
+    const bal = saver && !isNaN(saver.balance) ? saver.balance : 0;
+    const gap = Math.max(0, Math.round((techFundTarget(cachedTechMonthlyTotal).target - bal) * 100) / 100);
+    if(gap > 0){ out[techSaverAccountId] = (out[techSaverAccountId]||0) + gap; reasons[techSaverAccountId] = `behind by ${money(gap)}`; }
+  }
+  (recurringCosts.items || []).forEach(rc => {
+    if(!rc.saverAccountId) return;
+    const monthly = Math.round(recurringMonthlyAmount(rc).monthly * 100) / 100;
+    if(monthly <= 0) return;
+    out[rc.saverAccountId] = (out[rc.saverAccountId]||0) + monthly;
+    reasons[rc.saverAccountId] = reasons[rc.saverAccountId] ? `${reasons[rc.saverAccountId]} + ${rc.name||'recurring'}` : `${rc.name||'recurring'} set-aside`;
+  });
+  return {amounts: out, reasons};
+}
+function closesFor(key){ return monthCloses.filter(c => c.monthKey === key); }
+function latestCloseFor(key){ const all = closesFor(key); return all.length ? all[all.length-1] : null; }
+// A close records the month's own totals, not just the figure, because the figure also moves
+// when the balance moves - and the balance moving is normal. Comparing the totals isolates the
+// thing actually worth flagging: the budget being edited after the fact.
+function closeTotalsDiffer(rec){
+  if(!rec || !monthData) return false;
+  const t = monthTotals(monthData);
+  const r = rec.totals || {};
+  const off = (a, b) => Math.abs((Number(a)||0) - (Number(b)||0)) > 0.005;
+  return off(r.income, t.income) || off(r.cost, t.cost) || off(r.charged, t.charged) || off(r.goal, Number(monthData.goal)||0);
+}
+// What the swept figure would have come to with the balance it was taken on, but this month's
+// numbers as they now stand - so the effect of the later edit is shown on its own, rather than
+// mixed in with every dollar that has moved through the account since.
+function closeFigureNow(rec){
+  const t = monthTotals(monthData);
+  const bal = Number((rec.breakdown||{}).balance) || 0;
+  return Math.round((bal + t.unreceivedIncome - t.remaining - (Number(monthData.goal)||0)) * 100) / 100;
+}
+function renderMonthCloseBar(){
+  const bar = document.getElementById('monthCloseBar');
+  if(!bar) return;
+  const rec = latestCloseFor(settings.currentMonth);
+  if(!rec){
+    bar.innerHTML = `<button class="mini-btn month-close-open" id="monthCloseOpenBtn">Close ${escapeAttr(monthLabel(settings.currentMonth).split(' ')[0])} &amp; sweep</button>`;
+    bar.classList.remove('closed');
+    return;
+  }
+  bar.classList.add('closed');
+  const when = new Date(rec.closedAt).toLocaleDateString('en-AU', {day:'numeric', month:'short'});
+  const n = closesFor(settings.currentMonth).length;
+  const edited = closeTotalsDiffer(rec);
+  const nowFig = edited ? closeFigureNow(rec) : 0;
+  bar.innerHTML = `<span class="month-close-state">Closed ${escapeAttr(when)} at <strong>${money(rec.amount)}</strong>${n>1?` · ${n} closes`:''}</span>`
+    + (edited ? `<span class="month-close-edited">budget edited since — would now be ${money(nowFig)}</span>` : '')
+    + `<button class="mini-btn month-close-open" id="monthCloseOpenBtn">${edited?'Review':'View record'}</button>`;
+}
+// Every line as it stood at the moment of the close. Stored in full rather than as a total,
+// because "why was Groceries holding $240 back?" is the question you actually come back with.
+function monthCloseSnapshot(){
+  return {
+    goal: Number(monthData.goal)||0,
+    income: monthData.income.map(i => ({name: i.name||'', amount: Number(i.amount)||0, charged: !!i.charged})),
+    categories: monthData.categories.map(c => ({
+      name: c.name||'',
+      items: c.items.map(i => ({name: i.name||'', amount: Number(i.amount)||0, charged: !!i.charged, spent: spentOnItem(c.id, i.id)}))
+    }))
+  };
+}
+let monthCloseSplits = {};
+function openMonthClosePanel(){
+  if(!monthData) return;
+  const sug = sweepSuggestions();
+  monthCloseSplits = {};
+  upSaverAccounts.forEach(s => { monthCloseSplits[s.id] = Math.round((sug.amounts[s.id]||0) * 100) / 100; });
+  document.getElementById('monthCloseTitle').textContent = `Close ${monthLabel(settings.currentMonth)}`;
+  document.getElementById('monthCloseSub').textContent = 'Check the figure, then record what you transfer. Nothing here moves money — Up has no transfer API, so you make the transfers in Up and this keeps the reasoning.';
+  renderMonthClosePanel();
+  document.getElementById('monthCloseOverlay').classList.add('show');
+}
+function renderMonthClosePanel(){
+  const body = document.getElementById('monthCloseBody');
+  if(!body || !monthData) return;
+  const fig = monthSweepFigure();
+  const checks = monthCloseChecks();
+  const warns = checks.filter(c => c.level === 'warn').length;
+  const sug = sweepSuggestions();
+  const allocated = Math.round(Object.values(monthCloseSplits).reduce((s,v) => s + (Number(v)||0), 0) * 100) / 100;
+  const unallocated = Math.round((fig.amount - allocated) * 100) / 100;
+  const past = closesFor(settings.currentMonth);
+
+  const terms = [
+    ['Spending balance', fig.balanceCounted ? money(fig.effectiveBalance) : '—'],
+    ['Income still to come', money(fig.totals.unreceivedIncome)],
+    [`Not yet crossed off`, '−' + money(fig.totals.remaining)],
+    ['Goal', '−' + money(fig.goal)]
+  ];
+
+  body.innerHTML = `
+    <div class="mc-figure">
+      <div class="mc-figure-lbl">Safe to transfer out of spending</div>
+      <div class="mc-figure-amt">${money(fig.amount)}</div>
+      <div class="mc-terms">${terms.map(([k,v]) => `<div class="mc-term"><span>${escapeAttr(k)}</span><span>${v}</span></div>`).join('')}</div>
+    </div>
+    <div class="mc-sec-lbl">Before you transfer</div>
+    <div class="mc-list">${checks.map(c => `<div class="mc-check ${c.level}"><span class="mc-check-ic">${c.level==='ok'?'✓':'!'}</span><span>${escapeAttr(c.text)}${c.detail?`<span class="mc-check-detail">${escapeAttr(c.detail)}</span>`:''}</span></div>`).join('')}</div>
+    <div class="mc-sec-lbl">Where it goes</div>
+    ${upSaverAccounts.length ? `<div class="mc-list">${upSaverAccounts.map(s => `
+      <div class="mc-split">
+        <span class="mc-split-name">${escapeAttr(s.name||'Saver')}${sug.reasons[s.id]?` <span class="mc-split-why">— ${escapeAttr(sug.reasons[s.id])}</span>`:''}</span>
+        <button class="mc-rest-btn" data-mc-rest="${escapeAttr(s.id)}">rest</button>
+        <input class="num-in" type="number" step="0.01" data-mc-split="${escapeAttr(s.id)}" value="${monthCloseSplits[s.id] ? monthCloseSplits[s.id].toFixed(2) : ''}" placeholder="0.00">
+      </div>`).join('')}</div>
+      <div class="mc-tally${Math.abs(unallocated) > 0.005 ? ' off' : ''}"><span>Allocated ${money(allocated)} of ${money(fig.amount)}</span><strong>${unallocated >= 0 ? money(unallocated) + ' left' : money(-unallocated) + ' over'}</strong></div>`
+      : `<div class="mc-note">No Up savers loaded, so there is nothing to split across. The close will still record the figure and the checks.</div>`}
+    ${monthClosesAvailable ? '' : `<div class="mc-note" style="color:var(--debit);">The <code>month_closes</code> table does not exist yet, so this cannot be recorded. The figure and the checks above still work — run the SQL from <code>supabase/schema.sql</code> to turn the record on.</div>`}
+    <div class="mc-note">Recorded closes cannot be edited — re-closing adds a new one.</div>
+    <div class="modal-actions" style="margin-top:6px; justify-content:flex-end;">
+      <button class="mini-btn gold" id="monthCloseCommitBtn"${monthClosesAvailable?'':' disabled'}>${warns ? `Record with ${warns} warning${warns===1?'':'s'}` : 'Record the close'}</button>
+    </div>
+    ${past.length ? `<div class="mc-sec-lbl">Record</div>${past.slice().reverse().map(r => monthCloseRecordHtml(r)).join('')}` : ''}
+  `;
+}
+function monthCloseRecordHtml(r){
+  const when = new Date(r.closedAt).toLocaleString('en-AU', {day:'numeric', month:'short', year:'numeric', hour:'numeric', minute:'2-digit'});
+  const b = r.breakdown || {};
+  const splits = (r.splits||[]).map(s => `${escapeAttr(s.saverName||'saver')} ${money(s.amount)}`).join(' · ');
+  const warns = (r.warnings||[]).map(w => escapeAttr(w.text)).join(' · ');
+  const edited = closeTotalsDiffer(r);
+  return `<div class="mc-rec">
+    <div class="mc-rec-hdr"><span>${escapeAttr(when)}</span><span>${money(r.amount)}</span></div>
+    <div class="mc-rec-line">Balance ${b.balance == null ? '—' : money(b.balance)}${b.balanceSource?` (${escapeAttr(b.balanceSource)})`:''} · income due ${money(b.incomeStillToCome)} · uncrossed ${money(b.uncrossed)} · goal ${money(b.goal)}</div>
+    ${splits ? `<div class="mc-rec-line">Sent: ${splits}</div>` : ''}
+    ${warns ? `<div class="mc-rec-line">Closed with: ${warns}</div>` : ''}
+    ${edited ? `<div class="mc-rec-line" style="color:var(--debit);">This month has been edited since — the same balance would now give ${money(closeFigureNow(r))}</div>` : ''}
+  </div>`;
+}
+async function commitMonthClose(){
+  if(!monthData || !monthClosesAvailable) return;
+  const fig = monthSweepFigure();
+  const t = fig.totals;
+  const rec = {
+    id: uid('close'),
+    monthKey: settings.currentMonth,
+    closedAt: new Date().toISOString(),
+    amount: fig.amount,
+    breakdown: {
+      balance: fig.effectiveBalance, balanceSource: fig.balanceSource, balanceCounted: fig.balanceCounted,
+      periodIsCurrent: fig.periodIsCurrent, incomeStillToCome: t.unreceivedIncome, uncrossed: t.remaining, goal: fig.goal
+    },
+    totals: {income: t.income, cost: t.cost, charged: t.charged, goal: fig.goal},
+    snapshot: monthCloseSnapshot(),
+    warnings: monthCloseChecks().filter(c => c.level === 'warn').map(c => ({key: c.key, text: c.text})),
+    splits: Object.entries(monthCloseSplits)
+      .filter(([, v]) => Math.abs(Number(v)||0) > 0.005)
+      .map(([id, v]) => ({saverId: id, saverName: (upSaverAccounts.find(s => s.id === id)||{}).name || '', amount: Math.round((Number(v)||0) * 100) / 100})),
+    note: ''
+  };
+  toast('Recording the close…', {loading: true});
+  try{
+    await db.saveMonthClose(rec);
+  }catch(e){
+    dismissToast();
+    toast('Could not record the close — nothing was saved');
+    console.warn('[budget] month close failed', e);
+    return;
+  }
+  // Pushed only after the write landed, so the panel never shows a record the database doesn't
+  // have - the whole value of this thing is that what it shows is what was stored.
+  monthCloses.push(rec);
+  dismissToast();
+  toast(`${monthLabel(settings.currentMonth)} closed at ${money(rec.amount)}`);
+  renderMonthClosePanel();
+  renderMonthCloseBar();
+}
+// Delegated at document level: #monthCloseBar's button is replaced on every render, and the
+// panel's rows are rebuilt whenever a figure changes.
+document.addEventListener('click', e => {
+  if(e.target.closest('#monthCloseOpenBtn')){ openMonthClosePanel(); return; }
+  if(e.target.closest('#monthCloseCommitBtn')){ commitMonthClose(); return; }
+  const rest = e.target.closest('[data-mc-rest]');
+  if(rest){
+    const id = rest.getAttribute('data-mc-rest');
+    const others = Object.entries(monthCloseSplits).reduce((s,[k,v]) => k === id ? s : s + (Number(v)||0), 0);
+    monthCloseSplits[id] = Math.round((monthSweepFigure().amount - others) * 100) / 100;
+    renderMonthClosePanel();
+  }
+});
+document.addEventListener('input', e => {
+  const inp = e.target.closest('[data-mc-split]');
+  if(!inp) return;
+  monthCloseSplits[inp.getAttribute('data-mc-split')] = Number(inp.value) || 0;
+  // Only the tally moves, so it's patched in place - a full re-render would take the focus and
+  // the caret out of the field being typed into.
+  const fig = monthSweepFigure();
+  const allocated = Math.round(Object.values(monthCloseSplits).reduce((s,v) => s + (Number(v)||0), 0) * 100) / 100;
+  const left = Math.round((fig.amount - allocated) * 100) / 100;
+  const tally = document.querySelector('#monthCloseBody .mc-tally');
+  if(tally){
+    tally.classList.toggle('off', Math.abs(left) > 0.005);
+    tally.innerHTML = `<span>Allocated ${money(allocated)} of ${money(fig.amount)}</span><strong>${left >= 0 ? money(left) + ' left' : money(-left) + ' over'}</strong>`;
+  }
+});
 function recalcTotalsInPlace(){
   const incTotal = monthData.income.reduce((s,i)=>s+(i.charged?0:(Number(i.amount)||0)),0);
   const incEl = document.getElementById('incomeTotalDisplay'); if(incEl) incEl.textContent = money(incTotal);
@@ -11172,6 +11567,10 @@ function showAccountSettingsTab(){
   populateAccountSettingsFields();
 }
 document.getElementById('acctExitBtn').addEventListener('click', closeAccountSettingsPopup);
+// Bound here rather than beside the month-close functions: #monthCloseOverlay is declared with
+// the other modals at the very end of the body, so it does not exist yet further up the script.
+document.getElementById('monthCloseExitBtn').addEventListener('click', () => document.getElementById('monthCloseOverlay').classList.remove('show'));
+document.getElementById('monthCloseOverlay').addEventListener('click', e => { if(e.target.id === 'monthCloseOverlay') e.currentTarget.classList.remove('show'); });
 document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => { if(e.target.id === 'accountSettingsOverlay') closeAccountSettingsPopup(); });
 document.getElementById('acctLogoutBtn').addEventListener('click', performLogout);
 document.getElementById('acctResendVerifyBtn').addEventListener('click', async () => {

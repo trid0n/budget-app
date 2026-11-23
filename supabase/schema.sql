@@ -218,6 +218,26 @@ create table if not exists public.up_transfer_rules (
   primary key (user_id, transfer_account_id)
 );
 
+-- ===================== month closes =====================
+-- Append-only: one row per close of a month, never updated. The whole point is that the
+-- figure you swept on cannot be rewritten by a later edit to that month, so a re-close
+-- inserts a second row rather than changing the first - the history IS the audit trail.
+-- id is generated client-side (text, like recurring_costs) so this needs no pgcrypto.
+create table if not exists public.month_closes (
+  id          text primary key,
+  user_id     uuid references auth.users(id) on delete cascade default auth.uid(),
+  month_key   text not null,
+  closed_at   timestamptz not null default now(),
+  amount      numeric not null default 0,   -- the figure swept out of spending
+  breakdown   jsonb not null default '{}'::jsonb,  -- every term of that figure, incl. the balance and where it came from
+  totals      jsonb not null default '{}'::jsonb,  -- income/cost/charged/goal at close, so a later edit to the month is detectable
+  snapshot    jsonb not null default '{}'::jsonb,  -- every line's amount + crossed state at close
+  warnings    jsonb not null default '[]'::jsonb,  -- the checks that were failing WHEN it was closed, so "why did I send that?" stays answerable
+  splits      jsonb not null default '[]'::jsonb,  -- [{saverId, saverName, amount}] - the plan recorded, not an executed transfer
+  note        text not null default ''
+);
+create index if not exists month_closes_user_month on public.month_closes(user_id, month_key);
+
 -- ===================== updated_at triggers =====================
 
 drop trigger if exists set_updated_at on public.user_settings;
@@ -255,7 +275,8 @@ begin
   foreach t in array array[
     'user_settings','month_template','ballet','up_income_source','grocery_settings',
     'months','price_change_notes','tech_items','grocery_items','grocery_item_breakdown',
-    'mtg_rows','monthly_costs','tx_assignments','tx_rules','up_transfer_rules','recurring_costs'
+    'mtg_rows','monthly_costs','tx_assignments','tx_rules','up_transfer_rules','recurring_costs',
+    'month_closes'
   ]
   loop
     execute format('alter table public.%I enable row level security', t);
