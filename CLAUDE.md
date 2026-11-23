@@ -1097,3 +1097,36 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     The budgeting decision was floor-vs-smoothing (budget 2 pays and bank the 2 spare a year, vs
     budget 26/12 pays and run a float saver). Item 56 is what resolved it: if every month ends with
     a sweep to zero, a 3-pay month is just a bigger sweep and needs no special rule at all.
+
+58. **The sweep figure holds back money that belongs to a later period.** Found while walking the
+    user through their first close, before they ran it — not from a report. Fortnightly pay plus
+    `LATE_PAY_DAYS` means a pay landing in the last week of a month funds the month AFTER it, but it
+    is in the spending balance from the moment it arrives. So a month-end sweep would have handed
+    next month's pay to the savers. Nothing caught it: the pay belongs to the next period, and that
+    month's checks only look at that month's transactions. Measured over their Wednesday fortnightly
+    cycle it fires at **7 of the next 13 month ends** (Nov 2026, Mar/Apr/May/Sep/Oct/Nov 2027), so it
+    is the common case, not an edge.
+    `laterPeriodCreditsInBalance()` sums every non-excluded CREDIT whose `periodKeyFor` is after the
+    month being closed, and `monthSweepFigure` subtracts it. Any credit counts, not just the income
+    source: whatever its origin, it is in the balance and it is not this period's to spend.
+    **Deliberately NOT in `leftOverParts()`**, so the Budget tab headline still includes it. Two
+    reasons, both worth keeping: the headline answers "how is this period doing", where next
+    period's money is not part of the question, and only the sweep figure moves money — but the
+    bigger one is cost. `leftOverParts` runs on every render, including per keystroke, while this
+    runs only with the panel open, and the walk is over all of `upTransactions` (thousands of rows
+    for a daily card user). That is the exact shape of the month-switch and dashboard slowdowns this
+    codebase already had to undo once. The two figures therefore differ by exactly the forward-filed
+    credits, which is why that gets its own derivation line AND its own check instead of being
+    folded in silently.
+    Verified: November holds back $4,000 and sweeps $812 from a $5,612 balance; December, whose pay
+    it is, holds back nothing. `closeFigureNow` uses the RECORDED laterCredits, not a fresh one, for
+    the same reason it uses the recorded balance — every term but the edit has to be held still.
+    Also fixed here: the split's "rest" button produced a NEGATIVE amount when the fund suggestions
+    already exceeded the figure (Goal −$174.67 got as far as a stored record). Floored at 0, typed
+    values clamped too; the tally still reads "over", which is the honest signal to cut another row.
+    **Harness traps hit again**: `up_income_source`'s column is `key`, not `merchant_key`, and a
+    stub returning the wrong name left `upIncomeSourceKey` null — which silently disables the whole
+    late-pay rule, since `periodKeyFor` only shifts when `isPay` is true. Everything looked fine and
+    tested nothing. And a fake `/accounts` balance must INCLUDE the seeded transactions: a fixed
+    1612 next to a landed 4000 pay is a state that cannot happen, and testing against it produced a
+    nonsense −3188.

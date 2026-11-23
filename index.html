@@ -3331,18 +3331,53 @@ function updateSummary(){
 // Nothing here moves money: Up's API has no transfer endpoint, so the splits are the plan you
 // then carry out in Up, recorded so it can be checked against later.
 
+// Money already in the account that belongs to a LATER period. The case that forces this:
+// fortnightly pay plus the LATE_PAY_DAYS rule means a pay landing in the last week of a month
+// funds the month after, but it is sitting in the spending balance from the moment it arrives -
+// so a month-end sweep would hand next month's pay to the savers. Nothing else catches it,
+// because the pay belongs to the next period and this month's checks only look at this month's
+// transactions. Measured over a Wednesday fortnightly cycle it fires at 7 of 13 month ends.
+// Any credit filed forward counts, not just the income source: whatever its source, it is in the
+// balance and it is not this period's to spend.
+function laterPeriodCreditsInBalance(){
+  if(!upToken) return 0;
+  const starts = payCycleStarts();
+  let total = 0;
+  upTransactions.forEach(t => {
+    if(!isValidUpTx(t)) return;
+    const a = txAssignments[t.id];
+    if(a && a.excluded) return;
+    const amt = parseFloat(t.attributes.amount.value);
+    if(!(amt > 0)) return;
+    const k = periodKeyFor(t.attributes.createdAt, isIncomeSourceTx(t), starts);
+    if(k && k > settings.currentMonth) total += amt;
+  });
+  return Math.round(total * 100) / 100;
+}
 // The sweep figure deliberately folds the balance in even when the period isn't current,
 // unlike the Budget tab's headline - a sweep is a present-tense act on a real account
 // balance, whatever month's commitments it's being netted against. balanceCounted carries
 // that distinction into the record, and a check below says it out loud.
+// It also subtracts laterCredits, which the headline deliberately does NOT, for two reasons. The
+// headline answers "how is this period doing", where money for the next one is not part of the
+// question, while this answers "how much may actually leave the account" - and only the second one
+// moves money, so that is where being wrong costs something. The other reason is cost:
+// leftOverParts() runs on every render, including per keystroke, while this runs only when the
+// panel is open, and laterPeriodCreditsInBalance() walks all of upTransactions - thousands of rows
+// for a daily card user. Putting it in the hot path is the shape of the month-switch and dashboard
+// slowdowns this codebase has already had to undo once.
+// So the two figures differ by exactly the forward-filed credits, which is why that difference gets
+// its own line in the derivation AND its own check, rather than being folded into the total.
 function monthSweepFigure(){
   const p = leftOverParts();
   const bal = p.effectiveBalance == null ? 0 : p.effectiveBalance;
+  const laterCredits = p.effectiveBalance == null ? 0 : laterPeriodCreditsInBalance();
   return {
     ...p,
     balanceCounted: p.effectiveBalance != null,
     periodIsCurrent: isCurrentPeriod(settings.currentMonth),
-    amount: Math.round((bal + p.totals.unreceivedIncome - p.totals.remaining - p.goal) * 100) / 100
+    laterCredits,
+    amount: Math.round((bal + p.totals.unreceivedIncome - p.totals.remaining - p.goal - laterCredits) * 100) / 100
   };
 }
 // Transactions the app considers part of the month being closed. periodKeyForTx is the same
@@ -3365,6 +3400,9 @@ function monthCloseChecks(){
     out.push({level:'warn', key:'balance', text:'Balance was entered by hand', detail:'Check it still matches the account before you transfer.'});
   } else {
     out.push({level:'ok', key:'balance', text:'Balance is live from Up'});
+  }
+  if(fig.laterCredits > 0){
+    out.push({level:'ok', key:'latercredits', text:`${money(fig.laterCredits)} in the balance belongs to a later period`, detail:'Already held back — a pay landing in the last week of a month funds the month after it, so it has been subtracted rather than swept.'});
   }
   if(!fig.periodIsCurrent && fig.balanceCounted){
     out.push({level:'warn', key:'period', text:`${monthLabel(settings.currentMonth)} is not the current period`, detail:'The figure still uses your balance as it is right now, which is what a transfer acts on — but that balance may already include money belonging to the period after this one.'});
@@ -3445,8 +3483,12 @@ function closeTotalsDiffer(rec){
 // mixed in with every dollar that has moved through the account since.
 function closeFigureNow(rec){
   const t = monthTotals(monthData);
-  const bal = Number((rec.breakdown||{}).balance) || 0;
-  return Math.round((bal + t.unreceivedIncome - t.remaining - (Number(monthData.goal)||0)) * 100) / 100;
+  const b = rec.breakdown || {};
+  const bal = Number(b.balance) || 0;
+  // The recorded laterCredits, not a fresh one, for the same reason as the balance: this isolates
+  // what the EDIT did, so every other term has to be held at what it was.
+  const later = Number(b.laterCredits) || 0;
+  return Math.round((bal + t.unreceivedIncome - t.remaining - (Number(monthData.goal)||0) - later) * 100) / 100;
 }
 function renderMonthCloseBar(){
   const bar = document.getElementById('monthCloseBar');
@@ -3506,6 +3548,8 @@ function renderMonthClosePanel(){
     [`Not yet crossed off`, '−' + money(fig.totals.remaining)],
     ['Goal', '−' + money(fig.goal)]
   ];
+  // Only shown when there is any, so an ordinary month's derivation stays four lines.
+  if(fig.laterCredits > 0) terms.push(['Already received for a later period', '−' + money(fig.laterCredits)]);
 
   body.innerHTML = `
     <div class="mc-figure">
@@ -3520,7 +3564,7 @@ function renderMonthClosePanel(){
       <div class="mc-split">
         <span class="mc-split-name">${escapeAttr(s.name||'Saver')}${sug.reasons[s.id]?` <span class="mc-split-why">— ${escapeAttr(sug.reasons[s.id])}</span>`:''}</span>
         <button class="mc-rest-btn" data-mc-rest="${escapeAttr(s.id)}">rest</button>
-        <input class="num-in" type="number" step="0.01" data-mc-split="${escapeAttr(s.id)}" value="${monthCloseSplits[s.id] ? monthCloseSplits[s.id].toFixed(2) : ''}" placeholder="0.00">
+        <input class="num-in" type="number" step="0.01" min="0" data-mc-split="${escapeAttr(s.id)}" value="${monthCloseSplits[s.id] ? monthCloseSplits[s.id].toFixed(2) : ''}" placeholder="0.00">
       </div>`).join('')}</div>
       <div class="mc-tally${Math.abs(unallocated) > 0.005 ? ' off' : ''}"><span>Allocated ${money(allocated)} of ${money(fig.amount)}</span><strong>${unallocated >= 0 ? money(unallocated) + ' left' : money(-unallocated) + ' over'}</strong></div>`
       : `<div class="mc-note">No Up savers loaded, so there is nothing to split across. The close will still record the figure and the checks.</div>`}
@@ -3540,7 +3584,7 @@ function monthCloseRecordHtml(r){
   const edited = closeTotalsDiffer(r);
   return `<div class="mc-rec">
     <div class="mc-rec-hdr"><span>${escapeAttr(when)}</span><span>${money(r.amount)}</span></div>
-    <div class="mc-rec-line">Balance ${b.balance == null ? '—' : money(b.balance)}${b.balanceSource?` (${escapeAttr(b.balanceSource)})`:''} · income due ${money(b.incomeStillToCome)} · uncrossed ${money(b.uncrossed)} · goal ${money(b.goal)}</div>
+    <div class="mc-rec-line">Balance ${b.balance == null ? '—' : money(b.balance)}${b.balanceSource?` (${escapeAttr(b.balanceSource)})`:''} · income due ${money(b.incomeStillToCome)} · uncrossed ${money(b.uncrossed)} · goal ${money(b.goal)}${Number(b.laterCredits) > 0 ? ` · held for a later period ${money(b.laterCredits)}` : ''}</div>
     ${splits ? `<div class="mc-rec-line">Sent: ${splits}</div>` : ''}
     ${warns ? `<div class="mc-rec-line">Closed with: ${warns}</div>` : ''}
     ${edited ? `<div class="mc-rec-line" style="color:var(--debit);">This month has been edited since — the same balance would now give ${money(closeFigureNow(r))}</div>` : ''}
@@ -3557,7 +3601,8 @@ async function commitMonthClose(){
     amount: fig.amount,
     breakdown: {
       balance: fig.effectiveBalance, balanceSource: fig.balanceSource, balanceCounted: fig.balanceCounted,
-      periodIsCurrent: fig.periodIsCurrent, incomeStillToCome: t.unreceivedIncome, uncrossed: t.remaining, goal: fig.goal
+      periodIsCurrent: fig.periodIsCurrent, incomeStillToCome: t.unreceivedIncome, uncrossed: t.remaining,
+      goal: fig.goal, laterCredits: fig.laterCredits
     },
     totals: {income: t.income, cost: t.cost, charged: t.charged, goal: fig.goal},
     snapshot: monthCloseSnapshot(),
@@ -3593,14 +3638,17 @@ document.addEventListener('click', e => {
   if(rest){
     const id = rest.getAttribute('data-mc-rest');
     const others = Object.entries(monthCloseSplits).reduce((s,[k,v]) => k === id ? s : s + (Number(v)||0), 0);
-    monthCloseSplits[id] = Math.round((monthSweepFigure().amount - others) * 100) / 100;
+    // Floored at 0: when the suggestions already exceed the figure there is no "rest" to give, and
+    // a negative transfer is not a thing you can carry out. The tally still reads "over", which is
+    // the honest signal to go and cut one of the other rows.
+    monthCloseSplits[id] = Math.max(0, Math.round((monthSweepFigure().amount - others) * 100) / 100);
     renderMonthClosePanel();
   }
 });
 document.addEventListener('input', e => {
   const inp = e.target.closest('[data-mc-split]');
   if(!inp) return;
-  monthCloseSplits[inp.getAttribute('data-mc-split')] = Number(inp.value) || 0;
+  monthCloseSplits[inp.getAttribute('data-mc-split')] = Math.max(0, Number(inp.value) || 0);
   // Only the tally moves, so it's patched in place - a full re-render would take the focus and
   // the caret out of the field being typed into.
   const fig = monthSweepFigure();
