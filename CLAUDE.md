@@ -281,7 +281,10 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
 
 ## Known open items
 
-- No outstanding schema migrations — see "Schema migrations" above.
+- **`month_closes` needs the migration** (added 2026-11-23, not yet confirmed run). Until it is,
+  the month-close panel still computes the figure, the checks and the split — only the record is
+  dead, and the panel says so and disables its own button rather than pretending to save. Check
+  it the cheap way before trusting this line: attempt a write and read the error.
 - **Ballet was not carried into Recurring costs.** The user chose to start fresh, so
   `recurring_costs` began empty while their old values still sit in the untouched
   `public.ballet` row. They were given both options (re-add it by hand, or an `insert …
@@ -1005,3 +1008,73 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     The Saved column is a 4-block level meter (`.tech-meter`, lit in quarters; all four ONLY at 100%,
     none only at 0), not a second horizontal bar — picked by the user from mockups after a jar
     and then a capsule (too hard to tell when full) were rejected.
+
+56. **Month close: a checked sweep figure with an append-only record.** Asked for as "at the end of
+    each month I want to confidently transfer all the remaining funds", with two named fears — that
+    the app misrepresents the budget so the wrong amount goes out, and that editing the month
+    afterwards leaves no way to know why that amount went out. Both are answered structurally.
+    The figure is never shown alone: `#monthCloseOverlay` shows every term of its derivation plus
+    `monthCloseChecks()` — unassigned transactions, unconfirmed guesses, pending (`HELD`) holds,
+    items paid but not crossed off, **crossed-off items with no transaction** (the dangerous
+    direction: crossing off stops the figure holding that money back, so if it hasn't actually left
+    the account a sweep sends it away), items budgeted above their transactions, and where the
+    balance came from. Nothing blocks a close — a warning you can't proceed past just teaches you to
+    avoid the screen — so the live warnings are stored WITH the close instead.
+    `leftOverParts()` was extracted out of `updateSummary` so the Budget tab's headline and the
+    close panel read from one computation. Two different numbers for the same thing is exactly what
+    makes a sweep figure untrustworthy, and they would otherwise have drifted the first time either
+    was touched.
+    **The bit worth understanding**: the record stores the month's own `totals`, not just the
+    figure, because the figure also moves whenever the balance moves and that is completely normal.
+    Comparing totals isolates the only thing worth flagging — the budget being edited after the
+    fact. Verified: changing the balance 1612 → 2500 moves the live figure to 2300 and flags
+    nothing; crossing an item off flags it and the bar reads "budget edited since — would now be
+    $1,412.00". `closeFigureNow()` re-runs the sum with the balance the close was TAKEN on, so the
+    edit's effect is shown on its own rather than mixed with every dollar since.
+    `monthSweepFigure()` deliberately folds the balance in even when the period isn't current,
+    unlike `updateSummary`'s headline: a transfer acts on a real balance whatever month's
+    commitments it's netted against. A check says that out loud and `breakdown.balanceCounted`
+    carries it into the record.
+    Append-only is the whole point — there is deliberately no `updateMonthClose`/`deleteMonthClose`,
+    and re-closing inserts a second row (the bar then reads "· 2 closes"). A record you can edit
+    afterwards answers nothing.
+    **Nothing here moves money**: Up has no transfer endpoint. The splits are the plan you then
+    carry out in Up, recorded so it can be checked. `sweepSuggestions()` only pre-fills where the
+    app has a defensible number of its own — `techFundTarget()`'s should-hold-now against the linked
+    saver's real balance, and each recurring cost's `recurringMonthlyAmount().monthly` (which
+    already includes its catch-up). Everything else starts at 0; "rest" fills a row to whatever is
+    unallocated.
+    `month_closes` **needs the migration** — see Known open items.
+    **Two harness traps worth remembering.** `#monthCloseOverlay` had to go with the modals declared
+    BEFORE the script block, not the ones after it (`customConfirmOverlay` and friends): those are
+    only ever touched from inside functions, but this one's exit button is bound at the top level,
+    so declaring it with them made `getElementById` return null and aborted the rest of the script —
+    which then surfaced as a confusing `Cannot access 'templateSaveTimer' before initialization`
+    from the pagehide handler, i.e. a cascade from the real error rather than a second bug. And the
+    harness must not seed an item whose name `tplSourceFor()` owns (Groceries, Tech, Ballet, a
+    Monthly Costs row): its amount comes from a source table that is empty in the harness, so it
+    gets rewritten to 0 and every figure under test is then about the wrong thing. Also: a merchant
+    rule AUTO-assigns, so a ruled transaction can never be the unconfirmed-guess case — seed two
+    transactions sharing a description and let the copy-a-past-assignment strategy produce the
+    guess.
+    **Found by testing, not reading**: the checks reported "All 6 transactions assigned" *and* "4
+    guesses unconfirmed" at the same time, because the ok-branch was the `else` of the no-guess pile
+    only. A guessed transaction is not an assigned one; it now reports that only when both piles
+    are empty.
+
+57. **Fortnightly pay (from 2026-11-25).** The user changed jobs and is paid fortnightly on a
+    Wednesday (next business day if that's a holiday; a 14-day cycle from a Wednesday never lands on
+    a weekend, so only a Wednesday public holiday shifts it). **Paycycle mode cannot express this**
+    and was not made to: `periodKeyForDate` names a cycle `addMonths(cycleStart, 1)`, so two
+    fortnights inside one month collapse onto the same period key and `recomputeEffectivePeriod`
+    would roll the budget month forward ~26 times a year. Fortnightly periods were also rejected on
+    their merits — monthly recurring fees would need re-apportioning and all monthly history would
+    stop comparing. **So: calendar mode.**
+    The existing `LATE_PAY_DAYS = 7` rule, built for a once-a-month pay near the 28th, happens to
+    smooth fortnightly pay rather than break it. Measured over their real schedule: every budget
+    month gets exactly 2 pays except **Dec 2026, Jun 2027 and Dec 2027**, which get 3, and **no
+    month ever drops to 1**. Their first pay (25 Nov) is inside November's last 7 days, so it files
+    to December — November gets nothing from this job, which is correct and still surprising.
+    The budgeting decision was floor-vs-smoothing (budget 2 pays and bank the 2 spare a year, vs
+    budget 26/12 pays and run a float saver). Item 56 is what resolved it: if every month ends with
+    a sweep to zero, a 3-pay month is just a bigger sweep and needs no special rule at all.
