@@ -1130,3 +1130,27 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     tested nothing. And a fake `/accounts` balance must INCLUDE the seeded transactions: a fixed
     1612 next to a landed 4000 pay is a state that cannot happen, and testing against it produced a
     nonsense −3188.
+
+59. **Close panel, second pass — all five asked for directly.** (a) Renamed to "Close <Month> &
+    receipt"; "& sweep" implied the button did the sweeping, which the user read it as. (b) The
+    standing disclaimer under the title is gone. (c) The per-saver split editor is gone, replaced by
+    two lines — "Set by your template" and "Left over after them" / "Short of them by". The amounts
+    were never chosen there: they come from the Tech and Recurring tables and the transfers are
+    carried out in Up, so a row per saver was an editor for numbers nobody edits. The per-saver
+    figures are still written to the record, which costs nothing and keeps "which saver" answerable.
+    `monthCloseSplits`, the `rest` button, the per-row input handler and the tally all went with it.
+    (d) A red dot on the button when checks are outstanding, titled with the count. **Computed on a
+    300ms debounce and patched in afterwards, never inside `renderMonthCloseBar`**, which runs from
+    `updateSummary` on every render while `monthCloseChecks()` walks every loaded transaction and
+    every line item — the same hot-path rule as `laterPeriodCreditsInBalance`. Suppressed on a month
+    already closed, where the button says "View record" and a dot would point at work the close was
+    already taken against. (e) `maybePromptPreviousMonthClose()` offers to open last period's close
+    on the first load after a rollover. The "asked" flag is written to localStorage **before** the
+    dialog, so declining counts as asked and it can't become a prompt on every load; keyed on userId
+    as well, since localStorage is per browser. It runs after `dismissSplash()` — a confirm behind
+    the splash is invisible and reads as a hung app — and skips a month that has no data at all.
+    **Found by screenshotting, not by reading**: a negative figure rendered as "SAFE TO TRANSFER OUT
+    OF SPENDING / -$2,388.00", which reads as though it were safe to transfer negative money. The
+    label now switches to "Nothing safe to transfer" and the figure turns `--debit`. The receipt
+    line had the same shape ("left over -$174.67") and now says "short by" instead. Generalise: any
+    label naming an action is wrong the moment its figure can go negative — check both signs.
