@@ -55,6 +55,23 @@ and retries, so one absent column can never again take the rest of the row down 
 **Do not trust a "migration confirmed run" note again without checking.** The cheap check is to
 attempt a write and read the error, exactly as above.
 
+**Better: check it from this machine, with no psql, no CLI and no login.** Hit PostgREST with the
+public anon key out of `index.html` and compare against a table known to exist. RLS means an
+unauthenticated select returns no rows, so an existing table answers `HTTP 200 []` while a missing
+one answers `HTTP 404 PGRST205 "Could not find the table … in the schema cache"`; a missing column
+answers `400 42703`. Loop the table or column names and the odd one out is obvious. To check RLS
+itself, POST `{}` anonymously: the owner policy answers `401 42501 "new row violates row-level
+security policy"` and nothing is written either way, whereas a null-key or not-null error back
+instead means RLS is NOT on and anyone can write. Compare against a table whose policy is known
+good, so the result is read against a control rather than an assumption. This sends no personal
+data and reads none. It caught a migration the user had reported running (see below) that had in
+fact rolled back.
+
+Two Supabase SQL Editor traps that make a migration look run when it wasn't, both seen here: the
+whole script executes as ONE transaction, so a single failing statement silently rolls back the
+`create table` with it; and it runs only the HIGHLIGHTED text when anything is selected. Hand over
+long migrations split into separate runnable blocks so one failure can't undo the rest.
+
 The list below is what schema.sql declares and what *was* believed applied as of 2026-08-15:
 `period_mode`, `platform_hidden`, `saver_order` and `feature_recurring` on `user_settings`;
 the `up_transfer_rules` table; `actual_revenue` on `mtg_rows`; and the `recurring_costs`
@@ -281,21 +298,12 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
 
 ## Known open items
 
-- **`month_closes` needs the migration.** Added 2026-11-23. The user reported running it the same
-  day; **checked from here and it had NOT landed** — so this stays open until a check says
-  otherwise. Until it does, the month-close panel still computes the figure, the checks and the
-  split; only the record is dead, and the panel says so and disables its own button rather than
-  pretending to save.
-  **How to check a migration from this machine, with no psql and no login** (better than the
-  "attempt a write" note below, which needs a session): hit PostgREST with the public anon key
-  from `index.html` and compare against a table known to exist. RLS means an unauthenticated
-  select returns no rows, so an existing table answers `HTTP 200 []` while a missing one answers
-  `HTTP 404 PGRST205 "Could not find the table … in the schema cache"`. Loop a few table names and
-  the odd one out is obvious. This sends no personal data and reads none.
-  Worth knowing when one of these "didn't take": the Supabase SQL Editor runs the whole script as
-  ONE transaction, so any single failing statement rolls back the `create table` too — and it runs
-  only the HIGHLIGHTED text when there is a selection, which looks like a successful run that did
-  almost nothing.
+- **No outstanding schema migrations.** `month_closes` (added 2026-11-23) is the most recent, and
+  unlike every other entry in this file it was **independently verified from here, not taken on
+  report** — table present, all eleven columns present, and an anonymous POST rejected with
+  `42501` identically to a control table, with the row count still 0. The probe is described under
+  "Schema migrations" above; use it rather than believing this line. Its first reported run had
+  in fact rolled back, and only the probe caught that.
 - **Ballet was not carried into Recurring costs.** The user chose to start fresh, so
   `recurring_costs` began empty while their old values still sit in the untouched
   `public.ballet` row. They were given both options (re-add it by hand, or an `insert …
