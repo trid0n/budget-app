@@ -281,10 +281,21 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
 
 ## Known open items
 
-- **`month_closes` needs the migration** (added 2026-11-23, not yet confirmed run). Until it is,
-  the month-close panel still computes the figure, the checks and the split — only the record is
-  dead, and the panel says so and disables its own button rather than pretending to save. Check
-  it the cheap way before trusting this line: attempt a write and read the error.
+- **`month_closes` needs the migration.** Added 2026-11-23. The user reported running it the same
+  day; **checked from here and it had NOT landed** — so this stays open until a check says
+  otherwise. Until it does, the month-close panel still computes the figure, the checks and the
+  split; only the record is dead, and the panel says so and disables its own button rather than
+  pretending to save.
+  **How to check a migration from this machine, with no psql and no login** (better than the
+  "attempt a write" note below, which needs a session): hit PostgREST with the public anon key
+  from `index.html` and compare against a table known to exist. RLS means an unauthenticated
+  select returns no rows, so an existing table answers `HTTP 200 []` while a missing one answers
+  `HTTP 404 PGRST205 "Could not find the table … in the schema cache"`. Loop a few table names and
+  the odd one out is obvious. This sends no personal data and reads none.
+  Worth knowing when one of these "didn't take": the Supabase SQL Editor runs the whole script as
+  ONE transaction, so any single failing statement rolls back the `create table` too — and it runs
+  only the HIGHLIGHTED text when there is a selection, which looks like a successful run that did
+  almost nothing.
 - **Ballet was not carried into Recurring costs.** The user chose to start fresh, so
   `recurring_costs` began empty while their old values still sit in the untouched
   `public.ballet` row. They were given both options (re-add it by hand, or an `insert …
