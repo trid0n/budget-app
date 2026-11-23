@@ -1154,3 +1154,20 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     label now switches to "Nothing safe to transfer" and the figure turns `--debit`. The receipt
     line had the same shape ("left over -$174.67") and now says "short by" instead. Generalise: any
     label naming an action is wrong the moment its figure can go negative — check both signs.
+
+60. **Closes start at November 2026.** `CLOSE_HISTORY_START = '2026-11'`, tested by
+    `closeInScope(key)`. Months before it predate the feature entirely, so they are not "unclosed" —
+    they were never in scope, and offering to close one would invite reconstructing a sweep that
+    never happened. Out of scope: the bar renders empty (no button at all), the rollover prompt
+    stays quiet, and `scheduleCloseWarnBadge` bails before `monthCloseChecks()` runs. A month that
+    somehow HAS a record still shows it rather than hiding it.
+    Hardcoded rather than stored, on purpose: one fixed historical fact for this household, and a
+    column would be a migration for something that changes never.
+    Verified: Sep and Oct render an empty bar, Nov and Dec show the button, an unclosed October
+    raises no prompt and writes no flag, and with December current an unclosed November still
+    prompts — declining it never asks again, while clearing the flag makes it ask, which proves the
+    flag is the actual guard.
+    **Testing trap worth remembering**: `await maybePromptPreviousMonthClose()` deadlocks a test,
+    because it awaits `customConfirm`, which only settles when something clicks the dialog. Call it
+    WITHOUT await, wait for the overlay, then click. Any helper that awaits a confirm has this
+    shape.

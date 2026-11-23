@@ -3491,8 +3491,9 @@ function scheduleCloseWarnBadge(){
   clearTimeout(monthCloseWarnTimer);
   monthCloseWarnTimer = setTimeout(() => {
     // Not on a month already closed: the button there says "View record", and a warning dot beside
-    // it would be pointing at work the close has already been taken against.
-    if(!monthData || latestCloseFor(settings.currentMonth)) return;
+    // it would be pointing at work the close has already been taken against. Out-of-scope months
+    // bail before monthCloseChecks() runs, since there is no button to decorate anyway.
+    if(!monthData || !closeInScope(settings.currentMonth) || latestCloseFor(settings.currentMonth)) return;
     monthCloseWarnCount = monthCloseChecks().filter(c => c.level === 'warn').length;
     const btn = document.getElementById('monthCloseOpenBtn');
     if(!btn) return;
@@ -3506,6 +3507,13 @@ function renderMonthCloseBar(){
   const bar = document.getElementById('monthCloseBar');
   if(!bar) return;
   const rec = latestCloseFor(settings.currentMonth);
+  // A month from before closes existed shows nothing at all - but a record, if one somehow exists,
+  // is still shown rather than hidden.
+  if(!rec && !closeInScope(settings.currentMonth)){
+    bar.innerHTML = '';
+    bar.classList.remove('closed');
+    return;
+  }
   const dot = monthCloseWarnCount > 0 ? `<span class="mc-dot" title="${monthCloseWarnCount} thing${monthCloseWarnCount===1?'':'s'} to check first"></span>` : '';
   if(!rec){
     bar.innerHTML = `<button class="mini-btn month-close-open" id="monthCloseOpenBtn">Close ${escapeAttr(monthLabel(settings.currentMonth).split(' ')[0])} &amp; receipt${dot}</button>`;
@@ -3529,9 +3537,17 @@ function renderMonthCloseBar(){
 // the flag is written BEFORE the dialog, so declining counts as asked and this can't turn into a
 // prompt on every load. Keyed on the user too, since localStorage is per browser not per account.
 const CLOSE_PROMPT_KEY = 'closePrompted';
+// The month this feature starts from. Everything before it predates closes entirely, so those
+// months are not "unclosed" - they were never in scope, and offering to close them (or counting
+// them as outstanding) would be an invitation to reconstruct a sweep that never happened.
+// Hardcoded rather than stored: it is one fixed historical fact for this household, and a column
+// for it would be a migration for something that changes never.
+const CLOSE_HISTORY_START = '2026-11';
+function closeInScope(key){ return !!key && key >= CLOSE_HISTORY_START; }
 async function maybePromptPreviousMonthClose(){
   if(!monthClosesAvailable || !todaysEffectiveMonthKey) return;
   const prev = addMonths(todaysEffectiveMonthKey, -1);
+  if(!closeInScope(prev)) return;
   // Nothing was ever entered for it, so there is nothing to close and nothing to sweep.
   if(!existingMonths.includes(prev) || latestCloseFor(prev)) return;
   let seen = {};
