@@ -298,7 +298,11 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
 
 ## Known open items
 
-- **No outstanding schema migrations.** `month_closes` (added 2026-11-23) is the most recent, and
+- **`user_settings.annual_income` needs the migration** (added 2026-11-24, not yet run). Until it
+  is, `saveSettings` drops the unknown column and retries, so the Template tab's annual-income
+  field works for the session and simply will not survive a reload. Check it with the REST probe
+  described under "Schema migrations" before believing either way.
+- `month_closes` (added 2026-11-23) IS applied, and
   unlike every other entry in this file it was **independently verified from here, not taken on
   report** — table present, all eleven columns present, and an anonymous POST rejected with
   `42501` identically to a control table, with the row count still 0. The probe is described under
