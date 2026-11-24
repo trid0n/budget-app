@@ -298,11 +298,12 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
 
 ## Known open items
 
-- **`user_settings.pay_cadence_days` needs the migration** (added 2026-11-24, not yet run). Until
-  it is, the Template tab's "Paid" select works for the session but falls back to fortnightly on
-  reload — which happens to be correct here, so the symptom is invisible unless it is changed.
-- Everything else is applied, and the two below were **verified from here rather than taken on
-  report** — use the REST probe under "Schema migrations" rather than believing any of this.
+- **No outstanding schema migrations.** The three most recent — `month_closes` (2026-11-23),
+  `user_settings.annual_income` and `user_settings.pay_cadence_days` (both 2026-11-24) — were each
+  **verified from here rather than taken on report**, every one against known-good controls plus
+  an invented name that correctly answers `400 42703`. Use the REST probe under "Schema
+  migrations" rather than believing this line; the first attempt at `month_closes` was reported
+  run and had in fact rolled back.
 - `user_settings.annual_income` (2026-11-24) answers `200` alongside two known-good columns while
   an invented column name answers `400 42703`, so the probe is discriminating and the column is
   really there. Landed on the first attempt, unlike the one below.
