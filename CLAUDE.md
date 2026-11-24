@@ -1266,3 +1266,31 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     Measured after: chip rgb(59,68,84) on card rgb(24,27,34).
     **Generalise**: a token picked because it looked right on one surface is a guess about the
     other theme. Check a new colour against the background it will actually sit on, in both.
+
+65. **Smoothing card reworked — "it's all just still confusing".** Items 61–64's PRESENTATION is
+    superseded; the maths beneath them is unchanged. The card had accreted one tile and one note
+    per question asked of it, which is how it ended up with four abstract figures, a legend and
+    five notes. Asked what was actually wrong, the answer was: the strip didn't spell out how much
+    goes where, the labels were jargon, and its link to the template was unclear.
+    - **The strip carries amounts.** Blocks became bars whose height is proportional to that
+      month's income, with the figure printed above each one (`$6,807`, `$9,960`). A bare count of
+      blocks made you work out the money yourself, which was the whole complaint.
+    - **Plain labels, and only two of them**, both about the year: "Your income for the year" and
+      "Extra across the whole year". A normal month and a big month are in the opening sentence,
+      so tiles repeating them were half the clutter. The legend went too — the bars are labelled.
+    - **The template comparison left the card entirely.** `expectedPayLineAmount()` puts a small
+      gold chip showing the right figure directly on the template's pay income row, and one tap
+      sets it. Two numbers compared in a distant panel read as two different things rather than
+      one disagreeing with itself; on the row it is obviously the same number, and the fix is
+      where the number is.
+    **Four wording bugs found by reading the rendered output**, all from writing copy for one case
+    and not re-reading it in the others: "every a fortnight" (the article was in both the map and
+    the sentence); "November brings nothing" printed beside a bar reading $500, because other
+    income still lands in a month with no pay; and two yearly figures labelled as though monthly.
+    **And a real staleness bug**: the pay-line chip is derived from the annual income, but
+    `commitAnnualIncome`/`onPayCadenceChange` only re-rendered the card, so the chip went on
+    offering a figure from before the edit ($8,000 against a correct $6,306.69). Both call
+    `renderTemplateEditor()` now, which is safe on blur/change because the field being re-rendered
+    around is no longer focused.
+    `--gold-bg` for the taller bars was wrong in dark mode too — it is DARKER than `--chip` there,
+    so the bigger month read as recessed. Solid `--gold` in both themes.

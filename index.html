@@ -525,26 +525,28 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .smooth-annual select{padding:5px 8px; font-size:.78rem; font-weight:700; border:1px solid var(--rule); border-radius:8px; background:var(--paper-dim); color:var(--ink); text-transform:none; letter-spacing:0;}
 .smooth-annual select:focus{outline:none; border-color:var(--gold);}
 .smooth-sub{font-size:.76rem; color:var(--ink-soft); line-height:1.5; margin-bottom:16px;}
-.smooth-stats{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px;}
+.smooth-stats{display:flex; flex-wrap:wrap; gap:10px; margin-top:18px;}
 .smooth-stat{flex:1 1 130px; background:var(--paper-dim); border-radius:10px; padding:10px 12px;}
 .smooth-stat-lbl{font-size:.66rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700;}
 .smooth-stat-val{font-size:1.15rem; font-weight:800; font-variant-numeric:tabular-nums; margin-top:2px;}
 /* overflow-y is set explicitly: leaving it `visible` beside a non-visible overflow-x makes it
    compute to `auto`, which is how this app grew three separate phantom scroll containers. */
 .smooth-chart{display:flex; align-items:flex-end; gap:5px; overflow-x:auto; overflow-y:hidden; padding-bottom:2px; scrollbar-width:thin;}
-.smooth-col{flex:1 1 0; min-width:34px; display:flex; flex-direction:column; justify-content:flex-end; gap:4px;}
+.smooth-col{flex:1 1 0; min-width:52px; display:flex; flex-direction:column; justify-content:flex-end; gap:4px;}
+.smooth-amt{text-align:center; font-size:.68rem; font-weight:700; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap;}
+.smooth-col.is-extra .smooth-amt{color:var(--gold);}
+.smooth-col.is-none .smooth-amt{color:var(--ink-faint); font-weight:400;}
 /* --chip, not --paper-dim: in dark mode that token (#1A1D24) sits two values off the card's own
-   --surface (#181B22), so the ordinary blocks were all but invisible against it. */
-.smooth-chip{height:22px; border-radius:4px; background:var(--chip);}
-.smooth-chip.extra{background:var(--gold-bg); border:1px solid var(--gold);}
-.smooth-chip.none{background:none; border:1px dashed var(--rule);}
+   --surface (#181B22), so the bars were all but invisible against it. */
+.smooth-bar{border-radius:4px 4px 2px 2px; background:var(--chip);}
+/* Solid --gold, not --gold-bg: that tint is DARKER than --chip in dark mode, so the bigger month
+   read as recessed rather than emphasised. */
+.smooth-col.is-extra .smooth-bar{background:var(--gold);}
+.smooth-col.is-none .smooth-bar{background:none; border:1px dashed var(--rule);}
 .smooth-col-lbl{text-align:center; font-size:.66rem; color:var(--ink-soft); padding-top:5px; white-space:nowrap;}
 .smooth-col.is-extra .smooth-col-lbl{color:var(--ink); font-weight:700;}
-.smooth-legend{display:flex; flex-wrap:wrap; gap:14px; font-size:.72rem; color:var(--ink-soft); margin-top:14px;}
-.smooth-legend span{display:flex; align-items:center; gap:6px;}
-.smooth-key{width:14px; height:11px; border-radius:3px; background:var(--chip); flex:none;}
-.smooth-key.extra{background:var(--gold-bg); border:1px solid var(--gold);}
-.smooth-note{font-size:.74rem; color:var(--ink-faint); line-height:1.55; margin-top:14px;}
+.smooth-note{font-size:.74rem; color:var(--ink-soft); line-height:1.55; margin-top:14px;}
+.tpl-pay-fix{font-size:.66rem; font-weight:700; padding:2px 7px; margin-right:4px; border:1px solid var(--gold); border-radius:999px; background:var(--gold-bg); color:var(--gold); cursor:pointer; position:relative; font-variant-numeric:tabular-nums;}
 .smooth-empty{font-size:.8rem; color:var(--ink-soft); line-height:1.6; background:var(--paper-dim); border-radius:10px; padding:12px 14px;}
 .mc-rec{border:1px solid var(--rule); border-radius:10px; padding:10px 12px; font-size:.78rem; margin-top:8px;}
 .mc-rec-hdr{display:flex; justify-content:space-between; gap:10px; font-weight:700;}
@@ -3743,6 +3745,8 @@ async function commitMonthClose(){
 document.addEventListener('click', e => {
   if(e.target.closest('#monthCloseOpenBtn')){ openMonthClosePanel(); return; }
   if(e.target.closest('#monthCloseCommitBtn')){ commitMonthClose(); return; }
+  // Delegated: the smoothing card replaces its body on every render.
+  if(e.target.closest('#smoothMatchBtn')){ matchTemplatePayLine(); return; }
 });
 function recalcTotalsInPlace(){
   const incTotal = monthData.income.reduce((s,i)=>s+(i.charged?0:(Number(i.amount)||0)),0);
@@ -5624,11 +5628,24 @@ function scheduleTemplateSave(){
     try{ await db.saveMonthTemplate(monthTemplate); updateTemplateStatus(); }catch(e){}
   }, 500);
 }
+// What the job's pay line SHOULD say, from the annual income and cadence - 0 when that can't be
+// worked out, or when this isn't the line the pay goes to.
+function expectedPayLineAmount(item){
+  if(!item || !item.payTarget) return 0;
+  const s = payScheduleForYear();
+  if(!s.perPay || !s.typical) return 0;
+  return Math.round(s.perPay * s.typical * 100) / 100;
+}
 function tplIncomeRowHtml(item){
+  // The nudge lives on the row rather than in the smoothing card below: this is the number that
+  // is wrong and the place you would fix it, and two figures compared in a distant panel was
+  // read as two different things rather than one disagreeing with itself.
+  const want = expectedPayLineAmount(item);
+  const off = want && Math.abs((Number(item.amount)||0) - want) > 1;
   return `<div class="lrow" data-tpl-item-row="${item.id}">
     <input class="name-input" type="text" placeholder="e.g. salary" value="${escapeAttr(item.name)}" data-tpl-cat="income" data-tpl-item="${item.id}" data-tpl-field="name">
     <div class="amt-wrap plain"><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-tpl-cat="income" data-tpl-item="${item.id}" data-tpl-field="amount"></div>
-    <div class="del-cell">${payTargetBtnHtml(item)}<button data-tpl-cat="income" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
+    <div class="del-cell">${off ? `<button class="tpl-pay-fix" id="smoothMatchBtn" data-tip="Your pay works out to ${escapeAttr(money(want))} a month — tap to use that">${escapeAttr(money(want))}</button>` : ''}${payTargetBtnHtml(item)}<button data-tpl-cat="income" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
   </div>`;
 }
 // Stored as a flag on the template income item (month_template.income is JSONB, so no
@@ -5804,70 +5821,66 @@ function renderIncomeSmoothing(){
   if(cadEl) cadEl.value = String([7,14,28,30].includes(payCadenceDays) ? payCadenceDays : 14);
   const planned = monthTemplate.income.reduce((s, i) => s + (Number(i.amount)||0), 0);
   const s = payScheduleForYear();
-  const cadence = {7:'weekly', 14:'fortnightly', 28:'every 4 weeks', 30:'monthly'}[s.cadence];
+  const cadence = {7:'week', 14:'fortnight', 28:'4 weeks', 30:'month'}[s.cadence];
   // The annual income entered above covers the JOB only, so every other template income line -
-  // a parent's contribution, a side income - has to be added back or the card understates the
-  // household and the template comparison below is salary against salary-plus-everything-else.
-  // Which line is the job is the one marked with the $ button; with none marked there is no way
-  // to tell them apart, so nothing is assumed and the card says to mark it.
+  // a parent's contribution, a side income - has to be added back, or every figure here
+  // understates the household. Which line is the job is the one marked with the $ button; with
+  // none marked there is no way to tell them apart, so nothing is assumed and the card says so.
   const payLine = payTargetTemplateItem();
   const otherIncome = payLine ? Math.max(0, planned - (Number(payLine.amount)||0)) : 0;
   const unmarked = !payLine && monthTemplate.income.length > 1;
-  const fromJob = s.perPay ? s.perPay * (s.typical || 0) : 0;
-  const annual = (s.perPay ? s.perPay * s.annualPays : 0) + otherIncome * 12;
+  const short = n => '$' + Math.round(Number(n)||0).toLocaleString('en-AU');
+  const otherNames = monthTemplate.income.filter(i => i !== payLine && (Number(i.amount)||0) > 0)
+    .map(i => i.name || 'unnamed').join(', ');
 
-  // No pay has ever landed, so there is no anchor for WHICH months carry the extra - but the
-  // amounts are all stated, so everything except the month-by-month chart is still answerable.
-  if(!s.enough){
-    const perMonth = (s.perPay ? s.perPay * Math.floor(s.annualPays / 12) : 0) + otherIncome;
-    el.innerHTML = `<div class="smooth-sub">Paid ${escapeAttr(cadence)} — ${s.annualPays} pays a year${s.annualPays % 12 ? ', which does not divide evenly into 12 months' : ''}.</div>
-      <div class="smooth-stats">
-        <div class="smooth-stat"><div class="smooth-stat-lbl">Each pay</div><div class="smooth-stat-val">${s.perPay ? money(s.perPay) : '—'}</div></div>
-        <div class="smooth-stat"><div class="smooth-stat-lbl">Usual month</div><div class="smooth-stat-val">${perMonth ? money(perMonth) : '—'}</div></div>
-        <div class="smooth-stat"><div class="smooth-stat-lbl">A year</div><div class="smooth-stat-val">${annual ? money(annual) : money(planned * 12)}</div></div>
-        <div class="smooth-stat"><div class="smooth-stat-lbl">Template plans</div><div class="smooth-stat-val">${money(planned)}</div></div>
-      </div>
-      <div class="smooth-empty">${s.perPay ? '' : 'Enter your annual income above to put figures against this. '}Which months carry an extra pay needs one pay to have landed, so that part appears after your first.</div>`;
+  if(!s.perPay){
+    el.innerHTML = `<div class="smooth-empty">Enter your annual income above and this will show what lands in each month of the year.</div>`;
     return;
   }
 
-  const budgetable = fromJob + otherIncome;
-  const spare = annual - budgetable * 12;
+  const normalMonth = s.perPay * (s.typical || Math.floor(s.annualPays / 12)) + otherIncome;
+  const bigMonth = normalMonth + s.perPay;
+  const annual = s.perPay * s.annualPays + otherIncome * 12;
+  const spare = annual - normalMonth * 12;
+  const otherBit = otherIncome ? ` plus ${short(otherIncome)} from ${escapeAttr(otherNames || 'your other income')}` : '';
 
-  const cols = s.months.map(m => {
-    const extra = m.count > s.typical;
-    // A month with no pay at all is a real answer (the first pay of a new job can land late enough
-    // to fund the following month), so it gets an outline rather than an empty column that reads
-    // as something failing to render.
-    const chips = m.count === 0 ? '<div class="smooth-chip none"></div>'
-      : Array.from({length: m.count}, (_, i) => `<div class="smooth-chip${extra && i === 0 ? ' extra' : ''}"></div>`).join('');
-    return `<div class="smooth-col${extra ? ' is-extra' : ''}">${chips}<div class="smooth-col-lbl">${escapeAttr(monthLabel(m.key).slice(0,3))}</div></div>`;
+  // No pay has landed yet, so nothing anchors WHICH months carry the extra - every amount is
+  // still known, so the card says what it can rather than nothing at all.
+  if(!s.enough){
+    el.innerHTML = `<div class="smooth-sub">You are paid <strong>${money(s.perPay)}</strong> every ${escapeAttr(cadence)}${otherBit}. That makes <strong>${short(normalMonth)}</strong> in a normal month and <strong>${short(annual)}</strong> over the year.</div>
+      <div class="smooth-empty">Which months bring an extra pay depends on your pay dates, so that appears once your first pay lands.</div>`;
+    return;
+  }
+
+  const rows = s.months.map(m => ({key: m.key, count: m.count, amt: s.perPay * m.count + otherIncome}));
+  const peak = Math.max(...rows.map(r => r.amt), 1);
+  // Height is proportional to the amount, with a floor so a no-pay month is still a visible bar
+  // rather than a gap. The figure is printed on every bar - the point of the strip is how much
+  // lands in each month, and a bare block made you work that out yourself.
+  const cols = rows.map(r => {
+    const extra = r.count > s.typical;
+    const h = 10 + Math.round(58 * (r.amt / peak));
+    return `<div class="smooth-col${extra ? ' is-extra' : ''}${r.count === 0 ? ' is-none' : ''}">
+      <div class="smooth-amt">${short(r.amt)}</div>
+      <div class="smooth-bar" style="height:${h}px"></div>
+      <div class="smooth-col-lbl">${escapeAttr(monthLabel(r.key).slice(0,3))}</div>
+    </div>`;
   }).join('');
-  const noneMonths = s.months.filter(m => m.count === 0).map(m => monthLabel(m.key));
-  // The point of the whole panel: if the template is built on a different number from what a
-  // usual month actually brings, every month inherits that error.
-  const mismatch = s.perPay && Math.abs(planned - budgetable) > 1;
 
-  const extraNames = s.extraMonths.map(m => monthLabel(m.key)).join(', ');
-  el.innerHTML = `<div class="smooth-sub">Paid ${escapeAttr(cadence)} — ${s.annualPays} pays a year${s.annualPays % 12 ? ', which does not divide evenly into 12 months' : ''}. ${s.extraMonths.length
-      ? `Most months hold ${s.typical}, and ${s.extraMonths.length} of the next 12 hold ${s.typical + 1}. Build the budget on ${s.typical}; the extra ${s.extraMonths.length === 1 ? 'one is' : 'ones are'} spare.`
-      : `Every month holds ${s.typical}, so nothing extra falls out across the year.`}</div>`
-    + `<div class="smooth-stats">
-        <div class="smooth-stat"><div class="smooth-stat-lbl">Usual month</div><div class="smooth-stat-val">${s.perPay ? money(budgetable) : s.typical + ' pays'}</div></div>
-        <div class="smooth-stat"><div class="smooth-stat-lbl">Template plans</div><div class="smooth-stat-val">${money(planned)}</div></div>
-        ${s.perPay ? `<div class="smooth-stat"><div class="smooth-stat-lbl">A year</div><div class="smooth-stat-val">${money(annual)}</div></div>
-        <div class="smooth-stat"><div class="smooth-stat-lbl">Spare a year</div><div class="smooth-stat-val">${money(spare)}</div></div>` : ''}
-      </div>`
+  const extraNames = s.extraMonths.map(m => monthLabel(m.key).replace(/ \d+$/, '')).join(' and ');
+  const noneMonths = s.months.filter(m => m.count === 0).map(m => monthLabel(m.key).replace(/ \d+$/, ''));
+
+  el.innerHTML = `<div class="smooth-sub">You are paid <strong>${money(s.perPay)}</strong> every ${escapeAttr(cadence)}${otherBit}. Most months that adds up to <strong>${short(normalMonth)}</strong>.${s.extraMonths.length ? ` In ${escapeAttr(extraNames)} an extra pay lands, making <strong>${short(bigMonth)}</strong>.` : ''}</div>`
     + `<div class="smooth-chart">${cols}</div>`
-    + `<div class="smooth-legend"><span><i class="smooth-key"></i>Ordinary pay</span><span><i class="smooth-key extra"></i>The extra one</span></div>`
-    + (s.extraMonths.length ? `<div class="smooth-note">${escapeAttr(extraNames)} ${s.extraMonths.length === 1 ? 'holds' : 'hold'} an extra pay. Nothing is budgeted against ${s.extraMonths.length === 1 ? 'it' : 'them'}, so ${s.perPay ? money(spare) : 'that money'} comes free over the year — it leaves with the month-end close like everything else.</div>` : '')
-    + (noneMonths.length ? `<div class="smooth-note">${escapeAttr(noneMonths.join(', '))} ${noneMonths.length === 1 ? 'gets' : 'get'} no pay at all — a pay landing in the last week of a month funds the month after it.</div>` : '')
-    + `<div class="smooth-note">${s.stated
-        ? `Based on the annual income you entered, split over ${s.annualPays} pays of ${money(s.perPay)}.`
-        : (s.observedCount ? `Based on your pays so far (${money(s.perPay)} each). Enter your annual income above and these use that instead.` : 'Enter your annual income above to put real figures against this.')}${
-        otherIncome ? ` A usual month also carries ${money(otherIncome)} of other income from your template (${escapeAttr(monthTemplate.income.filter(i => i !== payLine && (Number(i.amount)||0) > 0).map(i => i.name||'unnamed').join(', '))}), which is counted above.` : ''}</div>`
-    + (unmarked ? `<div class="smooth-note" style="color:var(--debit);">The annual income above covers your job only, but no template income line is marked as your pay — so other lines can't be told apart from it and aren't counted here. Mark the right one with its <strong>$</strong> button.</div>` : '')
-    + (mismatch ? `<div class="smooth-note" style="color:var(--debit);">Your template income adds up to ${money(planned)}, but a usual month brings ${money(budgetable)}. Every month is built from the template, so it is worth making those agree.</div>` : '');
+    // Only two figures here, and both are about the YEAR - a normal month and a big month are
+    // already in the sentence above, and repeating them as tiles was half the clutter.
+    + `<div class="smooth-stats">
+        <div class="smooth-stat"><div class="smooth-stat-lbl">Your income for the year</div><div class="smooth-stat-val">${short(annual)}</div></div>
+        ${spare > 1 ? `<div class="smooth-stat"><div class="smooth-stat-lbl">Extra across the whole year</div><div class="smooth-stat-val">${short(spare)}</div></div>` : ''}
+      </div>`
+    + (spare > 1 ? `<div class="smooth-note">Budget for ${short(normalMonth)} every month. Over the year that leaves ${short(spare)} spare, and it leaves with the month-end close like anything else left over.</div>` : '')
+    + (noneMonths.length ? `<div class="smooth-note">${escapeAttr(noneMonths.join(', '))} brings no pay${otherIncome ? `, just the ${short(otherIncome)} from ${escapeAttr(otherNames || 'your other income')}` : ''}: a pay landing in the last week of a month counts towards the month after it.</div>` : '')
+    + (unmarked ? `<div class="smooth-note" style="color:var(--debit);">The income above is your job only, and no template line is marked as your pay — so your other income can't be told apart from it and is not counted here. Mark the right line with its <strong>$</strong> button.</div>` : '');
 }
 // Same shape as the Tech monthly override: debounced while typing, flushed on blur, and blank
 // means "work it out from my pays" rather than zero.
@@ -5882,11 +5895,23 @@ function onAnnualIncomeInput(){
 function commitAnnualIncome(){
   clearTimeout(annualIncomeSaveTimer);
   db.saveSettings({ annual_income: annualIncome }).catch(() => {});
-  renderIncomeSmoothing();
+  // The whole editor, not just the card: the pay line's "use this figure" chip is derived from
+  // this number, so leaving the rows alone left it offering a stale amount. Safe on blur, since
+  // the field being re-rendered around is no longer the focused one.
+  renderTemplateEditor();
+}
+function matchTemplatePayLine(){
+  const payLine = payTargetTemplateItem();
+  const s = payScheduleForYear();
+  if(!payLine || !s.perPay || !s.typical) return;
+  payLine.amount = Math.round(s.perPay * s.typical * 100) / 100;
+  scheduleTemplateSave();
+  renderTemplateEditor();
+  toast(`Template pay line set to ${money(payLine.amount)}`);
 }
 function onPayCadenceChange(){
   payCadenceDays = Number(document.getElementById('payCadenceSelect').value) || 14;
-  renderIncomeSmoothing();
+  renderTemplateEditor();
   db.saveSettings({ pay_cadence_days: payCadenceDays }).catch(() => {});
 }
 // Mirrors updateSummary()'s wording and states for the template's own numbers. No live
