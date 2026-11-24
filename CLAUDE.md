@@ -1248,3 +1248,21 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     right per-pay and usual-month figures, Dec 2026 and Jun 2027 as the 3-pay months and a spare
     of exactly two pays; monthly gives 12 pays, every month 1 and nothing spare; weekly gives 52,
     typical 4, four months of 5.
+
+64. **The smoothing card counts other income too, and its blocks are visible in the dark.** Both
+    reported from a screenshot.
+    (a) The annual income field covers the JOB only, so every other template income line — a
+    parent's contribution, a side income — was missing from the card while `planned` (the template
+    total) included it. The mismatch warning was therefore salary against salary-plus-everything-
+    else and could not be satisfied. Which line is the job is the one already marked with the `$`
+    button (`payTargetTemplateItem()`, item 51), so `otherIncome = planned − payLine.amount` is
+    added to the usual month and ×12 to the year. **Nothing is assumed when no line is marked** —
+    there is no way to tell the job's line from the rest, so the card keeps to salary-only and says
+    to mark it. Note the spare figure is deliberately unchanged by other income: a steady monthly
+    amount cannot create a third pay in a month, only the job's cadence can.
+    (b) `.smooth-chip` used `--paper-dim`, which in dark mode (#1A1D24) sits two values off the
+    card's own `--surface` (#181B22) — the ordinary blocks were all but invisible. New `--chip`
+    token (#D7DCE4 / #3B4454) and the month labels moved from `--ink-faint` to `--ink-soft`.
+    Measured after: chip rgb(59,68,84) on card rgb(24,27,34).
+    **Generalise**: a token picked because it looked right on one surface is a guess about the
+    other theme. Check a new colour against the background it will actually sit on, in both.

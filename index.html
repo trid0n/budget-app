@@ -29,6 +29,7 @@
   --gold-bg:#EAF0FE;
   --teal:#0F9E8E;
   --teal-bg:#E4F7F4;
+  --chip:#D7DCE4;
   --shadow:0 1px 2px rgba(27,31,39,.05), 0 1px 3px rgba(27,31,39,.06);
 }
 body.dark{
@@ -48,6 +49,7 @@ body.dark{
   --gold-bg:#1E2A46;
   --teal:#3FC9BB;
   --teal-bg:#173330;
+  --chip:#3B4454;
   --shadow:0 1px 2px rgba(0,0,0,.4);
 }
 body{transition:background .15s ease, color .15s ease;}
@@ -531,14 +533,16 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
    compute to `auto`, which is how this app grew three separate phantom scroll containers. */
 .smooth-chart{display:flex; align-items:flex-end; gap:5px; overflow-x:auto; overflow-y:hidden; padding-bottom:2px; scrollbar-width:thin;}
 .smooth-col{flex:1 1 0; min-width:34px; display:flex; flex-direction:column; justify-content:flex-end; gap:4px;}
-.smooth-chip{height:22px; border-radius:4px; background:var(--paper-dim);}
+/* --chip, not --paper-dim: in dark mode that token (#1A1D24) sits two values off the card's own
+   --surface (#181B22), so the ordinary blocks were all but invisible against it. */
+.smooth-chip{height:22px; border-radius:4px; background:var(--chip);}
 .smooth-chip.extra{background:var(--gold-bg); border:1px solid var(--gold);}
 .smooth-chip.none{background:none; border:1px dashed var(--rule);}
-.smooth-col-lbl{text-align:center; font-size:.66rem; color:var(--ink-faint); padding-top:5px; white-space:nowrap;}
+.smooth-col-lbl{text-align:center; font-size:.66rem; color:var(--ink-soft); padding-top:5px; white-space:nowrap;}
 .smooth-col.is-extra .smooth-col-lbl{color:var(--ink); font-weight:700;}
 .smooth-legend{display:flex; flex-wrap:wrap; gap:14px; font-size:.72rem; color:var(--ink-soft); margin-top:14px;}
 .smooth-legend span{display:flex; align-items:center; gap:6px;}
-.smooth-key{width:14px; height:11px; border-radius:3px; background:var(--paper-dim); flex:none;}
+.smooth-key{width:14px; height:11px; border-radius:3px; background:var(--chip); flex:none;}
 .smooth-key.extra{background:var(--gold-bg); border:1px solid var(--gold);}
 .smooth-note{font-size:.74rem; color:var(--ink-faint); line-height:1.55; margin-top:14px;}
 .smooth-empty{font-size:.8rem; color:var(--ink-soft); line-height:1.6; background:var(--paper-dim); border-radius:10px; padding:12px 14px;}
@@ -5801,12 +5805,21 @@ function renderIncomeSmoothing(){
   const planned = monthTemplate.income.reduce((s, i) => s + (Number(i.amount)||0), 0);
   const s = payScheduleForYear();
   const cadence = {7:'weekly', 14:'fortnightly', 28:'every 4 weeks', 30:'monthly'}[s.cadence];
-  const annual = s.perPay ? s.perPay * s.annualPays : 0;
+  // The annual income entered above covers the JOB only, so every other template income line -
+  // a parent's contribution, a side income - has to be added back or the card understates the
+  // household and the template comparison below is salary against salary-plus-everything-else.
+  // Which line is the job is the one marked with the $ button; with none marked there is no way
+  // to tell them apart, so nothing is assumed and the card says to mark it.
+  const payLine = payTargetTemplateItem();
+  const otherIncome = payLine ? Math.max(0, planned - (Number(payLine.amount)||0)) : 0;
+  const unmarked = !payLine && monthTemplate.income.length > 1;
+  const fromJob = s.perPay ? s.perPay * (s.typical || 0) : 0;
+  const annual = (s.perPay ? s.perPay * s.annualPays : 0) + otherIncome * 12;
 
   // No pay has ever landed, so there is no anchor for WHICH months carry the extra - but the
   // amounts are all stated, so everything except the month-by-month chart is still answerable.
   if(!s.enough){
-    const perMonth = s.perPay ? s.perPay * Math.floor(s.annualPays / 12) : 0;
+    const perMonth = (s.perPay ? s.perPay * Math.floor(s.annualPays / 12) : 0) + otherIncome;
     el.innerHTML = `<div class="smooth-sub">Paid ${escapeAttr(cadence)} — ${s.annualPays} pays a year${s.annualPays % 12 ? ', which does not divide evenly into 12 months' : ''}.</div>
       <div class="smooth-stats">
         <div class="smooth-stat"><div class="smooth-stat-lbl">Each pay</div><div class="smooth-stat-val">${s.perPay ? money(s.perPay) : '—'}</div></div>
@@ -5818,7 +5831,7 @@ function renderIncomeSmoothing(){
     return;
   }
 
-  const budgetable = s.perPay ? s.perPay * s.typical : 0;
+  const budgetable = fromJob + otherIncome;
   const spare = annual - budgetable * 12;
 
   const cols = s.months.map(m => {
@@ -5851,7 +5864,9 @@ function renderIncomeSmoothing(){
     + (noneMonths.length ? `<div class="smooth-note">${escapeAttr(noneMonths.join(', '))} ${noneMonths.length === 1 ? 'gets' : 'get'} no pay at all — a pay landing in the last week of a month funds the month after it.</div>` : '')
     + `<div class="smooth-note">${s.stated
         ? `Based on the annual income you entered, split over ${s.annualPays} pays of ${money(s.perPay)}.`
-        : (s.observedCount ? `Based on your pays so far (${money(s.perPay)} each). Enter your annual income above and these use that instead.` : 'Enter your annual income above to put real figures against this.')}</div>`
+        : (s.observedCount ? `Based on your pays so far (${money(s.perPay)} each). Enter your annual income above and these use that instead.` : 'Enter your annual income above to put real figures against this.')}${
+        otherIncome ? ` A usual month also carries ${money(otherIncome)} of other income from your template (${escapeAttr(monthTemplate.income.filter(i => i !== payLine && (Number(i.amount)||0) > 0).map(i => i.name||'unnamed').join(', '))}), which is counted above.` : ''}</div>`
+    + (unmarked ? `<div class="smooth-note" style="color:var(--debit);">The annual income above covers your job only, but no template income line is marked as your pay — so other lines can't be told apart from it and aren't counted here. Mark the right one with its <strong>$</strong> button.</div>` : '')
     + (mismatch ? `<div class="smooth-note" style="color:var(--debit);">Your template income adds up to ${money(planned)}, but a usual month brings ${money(budgetable)}. Every month is built from the template, so it is worth making those agree.</div>` : '');
 }
 // Same shape as the Tech monthly override: debounced while typing, flushed on blur, and blank
