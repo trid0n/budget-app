@@ -3423,12 +3423,16 @@ function monthSweepFigure(){
   const p = leftOverParts();
   const bal = p.effectiveBalance == null ? 0 : p.effectiveBalance;
   const laterCredits = p.effectiveBalance == null ? 0 : laterPeriodCreditsInBalance();
+  // Held back so the coming months can each spend the levelled figure - see smoothingReserve().
+  // Sweeping this out is precisely what would break smoothing: the surplus from a 3-pay month is
+  // not spare, it is the next few months' evenness sitting in the account.
+  const reserve = p.effectiveBalance == null ? 0 : smoothingReserve();
   return {
     ...p,
     balanceCounted: p.effectiveBalance != null,
     periodIsCurrent: isCurrentPeriod(settings.currentMonth),
-    laterCredits,
-    amount: Math.round((bal + p.totals.unreceivedIncome - p.totals.remaining - p.goal - laterCredits) * 100) / 100
+    laterCredits, reserve,
+    amount: Math.round((bal + p.totals.unreceivedIncome - p.totals.remaining - p.goal - laterCredits - reserve) * 100) / 100
   };
 }
 // Transactions the app considers part of the month being closed. periodKeyForTx is the same
@@ -3539,7 +3543,8 @@ function closeFigureNow(rec){
   // The recorded laterCredits, not a fresh one, for the same reason as the balance: this isolates
   // what the EDIT did, so every other term has to be held at what it was.
   const later = Number(b.laterCredits) || 0;
-  return Math.round((bal + t.unreceivedIncome - t.remaining - (Number(monthData.goal)||0) - later) * 100) / 100;
+  const reserve = Number(b.reserve) || 0;
+  return Math.round((bal + t.unreceivedIncome - t.remaining - (Number(monthData.goal)||0) - later - reserve) * 100) / 100;
 }
 // A dot on the button when something still needs doing before the figure can be trusted.
 // Computed on a debounce and patched in afterwards, NOT inside renderMonthCloseBar, because that
@@ -3661,6 +3666,7 @@ function renderMonthClosePanel(){
   ];
   // Only shown when there is any, so an ordinary month's derivation stays four lines.
   if(fig.laterCredits > 0) terms.push(['Already received for a later period', '−' + money(fig.laterCredits)]);
+  if(fig.reserve > 0) terms.push(['Kept back to keep next months level', '−' + money(fig.reserve)]);
 
   body.innerHTML = `
     <div class="mc-figure">
@@ -3710,7 +3716,7 @@ async function commitMonthClose(){
     breakdown: {
       balance: fig.effectiveBalance, balanceSource: fig.balanceSource, balanceCounted: fig.balanceCounted,
       periodIsCurrent: fig.periodIsCurrent, incomeStillToCome: t.unreceivedIncome, uncrossed: t.remaining,
-      goal: fig.goal, laterCredits: fig.laterCredits
+      goal: fig.goal, laterCredits: fig.laterCredits, reserve: fig.reserve
     },
     totals: {income: t.income, cost: t.cost, charged: t.charged, goal: fig.goal},
     snapshot: monthCloseSnapshot(),
@@ -5630,11 +5636,13 @@ function scheduleTemplateSave(){
 }
 // What the job's pay line SHOULD say, from the annual income and cadence - 0 when that can't be
 // worked out, or when this isn't the line the pay goes to.
+// Levelled, not "what a typical month happens to bring": the budget is built on the same figure
+// every month, and the months that bring more are evened out by the close holding the surplus.
 function expectedPayLineAmount(item){
   if(!item || !item.payTarget) return 0;
   const s = payScheduleForYear();
-  if(!s.perPay || !s.typical) return 0;
-  return Math.round(s.perPay * s.typical * 100) / 100;
+  if(!s.perPay) return 0;
+  return Math.round(s.perPay * s.annualPays / 12 * 100) / 100;
 }
 function tplIncomeRowHtml(item){
   // The nudge lives on the row rather than in the smoothing card below: this is the number that
@@ -5775,8 +5783,11 @@ function payScheduleForYear(){
   if(!known.length) return {...base, enough: false, knownCount: 0};
 
   const startKey = todaysEffectiveMonthKey || dateToKey(new Date());
+  // Projected two years out but only twelve months are charted. smoothingReserve() walks forward
+  // from the month on screen looking for the next surplus, and with a 12-month horizon the last
+  // months of it could not see one - so the reserve read low exactly where it mattered most.
   const keys = [];
-  for(let i = 0; i < 12; i++) keys.push(addMonths(startKey, i));
+  for(let i = 0; i < 24; i++) keys.push(addMonths(startKey, i));
   const endKey = keys[keys.length - 1];
   const counts = {};
   keys.forEach(k => { counts[k] = 0; });
@@ -5798,18 +5809,53 @@ function payScheduleForYear(){
     if(k in counts) counts[k]++;
   });
 
-  const list = keys.map(k => ({key: k, count: counts[k]}));
+  const horizon = keys.map(k => ({key: k, count: counts[k]}));
+  const list = horizon.slice(0, 12);
   // The MODE, not the minimum: the window opens on a month already part-way through, and its pays
   // before the Up tab's loaded range may be missing, so the lowest count is often an artefact of
   // the edge rather than a real month. Ties go to the lower count.
   const freq = {};
-  list.forEach(m => { freq[m.count] = (freq[m.count] || 0) + 1; });
+  horizon.forEach(m => { freq[m.count] = (freq[m.count] || 0) + 1; });
   let typical = list[0].count, best = -1;
   Object.keys(freq).map(Number).sort((a, b) => a - b).forEach(c => { if(freq[c] > best){ best = freq[c]; typical = c; } });
   return {
-    ...base, enough: true, months: list, typical,
+    ...base, enough: true, months: list, horizon, typical,
     extraMonths: list.filter(m => m.count > typical)
   };
+}
+// Income levelled across the year: the job's annual pay plus any other template income, over 12.
+// This is the figure the budget is built on under smoothing, instead of what a given month
+// happens to bring - which is what makes every month the same and leaves nothing "spare".
+function smoothedMonthlyIncome(){
+  if(!monthTemplate) return 0;
+  const s = payScheduleForYear();
+  if(!s.perPay) return 0;
+  const planned = monthTemplate.income.reduce((t, i) => t + (Number(i.amount)||0), 0);
+  const payLine = payTargetTemplateItem();
+  const other = payLine ? Math.max(0, planned - (Number(payLine.amount)||0)) : 0;
+  return Math.round((s.perPay * s.annualPays / 12 + other) * 100) / 100;
+}
+// How much has to stay in the account at the end of the month on screen so that every month from
+// here can still spend the levelled figure. It is the worst cumulative shortfall ahead: walk the
+// coming months adding (levelled - what that month brings) and keep the high-water mark.
+// Without this the month-end close would sweep the surplus from a 3-pay month straight out, and
+// the following months would be short by exactly the amount that was supposed to even them out.
+function smoothingReserve(){
+  const s = payScheduleForYear();
+  const level = smoothedMonthlyIncome();
+  if(!s.enough || !level) return 0;
+  const months = s.horizon || s.months;
+  const from = months.findIndex(m => m.key === settings.currentMonth);
+  if(from < 0) return 0;
+  const planned = monthTemplate.income.reduce((t, i) => t + (Number(i.amount)||0), 0);
+  const payLine = payTargetTemplateItem();
+  const other = payLine ? Math.max(0, planned - (Number(payLine.amount)||0)) : 0;
+  let running = 0, worst = 0;
+  for(let i = from + 1; i < months.length; i++){
+    running += level - (s.perPay * months[i].count + other);
+    if(running > worst) worst = running;
+  }
+  return Math.round(worst * 100) / 100;
 }
 function renderIncomeSmoothing(){
   const el = document.getElementById('incomeSmoothingBody');
@@ -5870,16 +5916,17 @@ function renderIncomeSmoothing(){
   const extraNames = s.extraMonths.map(m => monthLabel(m.key).replace(/ \d+$/, '')).join(' and ');
   const noneMonths = s.months.filter(m => m.count === 0).map(m => monthLabel(m.key).replace(/ \d+$/, ''));
 
-  el.innerHTML = `<div class="smooth-sub">You are paid <strong>${money(s.perPay)}</strong> every ${escapeAttr(cadence)}${otherBit}. Most months that adds up to <strong>${short(normalMonth)}</strong>.${s.extraMonths.length ? ` In ${escapeAttr(extraNames)} an extra pay lands, making <strong>${short(bigMonth)}</strong>.` : ''}</div>`
+  const level = smoothedMonthlyIncome();
+  const reserve = smoothingReserve();
+  el.innerHTML = `<div class="smooth-sub">You are paid <strong>${money(s.perPay)}</strong> every ${escapeAttr(cadence)}${otherBit}. Levelled out, that is <strong>${short(level)}</strong> to budget with every month — the same in ${escapeAttr(extraNames || 'every month')} as in any other, even though what lands varies below.</div>`
     + `<div class="smooth-chart">${cols}</div>`
-    // Only two figures here, and both are about the YEAR - a normal month and a big month are
-    // already in the sentence above, and repeating them as tiles was half the clutter.
     + `<div class="smooth-stats">
+        <div class="smooth-stat"><div class="smooth-stat-lbl">To budget with, every month</div><div class="smooth-stat-val">${short(level)}</div></div>
         <div class="smooth-stat"><div class="smooth-stat-lbl">Your income for the year</div><div class="smooth-stat-val">${short(annual)}</div></div>
-        ${spare > 1 ? `<div class="smooth-stat"><div class="smooth-stat-lbl">Extra across the whole year</div><div class="smooth-stat-val">${short(spare)}</div></div>` : ''}
+        ${reserve > 1 ? `<div class="smooth-stat"><div class="smooth-stat-lbl">Held back this month to do that</div><div class="smooth-stat-val">${short(reserve)}</div></div>` : ''}
       </div>`
-    + (spare > 1 ? `<div class="smooth-note">Budget for ${short(normalMonth)} every month. Over the year that leaves ${short(spare)} spare, and it leaves with the month-end close like anything else left over.</div>` : '')
-    + (noneMonths.length ? `<div class="smooth-note">${escapeAttr(noneMonths.join(', '))} brings no pay${otherIncome ? `, just the ${short(otherIncome)} from ${escapeAttr(otherNames || 'your other income')}` : ''}: a pay landing in the last week of a month counts towards the month after it.</div>` : '')
+    + `<div class="smooth-note">Nothing is spare: the months that bring more cover the months that bring less. The month-end close keeps ${reserve > 1 ? `${short(reserve)}` : 'whatever is needed'} back for that and sweeps the rest to your savings, so what you transfer stays about the same every month.</div>`
+    + (noneMonths.length ? `<div class="smooth-note">${escapeAttr(noneMonths.join(', '))} brings no pay${otherIncome ? `, just the ${short(otherIncome)} from ${escapeAttr(otherNames || 'your other income')}` : ''}: a pay landing in the last week of a month counts towards the month after it. Levelling cannot conjure money into a month that has none, so this one is genuinely light.</div>` : '')
     + (unmarked ? `<div class="smooth-note" style="color:var(--debit);">The income above is your job only, and no template line is marked as your pay — so your other income can't be told apart from it and is not counted here. Mark the right line with its <strong>$</strong> button.</div>` : '');
 }
 // Same shape as the Tech monthly override: debounced while typing, flushed on blur, and blank

@@ -1294,3 +1294,29 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     around is no longer focused.
     `--gold-bg` for the taller bars was wrong in dark mode too — it is DARKER than `--chip` there,
     so the bigger month read as recessed. Solid `--gold` in both themes.
+
+66. **Smoothing, not floor — the budget is levelled and the close holds the reserve back.** The
+    card said "extra across the whole year", which the user read against the word smoothing and
+    rightly called out: under smoothing there IS no spare. Everything up to item 65 implemented
+    the FLOOR model (budget the count that always arrives, bank the surplus). They chose
+    smoothing, and specifically rejected a separate float saver — "rather than having a float I
+    can just save a little less" — which is the same mechanism stated more simply: the surplus
+    from a 3-pay month stays in the account and covers the lean ones, and the monthly sweep to
+    savings varies instead of the spending budget.
+    `smoothedMonthlyIncome()` = job annual ÷ 12 + other template income, and that is now what the
+    card leads with, what `expectedPayLineAmount()` offers for the template's pay line, and what
+    the budget is meant to be built on.
+    `smoothingReserve()` is the part that makes it work: the worst cumulative shortfall ahead,
+    walking forward from the month on screen adding (levelled − what that month brings) and
+    keeping the high-water mark. `monthSweepFigure` subtracts it, with its own derivation line and
+    a slot on the record. **Without it the close would sweep a 3-pay month's surplus straight out
+    and the next five months would be short by exactly the amount meant to even them out** —
+    smoothing and a sweep-everything close are otherwise directly contradictory.
+    **A 12-month horizon was not enough** and the symptom was subtle: the reserve was correct in
+    December ($2,627.79) but read $2,102.23 in June, because from June the window ended before
+    the next surplus. `payScheduleForYear` now projects 24 months (`horizon`) and charts the first
+    12; the reserve walks the horizon. After: a clean sawtooth, both 3-pay months identical.
+    **Known and deliberately not papered over**: Nov 2026 – Oct 2027 contains only 24 pays, not
+    26, because the job starts on 25 November. The levelled figure is right from December on; the
+    card says in words that November is genuinely light rather than quietly inventing money for
+    it.
