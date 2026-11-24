@@ -1199,3 +1199,20 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     other axis `visible` is what grew three phantom scroll containers in this app before.
     Verified against a real fortnightly seed: 14-day cadence, 26 pays a year, typical 2, Dec 2026
     and Jun 2027 the 3-pay months, spare $8,000 — which matches the schedule worked out by hand.
+
+62. **Annual income drives the smoothing card.** `user_settings.annual_income` (**needs the
+    migration** — see Known open items), `annualIncome` in memory, an input in the card's header.
+    A stated salary beats observed pays: one or two of those can be a part-period first pay, a week
+    of overtime or a bonus, and the median of two is just their average. Set → `perPay = annual /
+    annualPays` and every figure follows from it; blank → fall back to the median observed pay, so
+    the card still works before anything is typed. The card says which of the two it used.
+    **The header is static markup and only `#incomeSmoothingBody` re-renders.** The input saves on
+    a debounce and the panel redraws on every keystroke, so a card that replaced its own innerHTML
+    would tear the field out from under the caret. Same reason `renderIncomeSmoothing` only writes
+    the input's value when it does not have focus — the Tech monthly-override rule.
+    Blank means "work it out from my pays", not zero, which is why the parse maps NaN and <= 0 to
+    null rather than 0.
+    Verified: observed mode reads $4,000/pay → $104,000; entering 110000 gives $4,230.77 a pay,
+    $8,461.54 a usual month and exactly $8,461.54 spare (two pays, as it should be); focus and the
+    typed value survive the re-render; clearing returns to observed and stores null; the value
+    survives a reload; and with no pays at all it shows the entered annual rather than nothing.

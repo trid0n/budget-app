@@ -47,6 +47,7 @@ create table if not exists public.user_settings (
   saver_order          jsonb not null default '[]'::jsonb,  -- Up Bank saver account ids in the order the user dragged their chips into on the Up tab. Anything absent sorts after these by balance (highest first), which is also the default for an empty array. See index.html's sortSaversForDisplay().
   tech_saver_account_id text,  -- Up saver the Tech replacements fund is kept in; its balance is compared with what the fund should hold. See index.html's renderTechFund().
   tech_monthly_amount  numeric,  -- the monthly transfer into the Tech saver as the user set it; null = follow the Tech table's suggested total. Drives the template's Tech replacements line. See index.html's updateTechTotal().
+  annual_income        numeric,  -- gross-to-bank annual pay as the user knows it; null = work it out from observed pay transactions instead. The salary is authoritative where one or two observed pays are not (a part-period first pay, overtime, a bonus). See index.html's payScheduleForYear().
   updated_at     timestamptz not null default now()
 );
 

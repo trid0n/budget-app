@@ -514,6 +514,11 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .smooth-card{background:var(--surface); border:1px solid var(--rule); border-radius:14px; padding:18px 20px 20px; margin-top:18px;}
 .smooth-hdr{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:4px;}
 .smooth-hdr h2{font-size:1rem; margin:0;}
+.smooth-annual{display:flex; align-items:center; gap:6px; font-size:.72rem; color:var(--ink-soft); font-weight:700; text-transform:uppercase; letter-spacing:.04em;}
+.smooth-dollar{color:var(--ink-faint); font-weight:700; margin-left:2px;}
+.smooth-annual input{width:118px; padding:5px 8px; font-size:.84rem; text-align:right; font-weight:700; font-variant-numeric:tabular-nums; border:1px solid var(--rule); border-radius:8px; background:var(--paper-dim); color:var(--ink); text-transform:none; letter-spacing:0;}
+.smooth-annual input::placeholder{font-weight:400; font-size:.72rem; color:var(--ink-faint);}
+.smooth-annual input:focus{outline:none; border-color:var(--gold);}
 .smooth-sub{font-size:.76rem; color:var(--ink-soft); line-height:1.5; margin-bottom:16px;}
 .smooth-stats{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px;}
 .smooth-stat{flex:1 1 130px; background:var(--paper-dim); border-radius:10px; padding:10px 12px;}
@@ -1774,7 +1779,15 @@ try{
         </div>
         <button class="add-cat-card" id="tplAddCategoryBtn">+ Add category to template</button>
       </div>
-      <div class="smooth-card" id="incomeSmoothing"></div>
+      <!-- The header is static and the body is what re-renders: the annual-income input must
+           survive its own keystrokes, which replacing the whole card would not allow. -->
+      <div class="smooth-card" id="incomeSmoothing">
+        <div class="smooth-hdr">
+          <h2>How your pay lands across the year</h2>
+          <label class="smooth-annual">Annual income<span class="smooth-dollar">$</span><input type="number" step="1" min="0" id="annualIncomeInput" placeholder="work it out for me"></label>
+        </div>
+        <div id="incomeSmoothingBody"></div>
+      </div>
     </div>
 
     <!-- ================= DASHBOARD VIEW ================= -->
@@ -2675,6 +2688,7 @@ let techSaverAccountId = null;
 // The monthly transfer the user actually makes into the Tech saver. null = follow the table's
 // suggested total. Whichever wins is what the template and the fund maths use.
 let techMonthlyOverride = null;
+let annualIncome = null;
 let displayName = '';
 // The calendar-month key "today" belongs to for budgeting purposes. Equal to the real
 // calendar month unless periodMode is 'paycycle', in which case it's the month after
@@ -3239,6 +3253,7 @@ async function loadEverything(){
     saverOrder = Array.isArray(settingsRow.saver_order) ? settingsRow.saver_order : [];
     techSaverAccountId = settingsRow.tech_saver_account_id || null;
     techMonthlyOverride = settingsRow.tech_monthly_amount == null ? null : Number(settingsRow.tech_monthly_amount);
+    annualIncome = settingsRow.annual_income == null ? null : Number(settingsRow.annual_income);
     displayName = settingsRow.display_name || '';
   }
   // A name entered at sign-up can't be saved until authUserId exists, which only
@@ -5713,9 +5728,15 @@ function payScheduleForYear(){
   gaps.sort((a, b) => a - b);
   const interval = gaps[Math.floor(gaps.length / 2)];
   if(!(interval > DAY_MS)) return {enough: false, knownCount: known.length};
-  const amounts = upTransactions.filter(t => isValidUpTx(t) && isIncomeSourceTx(t))
+  const intervalDaysEarly = Math.round(interval / DAY_MS);
+  // A stated salary beats observed pays: one or two of those can be a part-period first pay, a
+  // week of overtime or a bonus, and the median of two is just their average. Observed pays stay
+  // as the fallback so the card works before anyone types anything.
+  const observed = upTransactions.filter(t => isValidUpTx(t) && isIncomeSourceTx(t))
     .map(t => parseFloat(t.attributes.amount.value)).filter(n => n > 0).sort((a, b) => a - b);
-  const perPay = amounts.length ? amounts[Math.floor(amounts.length / 2)] : 0;
+  const statedAnnual = Number(annualIncome) > 0 ? Number(annualIncome) : 0;
+  const perPay = statedAnnual ? statedAnnual / Math.round(365.25 / intervalDaysEarly)
+    : (observed.length ? observed[Math.floor(observed.length / 2)] : 0);
 
   const startKey = todaysEffectiveMonthKey || dateToKey(new Date());
   const keys = [];
@@ -5746,29 +5767,33 @@ function payScheduleForYear(){
   list.forEach(m => { freq[m.count] = (freq[m.count] || 0) + 1; });
   let typical = list[0].count, best = -1;
   Object.keys(freq).map(Number).sort((a, b) => a - b).forEach(c => { if(freq[c] > best){ best = freq[c]; typical = c; } });
-  const intervalDays = Math.round(interval / DAY_MS);
+  const intervalDays = intervalDaysEarly;
   // Pays a year comes from the cadence, not from counting the window, for the same reason - a
   // partial month at the start would quietly knock a whole pay off the annual figure.
   const annualPays = Math.round(365.25 / intervalDays);
   return {
     enough: true, intervalDays, perPay, months: list, typical, annualPays,
+    stated: !!statedAnnual, observedCount: observed.length,
     extraMonths: list.filter(m => m.count > typical)
   };
 }
 function renderIncomeSmoothing(){
-  const el = document.getElementById('incomeSmoothing');
+  const el = document.getElementById('incomeSmoothingBody');
   if(!el || !monthTemplate) return;
+  const annualEl = document.getElementById('annualIncomeInput');
+  // Not while it has focus - this re-runs on every keystroke via the debounced save.
+  if(annualEl && document.activeElement !== annualEl) annualEl.value = annualIncome == null ? '' : annualIncome;
   const planned = monthTemplate.income.reduce((s, i) => s + (Number(i.amount)||0), 0);
   const s = payScheduleForYear();
-  const hdr = `<div class="smooth-hdr"><h2>How your pay lands across the year</h2></div>`;
+  const hdr = '';
 
   if(!s.enough){
-    el.innerHTML = hdr + `<div class="smooth-sub">Your pay dates are read from the Up tab, so this fills in on its own — no schedule to set up.</div>
+    el.innerHTML = hdr + `<div class="smooth-sub">Your pay dates are read from the Up tab, so this fills in on its own — only the amount above is worth setting.</div>
       <div class="smooth-stats">
-        <div class="smooth-stat"><div class="smooth-stat-lbl">Template plans</div><div class="smooth-stat-val">${money(planned)}</div></div>
-        <div class="smooth-stat"><div class="smooth-stat-lbl">That is, a year</div><div class="smooth-stat-val">${money(planned * 12)}</div></div>
+        <div class="smooth-stat"><div class="smooth-stat-lbl">${Number(annualIncome) > 0 ? 'Your annual income' : 'Template, a year'}</div><div class="smooth-stat-val">${money(Number(annualIncome) > 0 ? Number(annualIncome) : planned * 12)}</div></div>
+        <div class="smooth-stat"><div class="smooth-stat-lbl">Template plans a month</div><div class="smooth-stat-val">${money(planned)}</div></div>
       </div>
-      <div class="smooth-empty">${s.knownCount === 1 ? 'One pay found so far.' : 'No pays found yet.'} Once a second one lands, this works out how often you are paid and shows which months get an extra pay.</div>`;
+      <div class="smooth-empty">${s.knownCount === 1 ? 'One pay found so far.' : 'No pays found yet.'} Once a second one lands, this works out how often you are paid and splits ${Number(annualIncome) > 0 ? 'that income' : 'your income'} across the months.</div>`;
     return;
   }
 
@@ -5805,7 +5830,25 @@ function renderIncomeSmoothing(){
     + `<div class="smooth-legend"><span><i class="smooth-key"></i>Ordinary pay</span><span><i class="smooth-key extra"></i>The extra one</span></div>`
     + (s.extraMonths.length ? `<div class="smooth-note">${escapeAttr(extraNames)} ${s.extraMonths.length === 1 ? 'holds' : 'hold'} an extra pay. Nothing is budgeted against ${s.extraMonths.length === 1 ? 'it' : 'them'}, so ${s.perPay ? money(spare) : 'that money'} comes free over the year — it leaves with the month-end close like everything else.</div>` : '')
     + (noneMonths.length ? `<div class="smooth-note">${escapeAttr(noneMonths.join(', '))} ${noneMonths.length === 1 ? 'gets' : 'get'} no pay at all — a pay landing in the last week of a month funds the month after it.</div>` : '')
+    + `<div class="smooth-note">${s.stated
+        ? `Based on the annual income you entered, split over ${s.annualPays} pays of ${money(s.perPay)}.`
+        : (s.observedCount ? `Based on your pays so far (${money(s.perPay)} each). Enter your annual income above and these use that instead.` : 'Enter your annual income above to put real figures against this.')}</div>`
     + (mismatch ? `<div class="smooth-note" style="color:var(--debit);">Your template income adds up to ${money(planned)}, but a usual month brings ${money(budgetable)}. Every month is built from the template, so it is worth making those agree.</div>` : '');
+}
+// Same shape as the Tech monthly override: debounced while typing, flushed on blur, and blank
+// means "work it out from my pays" rather than zero.
+let annualIncomeSaveTimer = null;
+function onAnnualIncomeInput(){
+  const v = parseFloat(document.getElementById('annualIncomeInput').value);
+  annualIncome = isNaN(v) || v <= 0 ? null : Math.round(v);
+  renderIncomeSmoothing();
+  clearTimeout(annualIncomeSaveTimer);
+  annualIncomeSaveTimer = setTimeout(() => { db.saveSettings({ annual_income: annualIncome }).catch(() => {}); }, 500);
+}
+function commitAnnualIncome(){
+  clearTimeout(annualIncomeSaveTimer);
+  db.saveSettings({ annual_income: annualIncome }).catch(() => {});
+  renderIncomeSmoothing();
 }
 // Mirrors updateSummary()'s wording and states for the template's own numbers. No live
 // bank balance is folded in - that belongs to an actual month, not to a template.
@@ -11781,6 +11824,8 @@ function showAccountSettingsTab(){
 document.getElementById('acctExitBtn').addEventListener('click', closeAccountSettingsPopup);
 // Bound here rather than beside the month-close functions: #monthCloseOverlay is declared with
 // the other modals at the very end of the body, so it does not exist yet further up the script.
+document.getElementById('annualIncomeInput').addEventListener('input', onAnnualIncomeInput);
+document.getElementById('annualIncomeInput').addEventListener('blur', commitAnnualIncome);
 document.getElementById('monthCloseExitBtn').addEventListener('click', () => document.getElementById('monthCloseOverlay').classList.remove('show'));
 document.getElementById('monthCloseOverlay').addEventListener('click', e => { if(e.target.id === 'monthCloseOverlay') e.currentTarget.classList.remove('show'); });
 document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => { if(e.target.id === 'accountSettingsOverlay') closeAccountSettingsPopup(); });
