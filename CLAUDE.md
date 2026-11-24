@@ -1171,3 +1171,31 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     because it awaits `customConfirm`, which only settles when something clicks the dialog. Call it
     WITHOUT await, wait for the overlay, then click. Any helper that awaits a confirm has this
     shape.
+
+61. **"How your pay lands across the year" on the Template tab.** Asked for as a simple visual
+    breakdown of how income is smoothed. `#incomeSmoothing`, rendered by `renderIncomeSmoothing()`
+    from `renderTemplateEditor()` and again from `applyUpDataToAllViews()` (it reads pay dates out
+    of `upTransactions`, so it is empty until a load lands).
+    **The cadence is learned, never configured** — `payScheduleForYear()` takes the MEDIAN gap
+    between `knownPayOccurrences()`, so one holiday-shifted or missed pay can't skew it the way a
+    mean would, and there is no setting to get wrong. Known pays are kept and the rest projected
+    forward on that interval, then every date goes through `periodKeyFor(..., true, starts)` so the
+    chart agrees with where the app actually files each pay (late-pay rule included).
+    **Two things that must NOT come from the window**, both found in testing:
+    `typical` is the MODE of the per-month counts, not the minimum — the window opens on a month
+    already part-way through, so the lowest count is usually an edge artefact (the harness read
+    "most months hold 1" off a partial November). And `annualPays` is `365.25 / intervalDays`, not
+    the window's total, or a partial first month quietly knocks a whole pay off the annual figure.
+    A month with zero pays gets a dashed outline chip, not an empty column that reads as a render
+    failure — a real state for them, since their first pay (25 Nov) funds December and November
+    gets nothing. It also says so in words.
+    It flags a template/reality mismatch: if the template's income total differs from
+    `perPay × typical`, it says so in `--debit`, because every month is built from the template and
+    that error would be inherited by all of them.
+    Fewer than two known pays → a reduced card showing the template's planned monthly and annual
+    income plus "once a second one lands, this works out how often you are paid". That is the state
+    on 2026-11-24, before their first pay.
+    `.smooth-chart` sets `overflow-y:hidden` explicitly beside its `overflow-x:auto` — leaving the
+    other axis `visible` is what grew three phantom scroll containers in this app before.
+    Verified against a real fortnightly seed: 14-day cadence, 26 pays a year, typical 2, Dec 2026
+    and Jun 2027 the 3-pay months, spare $8,000 — which matches the schedule worked out by hand.

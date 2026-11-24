@@ -510,6 +510,30 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .mc-check-detail{display:block; color:var(--ink-faint); font-size:.74rem; margin-top:2px;}
 .mc-note{font-size:.74rem; color:var(--ink-faint); margin-top:10px; line-height:1.5;}
 .mc-dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--debit); margin-left:7px; vertical-align:middle;}
+/* ---- income smoothing (Template tab) ---- */
+.smooth-card{background:var(--surface); border:1px solid var(--rule); border-radius:14px; padding:18px 20px 20px; margin-top:18px;}
+.smooth-hdr{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:4px;}
+.smooth-hdr h2{font-size:1rem; margin:0;}
+.smooth-sub{font-size:.76rem; color:var(--ink-soft); line-height:1.5; margin-bottom:16px;}
+.smooth-stats{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px;}
+.smooth-stat{flex:1 1 130px; background:var(--paper-dim); border-radius:10px; padding:10px 12px;}
+.smooth-stat-lbl{font-size:.66rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700;}
+.smooth-stat-val{font-size:1.15rem; font-weight:800; font-variant-numeric:tabular-nums; margin-top:2px;}
+/* overflow-y is set explicitly: leaving it `visible` beside a non-visible overflow-x makes it
+   compute to `auto`, which is how this app grew three separate phantom scroll containers. */
+.smooth-chart{display:flex; align-items:flex-end; gap:5px; overflow-x:auto; overflow-y:hidden; padding-bottom:2px; scrollbar-width:thin;}
+.smooth-col{flex:1 1 0; min-width:34px; display:flex; flex-direction:column; justify-content:flex-end; gap:4px;}
+.smooth-chip{height:22px; border-radius:4px; background:var(--paper-dim);}
+.smooth-chip.extra{background:var(--gold-bg); border:1px solid var(--gold);}
+.smooth-chip.none{background:none; border:1px dashed var(--rule);}
+.smooth-col-lbl{text-align:center; font-size:.66rem; color:var(--ink-faint); padding-top:5px; white-space:nowrap;}
+.smooth-col.is-extra .smooth-col-lbl{color:var(--ink); font-weight:700;}
+.smooth-legend{display:flex; flex-wrap:wrap; gap:14px; font-size:.72rem; color:var(--ink-soft); margin-top:14px;}
+.smooth-legend span{display:flex; align-items:center; gap:6px;}
+.smooth-key{width:14px; height:11px; border-radius:3px; background:var(--paper-dim); flex:none;}
+.smooth-key.extra{background:var(--gold-bg); border:1px solid var(--gold);}
+.smooth-note{font-size:.74rem; color:var(--ink-faint); line-height:1.55; margin-top:14px;}
+.smooth-empty{font-size:.8rem; color:var(--ink-soft); line-height:1.6; background:var(--paper-dim); border-radius:10px; padding:12px 14px;}
 .mc-rec{border:1px solid var(--rule); border-radius:10px; padding:10px 12px; font-size:.78rem; margin-top:8px;}
 .mc-rec-hdr{display:flex; justify-content:space-between; gap:10px; font-weight:700;}
 .mc-rec-line{color:var(--ink-soft); margin-top:3px;}
@@ -1750,6 +1774,7 @@ try{
         </div>
         <button class="add-cat-card" id="tplAddCategoryBtn">+ Add category to template</button>
       </div>
+      <div class="smooth-card" id="incomeSmoothing"></div>
     </div>
 
     <!-- ================= DASHBOARD VIEW ================= -->
@@ -5668,8 +5693,119 @@ function renderTemplateEditor(){
   if(goalEl && document.activeElement !== goalEl) goalEl.value = monthTemplate.goal ? monthTemplate.goal : '';
   updateTemplateStatus();
   updateTemplateSummary(incTotal);
+  renderIncomeSmoothing();
   updateAllTplItemNameWidths();
   updateAllCatNameWidths();
+}
+/* ===================== income smoothing (Template tab) ===================== */
+// Why this exists: pay that doesn't arrive monthly doesn't divide evenly into months. Fortnightly
+// is 26 pays over 12 months, so most months hold 2 and a couple hold 3, and the budget has to be
+// built on the number that is always there rather than the average. This shows which months those
+// are, from the user's OWN pay dates rather than from an assumed schedule.
+const DAY_MS = 86400000;
+// The cadence is learned, never configured: the median gap between known pays, so one shifted
+// payday (a public holiday) or one missed pay can't skew it the way a mean would.
+function payScheduleForYear(){
+  const known = knownPayOccurrences().slice().sort((a, b) => a - b);
+  if(known.length < 2) return {enough: false, knownCount: known.length};
+  const gaps = [];
+  for(let i = 1; i < known.length; i++) gaps.push(known[i] - known[i-1]);
+  gaps.sort((a, b) => a - b);
+  const interval = gaps[Math.floor(gaps.length / 2)];
+  if(!(interval > DAY_MS)) return {enough: false, knownCount: known.length};
+  const amounts = upTransactions.filter(t => isValidUpTx(t) && isIncomeSourceTx(t))
+    .map(t => parseFloat(t.attributes.amount.value)).filter(n => n > 0).sort((a, b) => a - b);
+  const perPay = amounts.length ? amounts[Math.floor(amounts.length / 2)] : 0;
+
+  const startKey = todaysEffectiveMonthKey || dateToKey(new Date());
+  const keys = [];
+  for(let i = 0; i < 12; i++) keys.push(addMonths(startKey, i));
+  const endKey = keys[keys.length - 1];
+  const counts = {};
+  keys.forEach(k => { counts[k] = 0; });
+
+  // Known pays first, then projected ones continuing the cadence. Walking from the EARLIEST known
+  // pay rather than the latest keeps already-banked pays in the picture for the open month.
+  const starts = payCycleStarts();
+  const seen = new Set(known);
+  const dates = known.slice();
+  for(let t = known[known.length-1] + interval, guard = 0; guard < 400; t += interval, guard++){
+    if(dateToKey(new Date(t)) > endKey) break;
+    if(!seen.has(t)) dates.push(t);
+  }
+  dates.forEach(t => {
+    const k = periodKeyFor(new Date(t).toISOString(), true, starts);
+    if(k in counts) counts[k]++;
+  });
+
+  const list = keys.map(k => ({key: k, count: counts[k]}));
+  // The MODE, not the minimum: the window opens on a month already part-way through, and its pays
+  // before the Up tab's loaded range may be missing, so the lowest count is often an artefact of
+  // the edge rather than a real month. Ties go to the lower count.
+  const freq = {};
+  list.forEach(m => { freq[m.count] = (freq[m.count] || 0) + 1; });
+  let typical = list[0].count, best = -1;
+  Object.keys(freq).map(Number).sort((a, b) => a - b).forEach(c => { if(freq[c] > best){ best = freq[c]; typical = c; } });
+  const intervalDays = Math.round(interval / DAY_MS);
+  // Pays a year comes from the cadence, not from counting the window, for the same reason - a
+  // partial month at the start would quietly knock a whole pay off the annual figure.
+  const annualPays = Math.round(365.25 / intervalDays);
+  return {
+    enough: true, intervalDays, perPay, months: list, typical, annualPays,
+    extraMonths: list.filter(m => m.count > typical)
+  };
+}
+function renderIncomeSmoothing(){
+  const el = document.getElementById('incomeSmoothing');
+  if(!el || !monthTemplate) return;
+  const planned = monthTemplate.income.reduce((s, i) => s + (Number(i.amount)||0), 0);
+  const s = payScheduleForYear();
+  const hdr = `<div class="smooth-hdr"><h2>How your pay lands across the year</h2></div>`;
+
+  if(!s.enough){
+    el.innerHTML = hdr + `<div class="smooth-sub">Your pay dates are read from the Up tab, so this fills in on its own — no schedule to set up.</div>
+      <div class="smooth-stats">
+        <div class="smooth-stat"><div class="smooth-stat-lbl">Template plans</div><div class="smooth-stat-val">${money(planned)}</div></div>
+        <div class="smooth-stat"><div class="smooth-stat-lbl">That is, a year</div><div class="smooth-stat-val">${money(planned * 12)}</div></div>
+      </div>
+      <div class="smooth-empty">${s.knownCount === 1 ? 'One pay found so far.' : 'No pays found yet.'} Once a second one lands, this works out how often you are paid and shows which months get an extra pay.</div>`;
+    return;
+  }
+
+  const fortnightly = s.intervalDays >= 12 && s.intervalDays <= 16;
+  const cadence = fortnightly ? 'fortnightly' : (s.intervalDays >= 25 && s.intervalDays <= 32 ? 'monthly' : (s.intervalDays >= 6 && s.intervalDays <= 8 ? 'weekly' : `every ${s.intervalDays} days`));
+  const annual = s.perPay ? s.perPay * s.annualPays : 0;
+  const budgetable = s.perPay ? s.perPay * s.typical : 0;
+  const spare = annual - budgetable * 12;
+
+  const cols = s.months.map(m => {
+    const extra = m.count > s.typical;
+    // A month with no pay at all is a real answer (the first pay of a new job can land late enough
+    // to fund the following month), so it gets an outline rather than an empty column that reads
+    // as something failing to render.
+    const chips = m.count === 0 ? '<div class="smooth-chip none"></div>'
+      : Array.from({length: m.count}, (_, i) => `<div class="smooth-chip${extra && i === 0 ? ' extra' : ''}"></div>`).join('');
+    return `<div class="smooth-col${extra ? ' is-extra' : ''}">${chips}<div class="smooth-col-lbl">${escapeAttr(monthLabel(m.key).slice(0,3))}</div></div>`;
+  }).join('');
+  const noneMonths = s.months.filter(m => m.count === 0).map(m => monthLabel(m.key));
+  // The point of the whole panel: if the template is built on a different number from what a
+  // usual month actually brings, every month inherits that error.
+  const mismatch = s.perPay && Math.abs(planned - budgetable) > 1;
+
+  const extraNames = s.extraMonths.map(m => monthLabel(m.key)).join(', ');
+  el.innerHTML = hdr
+    + `<div class="smooth-sub">You are paid ${escapeAttr(cadence)} — ${s.annualPays} pays a year, which does not divide evenly into 12 months. Most months hold ${s.typical}${s.extraMonths.length ? `, and ${s.extraMonths.length} of the next 12 hold ${s.typical + 1}` : ''}. Build the budget on ${s.typical}; the extra ${s.extraMonths.length === 1 ? 'one is' : 'ones are'} spare.</div>`
+    + `<div class="smooth-stats">
+        <div class="smooth-stat"><div class="smooth-stat-lbl">Usual month</div><div class="smooth-stat-val">${s.perPay ? money(budgetable) : s.typical + ' pays'}</div></div>
+        <div class="smooth-stat"><div class="smooth-stat-lbl">Template plans</div><div class="smooth-stat-val">${money(planned)}</div></div>
+        ${s.perPay ? `<div class="smooth-stat"><div class="smooth-stat-lbl">A year</div><div class="smooth-stat-val">${money(annual)}</div></div>
+        <div class="smooth-stat"><div class="smooth-stat-lbl">Spare a year</div><div class="smooth-stat-val">${money(spare)}</div></div>` : ''}
+      </div>`
+    + `<div class="smooth-chart">${cols}</div>`
+    + `<div class="smooth-legend"><span><i class="smooth-key"></i>Ordinary pay</span><span><i class="smooth-key extra"></i>The extra one</span></div>`
+    + (s.extraMonths.length ? `<div class="smooth-note">${escapeAttr(extraNames)} ${s.extraMonths.length === 1 ? 'holds' : 'hold'} an extra pay. Nothing is budgeted against ${s.extraMonths.length === 1 ? 'it' : 'them'}, so ${s.perPay ? money(spare) : 'that money'} comes free over the year — it leaves with the month-end close like everything else.</div>` : '')
+    + (noneMonths.length ? `<div class="smooth-note">${escapeAttr(noneMonths.join(', '))} ${noneMonths.length === 1 ? 'gets' : 'get'} no pay at all — a pay landing in the last week of a month funds the month after it.</div>` : '')
+    + (mismatch ? `<div class="smooth-note" style="color:var(--debit);">Your template income adds up to ${money(planned)}, but a usual month brings ${money(budgetable)}. Every month is built from the template, so it is worth making those agree.</div>` : '');
 }
 // Mirrors updateSummary()'s wording and states for the template's own numbers. No live
 // bank balance is folded in - that belongs to an actual month, not to a template.
@@ -10062,6 +10198,8 @@ function applyUpDataToAllViews(){
   if(monthData){ renderIncome(); renderGroups(); updateSummary(); }
   const dash = document.getElementById('view-dashboard');
   if(dash){ renderDashboard(); renderInsights(); }
+  // Reads its pay dates straight out of upTransactions, so it is blank until a load lands.
+  if(monthTemplate) renderIncomeSmoothing();
   if(document.getElementById('view-up').classList.contains('active')){
     requestAnimationFrame(() => { sizeUpTxList(); renderTransferGroupRail(); });
   }
