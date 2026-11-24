@@ -49,6 +49,8 @@ create table if not exists public.user_settings (
   tech_monthly_amount  numeric,  -- the monthly transfer into the Tech saver as the user set it; null = follow the Tech table's suggested total. Drives the template's Tech replacements line. See index.html's updateTechTotal().
   annual_income        numeric,  -- gross-to-bank annual pay as the user knows it; null = work it out from observed pay transactions instead. The salary is authoritative where one or two observed pays are not (a part-period first pay, overtime, a bonus). See index.html's payScheduleForYear().
   pay_cadence_days     int,      -- how often pay arrives: 7, 14 or 28 days, or 30 meaning "same date each calendar month". null = 14. Chosen, not detected - detecting it needed two pays before the card could say anything, and the user would rather state it. See index.html's payScheduleForYear().
+  goal_saver_account_id text,    -- Up saver the month-end close sends the month's goal amount to (the house fund). See index.html's sweepDestinations().
+  excess_saver_account_id text,  -- Up saver the close sends whatever is left after the goal and the template transfers. See index.html's sweepDestinations().
   updated_at     timestamptz not null default now()
 );
 

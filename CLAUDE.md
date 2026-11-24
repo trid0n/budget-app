@@ -298,7 +298,10 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
 
 ## Known open items
 
-- **No outstanding schema migrations.** The three most recent — `month_closes` (2026-11-23),
+- **`user_settings.goal_saver_account_id` and `excess_saver_account_id` need the migration**
+  (added 2026-11-24, not yet run). Until then the close panel's saver pickers work for the session
+  but forget on reload, and the Where-it-goes rows fall back to "Goal saver" / "Misc saver".
+- Otherwise none outstanding. The three before these — `month_closes` (2026-11-23),
   `user_settings.annual_income` and `user_settings.pay_cadence_days` (both 2026-11-24) — were each
   **verified from here rather than taken on report**, every one against known-good controls plus
   an invented name that correctly answers `400 42703`. Use the REST probe under "Schema
@@ -1320,3 +1323,26 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     26, because the job starts on 25 November. The levelled figure is right from December on; the
     card says in words that November is genuinely light rather than quietly inventing money for
     it.
+
+67. **Close panel: assign the stragglers, and say where the money goes.** Three asks.
+    (a) The "not assigned" and "unconfirmed guesses" checks carry an **Assign them** button.
+    `startAssignQueue()` loads them into `txAssignQueue` and `closeTxAssignModal()` opens the next
+    as each finishes, so a run is one pass instead of hunting the Up tab per transaction. The
+    reopen is on a 180ms timer: without it the overlay's own transition reopens mid-fade and the
+    search never takes focus.
+    (b) `openTxAssignModal` pre-fills the search with the transaction's description and `select()`s
+    it. Asked for because the usual reason you land there is that no line fits and the name you
+    want is the merchant's. **Known trade-off**: a merchant name matches no item, so the item list
+    filters to empty and only the "Create … in" options show. That is the point for creating, and
+    the select-all means one keystroke brings the whole list back — verified.
+    (c) A **Where it goes** section: what stays in spending (unpaid items + the levelling reserve),
+    the template's own set-asides, the month's goal to a chosen saver, and the remainder to another.
+    `goal_saver_account_id` / `excess_saver_account_id` (**need the migration**) are picked from
+    selects on those two rows. `sweepDestinations()` claims in that order and caps each at what is
+    actually left, and says "X short of Y" rather than printing a bare $0.00 against a goal that
+    could not be met.
+    **The goal is no longer deducted from the sweep figure.** It is money that leaves the spending
+    account like everything else; it just has a destination. So it moved from the derivation's
+    minus list into the split, and the headline figure rose by it.
+    Also: `smoothingReserve()` returns 0 below a dollar — a derivation line reading "−$0.04" is
+    noise, not a reserve.

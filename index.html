@@ -510,6 +510,13 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .mc-check.ok .mc-check-ic{background:var(--credit-bg); color:var(--credit);}
 .mc-check.warn .mc-check-ic{background:var(--debit-bg); color:var(--debit);}
 .mc-check-detail{display:block; color:var(--ink-faint); font-size:.74rem; margin-top:2px;}
+.mc-check-btn{flex:none; align-self:center; font-size:.7rem; padding:3px 9px; white-space:nowrap;}
+.mc-dest{display:flex; align-items:center; gap:10px; padding:9px 12px; border-bottom:1px solid var(--rule); font-size:.8rem;}
+.mc-dest:last-child{border-bottom:none;}
+.mc-dest-name{flex:1; min-width:0;}
+.mc-dest-why{display:block; color:var(--ink-faint); font-size:.72rem; margin-top:1px;}
+.mc-dest-amt{font-variant-numeric:tabular-nums; font-weight:700; flex:none;}
+.mc-dest-pick{flex:none; max-width:130px; padding:3px 6px; font-size:.72rem; border:1px solid var(--rule); border-radius:7px; background:var(--paper-dim); color:var(--ink);}
 .mc-note{font-size:.74rem; color:var(--ink-faint); margin-top:10px; line-height:1.5;}
 .mc-dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--debit); margin-left:7px; vertical-align:middle;}
 /* ---- income smoothing (Template tab) ---- */
@@ -2708,6 +2715,8 @@ let techMonthlyOverride = null;
 let annualIncome = null;
 // 7, 14 or 28 days, or 30 meaning the same date each calendar month. Chosen, never detected.
 let payCadenceDays = 14;
+let goalSaverAccountId = null;
+let excessSaverAccountId = null;
 let displayName = '';
 // The calendar-month key "today" belongs to for budgeting purposes. Equal to the real
 // calendar month unless periodMode is 'paycycle', in which case it's the month after
@@ -3274,6 +3283,8 @@ async function loadEverything(){
     techMonthlyOverride = settingsRow.tech_monthly_amount == null ? null : Number(settingsRow.tech_monthly_amount);
     annualIncome = settingsRow.annual_income == null ? null : Number(settingsRow.annual_income);
     payCadenceDays = settingsRow.pay_cadence_days == null ? 14 : Number(settingsRow.pay_cadence_days);
+    goalSaverAccountId = settingsRow.goal_saver_account_id || null;
+    excessSaverAccountId = settingsRow.excess_saver_account_id || null;
     displayName = settingsRow.display_name || '';
   }
   // A name entered at sign-up can't be saved until authUserId exists, which only
@@ -3427,12 +3438,15 @@ function monthSweepFigure(){
   // Sweeping this out is precisely what would break smoothing: the surplus from a 3-pay month is
   // not spare, it is the next few months' evenness sitting in the account.
   const reserve = p.effectiveBalance == null ? 0 : smoothingReserve();
+  // The goal is deliberately NOT deducted here any more. It is money that leaves the spending
+  // account like everything else - it just has a destination of its own (the house saver), so it
+  // belongs in the split below rather than being held back from the total.
   return {
     ...p,
     balanceCounted: p.effectiveBalance != null,
     periodIsCurrent: isCurrentPeriod(settings.currentMonth),
     laterCredits, reserve,
-    amount: Math.round((bal + p.totals.unreceivedIncome - p.totals.remaining - p.goal - laterCredits - reserve) * 100) / 100
+    amount: Math.round((bal + p.totals.unreceivedIncome - p.totals.remaining - laterCredits - reserve) * 100) / 100
   };
 }
 // Transactions the app considers part of the month being closed. periodKeyForTx is the same
@@ -3473,8 +3487,8 @@ function monthCloseChecks(){
       (findGuessForTx(t.attributes.description, amt, t) ? guessed : unassigned).push(t);
     });
     const sum = list => Math.round(list.reduce((s,t) => s + Math.abs(parseFloat(t.attributes.amount.value)||0), 0) * 100) / 100;
-    if(unassigned.length) out.push({level:'warn', key:'unassigned', text:`${unassigned.length} transaction${unassigned.length===1?'':'s'} not assigned — ${money(sum(unassigned))}`, detail:'Spending the budget has never seen, so the figure above is overstated by roughly this much.'});
-    if(guessed.length) out.push({level:'warn', key:'guesses', text:`${guessed.length} guess${guessed.length===1?'':'es'} unconfirmed — ${money(sum(guessed))}`, detail:'Attributed by a guess rather than a decision, so the budget may be holding the money against the wrong line. Confirm or correct them in the Up tab.'});
+    if(unassigned.length) out.push({level:'warn', key:'unassigned', text:`${unassigned.length} transaction${unassigned.length===1?'':'s'} not assigned — ${money(sum(unassigned))}`, detail:'Spending the budget has never seen, so the figure above is overstated by roughly this much.', action:'assign', txs: unassigned});
+    if(guessed.length) out.push({level:'warn', key:'guesses', text:`${guessed.length} guess${guessed.length===1?'':'es'} unconfirmed — ${money(sum(guessed))}`, detail:'Attributed by a guess rather than a decision, so the budget may be holding the money against the wrong line. Confirm or correct them in the Up tab.', action:'assign', txs: guessed});
     // Only once BOTH piles are empty, or this contradicts itself - a guessed transaction is not
     // an assigned one, and saying "all assigned" beside "4 guesses unconfirmed" is worse than
     // saying nothing.
@@ -3644,6 +3658,40 @@ function openMonthClosePanel(){
 // deliberately dropped: the amounts are not chosen here, they come from the Tech and Recurring
 // tables, and the transfers are carried out in Up anyway - so a row per saver was an editor for
 // numbers nobody edits. The per-saver amounts are still stored on the record.
+function saverNameById(id){
+  const s = upSaverAccounts.find(a => a.id === id);
+  return s ? (s.name || 'Saver') : null;
+}
+// Where the swept money actually goes, in the order it is claimed: the set-asides the template
+// already commits to, then the month's goal to the house saver, then everything else to the
+// misc saver. Each is capped at what is actually left, so a short month cannot show a saver
+// receiving money that does not exist.
+function sweepDestinations(fig){
+  const out = [];
+  let left = fig.amount;
+  const transfers = templateTransferTotal();
+  if(transfers > 0){
+    const give = Math.max(0, Math.min(left, transfers));
+    const short = Math.round((transfers - give) * 100) / 100;
+    out.push({key:'tpl', name:'Your template transfers',
+      why: short > 0 ? `Tech and recurring set-asides — ${money(short)} short of ${money(transfers)}` : 'Tech and recurring set-asides',
+      amount: give});
+    left -= give;
+  }
+  const goal = Number(fig.goal) || 0;
+  if(goal > 0){
+    const give = Math.max(0, Math.min(left, goal));
+    // Said out loud when the month cannot cover the goal. Showing a bare $0.00 against a goal of
+    // $1,000 reads as a broken figure rather than as "there wasn't enough this month".
+    const short = Math.round((goal - give) * 100) / 100;
+    out.push({key:'goal', name: saverNameById(goalSaverAccountId) || 'Goal saver',
+      why: short > 0 ? `This month's goal — ${money(short)} short of ${money(goal)}` : "This month's goal",
+      amount: give, picker:'goal'});
+    left -= give;
+  }
+  out.push({key:'excess', name: saverNameById(excessSaverAccountId) || 'Misc saver', why:'Everything else', amount: Math.max(0, Math.round(left * 100) / 100), picker:'excess'});
+  return out;
+}
 function templateTransferTotal(){
   const sug = sweepSuggestions();
   return Math.round(Object.values(sug.amounts).reduce((s,v) => s + (Number(v)||0), 0) * 100) / 100;
@@ -3654,15 +3702,14 @@ function renderMonthClosePanel(){
   const fig = monthSweepFigure();
   const checks = monthCloseChecks();
   const warns = checks.filter(c => c.level === 'warn').length;
-  const transfers = templateTransferTotal();
-  const after = Math.round((fig.amount - transfers) * 100) / 100;
+  const dests = sweepDestinations(fig);
+  const stays = Math.round((fig.totals.remaining + fig.reserve) * 100) / 100;
   const past = closesFor(settings.currentMonth);
 
   const terms = [
     ['Spending balance', fig.balanceCounted ? money(fig.effectiveBalance) : '—'],
     ['Income still to come', money(fig.totals.unreceivedIncome)],
-    [`Not yet crossed off`, '−' + money(fig.totals.remaining)],
-    ['Goal', '−' + money(fig.goal)]
+    [`Not yet crossed off`, '−' + money(fig.totals.remaining)]
   ];
   // Only shown when there is any, so an ordinary month's derivation stays four lines.
   if(fig.laterCredits > 0) terms.push(['Already received for a later period', '−' + money(fig.laterCredits)]);
@@ -3675,12 +3722,16 @@ function renderMonthClosePanel(){
       <div class="mc-terms">${terms.map(([k,v]) => `<div class="mc-term"><span>${escapeAttr(k)}</span><span>${v}</span></div>`).join('')}</div>
     </div>
     <div class="mc-sec-lbl">Before you transfer</div>
-    <div class="mc-list">${checks.map(c => `<div class="mc-check ${c.level}"><span class="mc-check-ic">${c.level==='ok'?'✓':'!'}</span><span>${escapeAttr(c.text)}${c.detail?`<span class="mc-check-detail">${escapeAttr(c.detail)}</span>`:''}</span></div>`).join('')}</div>
-    ${transfers > 0 ? `<div class="mc-sec-lbl">Transfers</div>
-      <div class="mc-figure" style="margin-top:0;">
-        <div class="mc-term"><span>Set by your template</span><span>${money(transfers)}</span></div>
-        <div class="mc-term"><span>${after >= 0 ? 'Left over after them' : 'Short of them by'}</span><span>${money(Math.abs(after))}</span></div>
-      </div>` : ''}
+    <div class="mc-list">${checks.map((c, i) => `<div class="mc-check ${c.level}"><span class="mc-check-ic">${c.level==='ok'?'✓':'!'}</span><span>${escapeAttr(c.text)}${c.detail?`<span class="mc-check-detail">${escapeAttr(c.detail)}</span>`:''}</span>${c.action === 'assign' ? `<button class="mini-btn mc-check-btn" data-mc-assign="${i}">Assign ${c.txs.length === 1 ? 'it' : 'them'}</button>` : ''}</div>`).join('')}</div>
+    <div class="mc-sec-lbl">Where it goes</div>
+    <div class="mc-list">
+      ${stays > 0 ? `<div class="mc-dest"><span class="mc-dest-name">Stays in spending<span class="mc-dest-why">Not-yet-paid items${fig.reserve > 0 ? ', and next months’ levelling' : ''}</span></span><span class="mc-dest-amt">${money(stays)}</span></div>` : ''}
+      ${dests.map(d => `<div class="mc-dest">
+        <span class="mc-dest-name">${escapeAttr(d.name)}<span class="mc-dest-why">${escapeAttr(d.why)}</span></span>
+        ${d.picker ? `<select class="mc-dest-pick" data-mc-saver="${d.picker}"><option value="">Pick a saver…</option>${upSaverAccounts.map(a => `<option value="${escapeAttr(a.id)}"${(d.picker === 'goal' ? goalSaverAccountId : excessSaverAccountId) === a.id ? ' selected' : ''}>${escapeAttr(a.name || 'Saver')}</option>`).join('')}</select>` : ''}
+        <span class="mc-dest-amt">${money(d.amount)}</span>
+      </div>`).join('')}
+    </div>
     ${monthClosesAvailable ? '' : `<div class="mc-note" style="color:var(--debit);">The <code>month_closes</code> table does not exist yet, so this cannot be recorded. The figure and the checks above still work — run the SQL from <code>supabase/schema.sql</code> to turn the record on.</div>`}
     <div class="mc-note">Recorded closes cannot be edited — re-closing adds a new one.</div>
     <div class="modal-actions" style="margin-top:6px; justify-content:flex-end;">
@@ -3698,8 +3749,7 @@ function monthCloseRecordHtml(r){
   return `<div class="mc-rec">
     <div class="mc-rec-hdr"><span>${escapeAttr(when)}</span><span>${money(r.amount)}</span></div>
     <div class="mc-rec-line">Balance ${b.balance == null ? '—' : money(b.balance)}${b.balanceSource?` (${escapeAttr(b.balanceSource)})`:''} · income due ${money(b.incomeStillToCome)} · uncrossed ${money(b.uncrossed)} · goal ${money(b.goal)}${Number(b.laterCredits) > 0 ? ` · held for a later period ${money(b.laterCredits)}` : ''}</div>
-    ${transfers > 0 ? (() => { const left = Math.round((r.amount - transfers) * 100) / 100;
-      return `<div class="mc-rec-line">Template transfers ${money(transfers)} · ${left >= 0 ? `left over ${money(left)}` : `short by ${money(-left)}`}</div>`; })() : ''}
+    ${(r.destinations||[]).length ? `<div class="mc-rec-line">Sent: ${(r.destinations||[]).filter(d => d.amount > 0).map(d => `${escapeAttr(d.name)} ${money(d.amount)}`).join(' · ') || 'nothing'}</div>` : (transfers > 0 ? `<div class="mc-rec-line">Template transfers ${money(transfers)}</div>` : '')}
     ${warns ? `<div class="mc-rec-line">Closed with: ${warns}</div>` : ''}
     ${edited ? `<div class="mc-rec-line" style="color:var(--debit);">This month has been edited since — the same balance would now give ${money(closeFigureNow(r))}</div>` : ''}
   </div>`;
@@ -3722,6 +3772,8 @@ async function commitMonthClose(){
     snapshot: monthCloseSnapshot(),
     warnings: monthCloseChecks().filter(c => c.level === 'warn').map(c => ({key: c.key, text: c.text})),
     transfers: templateTransferTotal(),
+    destinations: sweepDestinations(fig).map(d => ({name: d.name, why: d.why, amount: d.amount})),
+    staysInSpending: Math.round((t.remaining + fig.reserve) * 100) / 100,
     // Kept on the record even though the panel no longer shows them per saver: the receipt costs
     // nothing to keep complete, and "which saver" is a question you can still want answered later.
     splits: Object.entries(sweepSuggestions().amounts)
@@ -3753,6 +3805,20 @@ document.addEventListener('click', e => {
   if(e.target.closest('#monthCloseCommitBtn')){ commitMonthClose(); return; }
   // Delegated: the smoothing card replaces its body on every render.
   if(e.target.closest('#smoothMatchBtn')){ matchTemplatePayLine(); return; }
+  const assignBtn = e.target.closest('[data-mc-assign]');
+  if(assignBtn){
+    const check = monthCloseChecks()[Number(assignBtn.getAttribute('data-mc-assign'))];
+    if(check && check.txs) startAssignQueue(check.txs);
+    return;
+  }
+});
+document.addEventListener('change', e => {
+  const pick = e.target.closest('[data-mc-saver]');
+  if(!pick) return;
+  const which = pick.getAttribute('data-mc-saver');
+  if(which === 'goal'){ goalSaverAccountId = pick.value || null; db.saveSettings({ goal_saver_account_id: goalSaverAccountId }).catch(() => {}); }
+  else { excessSaverAccountId = pick.value || null; db.saveSettings({ excess_saver_account_id: excessSaverAccountId }).catch(() => {}); }
+  renderMonthClosePanel();
 });
 function recalcTotalsInPlace(){
   const incTotal = monthData.income.reduce((s,i)=>s+(i.charged?0:(Number(i.amount)||0)),0);
@@ -5855,7 +5921,8 @@ function smoothingReserve(){
     running += level - (s.perPay * months[i].count + other);
     if(running > worst) worst = running;
   }
-  return Math.round(worst * 100) / 100;
+  // Below a dollar is rounding, not a reserve, and a line reading "-$0.04" is just noise.
+  return worst < 1 ? 0 : Math.round(worst * 100) / 100;
 }
 function renderIncomeSmoothing(){
   const el = document.getElementById('incomeSmoothingBody');
@@ -9144,17 +9211,39 @@ function openTxAssignModal(txId, amt, desc, date, transferAccountId){
     currentLbl.style.display = 'none';
   }
   const search = document.getElementById('txAssignSearch');
-  search.value = '';
-  renderTxAssignList('');
+  // Pre-filled with the merchant: the common reason for landing here is that no existing line
+  // fits, and the name you want is the one on the transaction. select() rather than a bare
+  // focus so the first keystroke replaces it - it costs nothing when you did want to search.
+  search.value = (desc || '').trim();
+  renderTxAssignList(search.value);
   document.getElementById('txAssignOverlay').classList.add('show');
   // After .show, not before - the overlay is display:none until then and focus() on a hidden
   // element does nothing. Opening straight into the search is the point: one field, typing
   // narrows the existing items and offers to create what you typed.
   search.focus();
+  search.select();
 }
+// Transactions queued up by "Assign them all" on the close panel. Each one reopens the modal as
+// the last is finished, so a run of them is one pass rather than hunting the Up tab for each.
+let txAssignQueue = [];
 function closeTxAssignModal(){
   document.getElementById('txAssignOverlay').classList.remove('show');
   txAssignCurrent = null;
+  if(!txAssignQueue.length) return;
+  const next = txAssignQueue.shift();
+  // A beat, or the overlay's own transition reopens mid-fade and the field never takes focus.
+  setTimeout(() => openTxAssignModal(next.id, next.amt, next.desc, next.date, next.transferAccountId), 180);
+}
+function startAssignQueue(txs){
+  txAssignQueue = txs.map(t => ({
+    id: t.id, amt: parseFloat(t.attributes.amount.value), desc: t.attributes.description,
+    date: t.attributes.createdAt,
+    transferAccountId: isInternalTransfer(t) ? (t.relationships.transferAccount.data.id || null) : null
+  }));
+  if(!txAssignQueue.length) return;
+  document.getElementById('monthCloseOverlay').classList.remove('show');
+  const first = txAssignQueue.shift();
+  openTxAssignModal(first.id, first.amt, first.desc, first.date, first.transferAccountId);
 }
 // Undoes a transaction's prior contribution to whatever item it was on, in whatever month that
 // was. This was previously called reverseTxAssignmentIfSameMonth and did exactly what its name
