@@ -1222,3 +1222,26 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     $8,461.54 a usual month and exactly $8,461.54 spare (two pays, as it should be); focus and the
     typed value survive the re-render; clearing returns to observed and stores null; the value
     survives a reload; and with no pays at all it shows the entered annual rather than nothing.
+
+63. **The cadence is stated, not detected — one pay is the whole requirement.** Item 61's learned
+    cadence needed TWO pays before the card could say anything, so typing a salary in bought
+    nothing until a fortnight had passed. Reported as "I don't want it to need to detect multiple
+    pays, just the amount I am entering."
+    `pay_cadence_days` (**needs the migration**; 7 / 14 / 28, or 30 meaning the same date each
+    calendar month) is a select beside the annual income, defaulting to 14. Null reads as 14, so
+    the default is right for this household even before the column exists — the choice just won't
+    survive a reload until it does. All gap-median detection is gone.
+    One known pay is now the only thing the chart needs, and purely as an ANCHOR for which months
+    carry the extra; every amount comes from the stated salary ÷ `PAYS_PER_YEAR(cadence)`. With no
+    pay at all the card still gives each pay, the usual month, the year and the template figure,
+    and says only the month-by-month part is waiting. Monthly advances by `addMonths` rather than
+    by 30 days, or the run drifts a day every February.
+    **Two wording bugs the monthly option exposed**, both from assuming the fortnightly case:
+    "12 pays a year, which does not divide evenly into 12 months" (it does — now conditional on
+    `annualPays % 12`), and "the extra ones are spare" with no extra months (now a separate
+    sentence when `extraMonths` is empty). Generalise: a sentence written for the awkward case
+    needs re-reading in the tidy one.
+    Verified on real figures: a fortnightly salary from a single 25 Nov pay gives 26 pays, the
+    right per-pay and usual-month figures, Dec 2026 and Jun 2027 as the 3-pay months and a spare
+    of exactly two pays; monthly gives 12 pays, every month 1 and nothing spare; weekly gives 52,
+    typical 4, four months of 5.

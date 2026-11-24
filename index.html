@@ -519,6 +519,9 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .smooth-annual input{width:118px; padding:5px 8px; font-size:.84rem; text-align:right; font-weight:700; font-variant-numeric:tabular-nums; border:1px solid var(--rule); border-radius:8px; background:var(--paper-dim); color:var(--ink); text-transform:none; letter-spacing:0;}
 .smooth-annual input::placeholder{font-weight:400; font-size:.72rem; color:var(--ink-faint);}
 .smooth-annual input:focus{outline:none; border-color:var(--gold);}
+.smooth-inputs{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+.smooth-annual select{padding:5px 8px; font-size:.78rem; font-weight:700; border:1px solid var(--rule); border-radius:8px; background:var(--paper-dim); color:var(--ink); text-transform:none; letter-spacing:0;}
+.smooth-annual select:focus{outline:none; border-color:var(--gold);}
 .smooth-sub{font-size:.76rem; color:var(--ink-soft); line-height:1.5; margin-bottom:16px;}
 .smooth-stats{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px;}
 .smooth-stat{flex:1 1 130px; background:var(--paper-dim); border-radius:10px; padding:10px 12px;}
@@ -1784,7 +1787,15 @@ try{
       <div class="smooth-card" id="incomeSmoothing">
         <div class="smooth-hdr">
           <h2>How your pay lands across the year</h2>
-          <label class="smooth-annual">Annual income<span class="smooth-dollar">$</span><input type="number" step="1" min="0" id="annualIncomeInput" placeholder="work it out for me"></label>
+          <div class="smooth-inputs">
+            <label class="smooth-annual">Annual income<span class="smooth-dollar">$</span><input type="number" step="1" min="0" id="annualIncomeInput" placeholder="work it out for me"></label>
+            <label class="smooth-annual">Paid<select id="payCadenceSelect">
+              <option value="7">Weekly</option>
+              <option value="14">Fortnightly</option>
+              <option value="28">Every 4 weeks</option>
+              <option value="30">Monthly</option>
+            </select></label>
+          </div>
         </div>
         <div id="incomeSmoothingBody"></div>
       </div>
@@ -2689,6 +2700,8 @@ let techSaverAccountId = null;
 // suggested total. Whichever wins is what the template and the fund maths use.
 let techMonthlyOverride = null;
 let annualIncome = null;
+// 7, 14 or 28 days, or 30 meaning the same date each calendar month. Chosen, never detected.
+let payCadenceDays = 14;
 let displayName = '';
 // The calendar-month key "today" belongs to for budgeting purposes. Equal to the real
 // calendar month unless periodMode is 'paycycle', in which case it's the month after
@@ -3254,6 +3267,7 @@ async function loadEverything(){
     techSaverAccountId = settingsRow.tech_saver_account_id || null;
     techMonthlyOverride = settingsRow.tech_monthly_amount == null ? null : Number(settingsRow.tech_monthly_amount);
     annualIncome = settingsRow.annual_income == null ? null : Number(settingsRow.annual_income);
+    payCadenceDays = settingsRow.pay_cadence_days == null ? 14 : Number(settingsRow.pay_cadence_days);
     displayName = settingsRow.display_name || '';
   }
   // A name entered at sign-up can't be saved until authUserId exists, which only
@@ -5720,23 +5734,24 @@ function renderTemplateEditor(){
 const DAY_MS = 86400000;
 // The cadence is learned, never configured: the median gap between known pays, so one shifted
 // payday (a public holiday) or one missed pay can't skew it the way a mean would.
+function PAYS_PER_YEAR(days){ return days === 30 ? 12 : Math.round(365.25 / days); }
 function payScheduleForYear(){
-  const known = knownPayOccurrences().slice().sort((a, b) => a - b);
-  if(known.length < 2) return {enough: false, knownCount: known.length};
-  const gaps = [];
-  for(let i = 1; i < known.length; i++) gaps.push(known[i] - known[i-1]);
-  gaps.sort((a, b) => a - b);
-  const interval = gaps[Math.floor(gaps.length / 2)];
-  if(!(interval > DAY_MS)) return {enough: false, knownCount: known.length};
-  const intervalDaysEarly = Math.round(interval / DAY_MS);
-  // A stated salary beats observed pays: one or two of those can be a part-period first pay, a
-  // week of overtime or a bonus, and the median of two is just their average. Observed pays stay
-  // as the fallback so the card works before anyone types anything.
+  const cadence = [7, 14, 28, 30].includes(payCadenceDays) ? payCadenceDays : 14;
+  const annualPays = PAYS_PER_YEAR(cadence);
+  const statedAnnual = Number(annualIncome) > 0 ? Number(annualIncome) : 0;
+  // Observed pays are only a fallback for the AMOUNT now. The cadence is stated, so nothing here
+  // waits on a second pay to have something to say - which is what this used to do, and it meant
+  // typing your salary in bought you nothing until a fortnight had passed.
   const observed = upTransactions.filter(t => isValidUpTx(t) && isIncomeSourceTx(t))
     .map(t => parseFloat(t.attributes.amount.value)).filter(n => n > 0).sort((a, b) => a - b);
-  const statedAnnual = Number(annualIncome) > 0 ? Number(annualIncome) : 0;
-  const perPay = statedAnnual ? statedAnnual / Math.round(365.25 / intervalDaysEarly)
+  const perPay = statedAnnual ? statedAnnual / annualPays
     : (observed.length ? observed[Math.floor(observed.length / 2)] : 0);
+
+  // One pay is the whole requirement: it anchors the run so the chart can say WHICH months carry
+  // the extra. Without any, everything but that is still answerable.
+  const known = knownPayOccurrences().slice().sort((a, b) => a - b);
+  const base = {cadence, annualPays, perPay, stated: !!statedAnnual, observedCount: observed.length};
+  if(!known.length) return {...base, enough: false, knownCount: 0};
 
   const startKey = todaysEffectiveMonthKey || dateToKey(new Date());
   const keys = [];
@@ -5745,14 +5760,17 @@ function payScheduleForYear(){
   const counts = {};
   keys.forEach(k => { counts[k] = 0; });
 
-  // Known pays first, then projected ones continuing the cadence. Walking from the EARLIEST known
-  // pay rather than the latest keeps already-banked pays in the picture for the open month.
+  // Known pays, then the run continued on the chosen cadence. Monthly advances by calendar month
+  // rather than by days, or a 30-day step would drift a day every February.
   const starts = payCycleStarts();
   const seen = new Set(known);
   const dates = known.slice();
-  for(let t = known[known.length-1] + interval, guard = 0; guard < 400; t += interval, guard++){
-    if(dateToKey(new Date(t)) > endKey) break;
-    if(!seen.has(t)) dates.push(t);
+  let cursor = new Date(known[known.length - 1]);
+  for(let guard = 0; guard < 400; guard++){
+    if(cadence === 30) cursor = keyToDate(addMonths(dateToKey(cursor), 1)), cursor.setDate(new Date(known[known.length-1]).getDate());
+    else cursor = new Date(cursor.getTime() + cadence * DAY_MS);
+    if(dateToKey(cursor) > endKey) break;
+    if(!seen.has(cursor.getTime())) dates.push(cursor.getTime());
   }
   dates.forEach(t => {
     const k = periodKeyFor(new Date(t).toISOString(), true, starts);
@@ -5767,13 +5785,8 @@ function payScheduleForYear(){
   list.forEach(m => { freq[m.count] = (freq[m.count] || 0) + 1; });
   let typical = list[0].count, best = -1;
   Object.keys(freq).map(Number).sort((a, b) => a - b).forEach(c => { if(freq[c] > best){ best = freq[c]; typical = c; } });
-  const intervalDays = intervalDaysEarly;
-  // Pays a year comes from the cadence, not from counting the window, for the same reason - a
-  // partial month at the start would quietly knock a whole pay off the annual figure.
-  const annualPays = Math.round(365.25 / intervalDays);
   return {
-    enough: true, intervalDays, perPay, months: list, typical, annualPays,
-    stated: !!statedAnnual, observedCount: observed.length,
+    ...base, enough: true, months: list, typical,
     extraMonths: list.filter(m => m.count > typical)
   };
 }
@@ -5783,23 +5796,28 @@ function renderIncomeSmoothing(){
   const annualEl = document.getElementById('annualIncomeInput');
   // Not while it has focus - this re-runs on every keystroke via the debounced save.
   if(annualEl && document.activeElement !== annualEl) annualEl.value = annualIncome == null ? '' : annualIncome;
+  const cadEl = document.getElementById('payCadenceSelect');
+  if(cadEl) cadEl.value = String([7,14,28,30].includes(payCadenceDays) ? payCadenceDays : 14);
   const planned = monthTemplate.income.reduce((s, i) => s + (Number(i.amount)||0), 0);
   const s = payScheduleForYear();
-  const hdr = '';
+  const cadence = {7:'weekly', 14:'fortnightly', 28:'every 4 weeks', 30:'monthly'}[s.cadence];
+  const annual = s.perPay ? s.perPay * s.annualPays : 0;
 
+  // No pay has ever landed, so there is no anchor for WHICH months carry the extra - but the
+  // amounts are all stated, so everything except the month-by-month chart is still answerable.
   if(!s.enough){
-    el.innerHTML = hdr + `<div class="smooth-sub">Your pay dates are read from the Up tab, so this fills in on its own — only the amount above is worth setting.</div>
+    const perMonth = s.perPay ? s.perPay * Math.floor(s.annualPays / 12) : 0;
+    el.innerHTML = `<div class="smooth-sub">Paid ${escapeAttr(cadence)} — ${s.annualPays} pays a year${s.annualPays % 12 ? ', which does not divide evenly into 12 months' : ''}.</div>
       <div class="smooth-stats">
-        <div class="smooth-stat"><div class="smooth-stat-lbl">${Number(annualIncome) > 0 ? 'Your annual income' : 'Template, a year'}</div><div class="smooth-stat-val">${money(Number(annualIncome) > 0 ? Number(annualIncome) : planned * 12)}</div></div>
-        <div class="smooth-stat"><div class="smooth-stat-lbl">Template plans a month</div><div class="smooth-stat-val">${money(planned)}</div></div>
+        <div class="smooth-stat"><div class="smooth-stat-lbl">Each pay</div><div class="smooth-stat-val">${s.perPay ? money(s.perPay) : '—'}</div></div>
+        <div class="smooth-stat"><div class="smooth-stat-lbl">Usual month</div><div class="smooth-stat-val">${perMonth ? money(perMonth) : '—'}</div></div>
+        <div class="smooth-stat"><div class="smooth-stat-lbl">A year</div><div class="smooth-stat-val">${annual ? money(annual) : money(planned * 12)}</div></div>
+        <div class="smooth-stat"><div class="smooth-stat-lbl">Template plans</div><div class="smooth-stat-val">${money(planned)}</div></div>
       </div>
-      <div class="smooth-empty">${s.knownCount === 1 ? 'One pay found so far.' : 'No pays found yet.'} Once a second one lands, this works out how often you are paid and splits ${Number(annualIncome) > 0 ? 'that income' : 'your income'} across the months.</div>`;
+      <div class="smooth-empty">${s.perPay ? '' : 'Enter your annual income above to put figures against this. '}Which months carry an extra pay needs one pay to have landed, so that part appears after your first.</div>`;
     return;
   }
 
-  const fortnightly = s.intervalDays >= 12 && s.intervalDays <= 16;
-  const cadence = fortnightly ? 'fortnightly' : (s.intervalDays >= 25 && s.intervalDays <= 32 ? 'monthly' : (s.intervalDays >= 6 && s.intervalDays <= 8 ? 'weekly' : `every ${s.intervalDays} days`));
-  const annual = s.perPay ? s.perPay * s.annualPays : 0;
   const budgetable = s.perPay ? s.perPay * s.typical : 0;
   const spare = annual - budgetable * 12;
 
@@ -5818,8 +5836,9 @@ function renderIncomeSmoothing(){
   const mismatch = s.perPay && Math.abs(planned - budgetable) > 1;
 
   const extraNames = s.extraMonths.map(m => monthLabel(m.key)).join(', ');
-  el.innerHTML = hdr
-    + `<div class="smooth-sub">You are paid ${escapeAttr(cadence)} — ${s.annualPays} pays a year, which does not divide evenly into 12 months. Most months hold ${s.typical}${s.extraMonths.length ? `, and ${s.extraMonths.length} of the next 12 hold ${s.typical + 1}` : ''}. Build the budget on ${s.typical}; the extra ${s.extraMonths.length === 1 ? 'one is' : 'ones are'} spare.</div>`
+  el.innerHTML = `<div class="smooth-sub">Paid ${escapeAttr(cadence)} — ${s.annualPays} pays a year${s.annualPays % 12 ? ', which does not divide evenly into 12 months' : ''}. ${s.extraMonths.length
+      ? `Most months hold ${s.typical}, and ${s.extraMonths.length} of the next 12 hold ${s.typical + 1}. Build the budget on ${s.typical}; the extra ${s.extraMonths.length === 1 ? 'one is' : 'ones are'} spare.`
+      : `Every month holds ${s.typical}, so nothing extra falls out across the year.`}</div>`
     + `<div class="smooth-stats">
         <div class="smooth-stat"><div class="smooth-stat-lbl">Usual month</div><div class="smooth-stat-val">${s.perPay ? money(budgetable) : s.typical + ' pays'}</div></div>
         <div class="smooth-stat"><div class="smooth-stat-lbl">Template plans</div><div class="smooth-stat-val">${money(planned)}</div></div>
@@ -5849,6 +5868,11 @@ function commitAnnualIncome(){
   clearTimeout(annualIncomeSaveTimer);
   db.saveSettings({ annual_income: annualIncome }).catch(() => {});
   renderIncomeSmoothing();
+}
+function onPayCadenceChange(){
+  payCadenceDays = Number(document.getElementById('payCadenceSelect').value) || 14;
+  renderIncomeSmoothing();
+  db.saveSettings({ pay_cadence_days: payCadenceDays }).catch(() => {});
 }
 // Mirrors updateSummary()'s wording and states for the template's own numbers. No live
 // bank balance is folded in - that belongs to an actual month, not to a template.
@@ -11826,6 +11850,7 @@ document.getElementById('acctExitBtn').addEventListener('click', closeAccountSet
 // the other modals at the very end of the body, so it does not exist yet further up the script.
 document.getElementById('annualIncomeInput').addEventListener('input', onAnnualIncomeInput);
 document.getElementById('annualIncomeInput').addEventListener('blur', commitAnnualIncome);
+document.getElementById('payCadenceSelect').addEventListener('change', onPayCadenceChange);
 document.getElementById('monthCloseExitBtn').addEventListener('click', () => document.getElementById('monthCloseOverlay').classList.remove('show'));
 document.getElementById('monthCloseOverlay').addEventListener('click', e => { if(e.target.id === 'monthCloseOverlay') e.currentTarget.classList.remove('show'); });
 document.getElementById('accountSettingsOverlay').addEventListener('click', (e) => { if(e.target.id === 'accountSettingsOverlay') closeAccountSettingsPopup(); });
