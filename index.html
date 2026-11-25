@@ -561,6 +561,14 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .del-cell button.tpl-pay-fix{font-size:.66rem; font-weight:700; width:auto; height:auto; padding:3px 9px; margin-right:4px; border:1px solid var(--gold); border-radius:999px; background:var(--gold-bg); color:var(--gold); cursor:pointer; overflow:visible; white-space:nowrap; font-variant-numeric:tabular-nums;}
 .del-cell button.tpl-pay-fix::before{display:none;}
 .del-cell button.tpl-pay-fix:hover{background:var(--gold); color:var(--paper);}
+/* position:relative is load-bearing: [data-tip]::before is absolute at top:100%, and without a
+   positioned ancestor it anchors somewhere distant and lays out as real content below the fold -
+   the phantom page-scroll bug this file has had three times. Right-anchored like .amt-spent,
+   since this sits at the end of the row. */
+.tpl-levelled{position:relative; font-size:.6rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:2px 7px; border-radius:999px; background:var(--paper-dim); color:var(--ink-faint); cursor:help; white-space:nowrap;}
+/* The badge is uppercase and letter-spaced; the tooltip inherits both and became a wall of
+   shouting capitals. Reset on the ::before, not the badge. */
+.tpl-levelled[data-tip]::before{left:auto; right:0; text-transform:none; letter-spacing:normal;}
 .smooth-empty{font-size:.8rem; color:var(--ink-soft); line-height:1.6; background:var(--paper-dim); border-radius:10px; padding:12px 14px;}
 .mc-rec{border:1px solid var(--rule); border-radius:10px; padding:10px 12px; font-size:.78rem; margin-top:8px;}
 .mc-rec-hdr{display:flex; justify-content:space-between; gap:10px; font-weight:700;}
@@ -5752,6 +5760,16 @@ function expectedPayLineAmount(item){
   if(!s.perPay) return 0;
   return Math.round(s.perPay * s.annualPays / 12 * 100) / 100;
 }
+// A quiet marker on the pay line saying its figure is levelled, with what actually lands spelled
+// out. Without it that number sits in a list of literal amounts and reads as one.
+function levelledBadgeHtml(item){
+  if(!item || !item.payTarget) return '';
+  const s = payScheduleForYear();
+  if(!s.perPay || !s.typical) return '';
+  const normal = s.perPay * s.typical, big = normal + s.perPay;
+  const tip = `Spread evenly — not what lands.\nMost months bring ${money(normal)}, and ${money(big)} when a ${s.typical + 1}${s.typical + 1 === 3 ? 'rd' : 'th'} pay falls. The month-end close holds the difference back so every month can spend the same.`;
+  return `<span class="tpl-levelled" data-tip="${escapeAttr(tip)}">levelled</span>`;
+}
 function tplIncomeRowHtml(item){
   // The nudge lives on the row rather than in the smoothing card below: this is the number that
   // is wrong and the place you would fix it, and two figures compared in a distant panel was
@@ -5761,7 +5779,7 @@ function tplIncomeRowHtml(item){
   return `<div class="lrow" data-tpl-item-row="${item.id}">
     <input class="name-input" type="text" placeholder="e.g. salary" value="${escapeAttr(item.name)}" data-tpl-cat="income" data-tpl-item="${item.id}" data-tpl-field="name">
     <div class="amt-wrap plain"><input class="amt-input" type="number" step="0.01" inputmode="decimal" value="${item.amount===0?'0':(item.amount||'')}" data-tpl-cat="income" data-tpl-item="${item.id}" data-tpl-field="amount"></div>
-    <div class="del-cell">${off ? `<button class="tpl-pay-fix" id="smoothMatchBtn" data-tip="Your pay works out to ${escapeAttr(money(want))} a month — tap to use that">${escapeAttr(money(want))}</button>` : ''}${payTargetBtnHtml(item)}<button data-tpl-cat="income" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
+    <div class="del-cell">${off ? `<button class="tpl-pay-fix" id="smoothMatchBtn" data-tip="Your pay works out to ${escapeAttr(money(want))} a month — tap to use that">${escapeAttr(money(want))}</button>` : levelledBadgeHtml(item)}${payTargetBtnHtml(item)}<button data-tpl-cat="income" data-tpl-item="${item.id}" class="tpl-item-del" title="Remove">${X_SVG}</button></div>
   </div>`;
 }
 // Stored as a flag on the template income item (month_template.income is JSONB, so no
