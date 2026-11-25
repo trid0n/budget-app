@@ -1808,7 +1808,10 @@ try{
         <div class="smooth-hdr">
           <h2>How your pay lands across the year</h2>
           <div class="smooth-inputs">
-            <label class="smooth-annual">Annual income<span class="smooth-dollar">$</span><input type="number" step="1" min="0" id="annualIncomeInput" placeholder="work it out for me"></label>
+            <!-- "Take-home", not "Annual income": read as gross once, which made every figure on
+                 this card and the pay-line chip about a third too high. Everything here is money
+                 that lands in the account, because that is what gets budgeted and swept. -->
+            <label class="smooth-annual" title="After tax — what actually lands in your account over a year, not your gross salary">Take-home a year<span class="smooth-dollar">$</span><input type="number" step="1" min="0" id="annualIncomeInput" placeholder="work it out for me"></label>
             <label class="smooth-annual">Paid<select id="payCadenceSelect">
               <option value="7">Weekly</option>
               <option value="14">Fortnightly</option>
@@ -6005,7 +6008,7 @@ function renderIncomeSmoothing(){
     .map(i => i.name || 'unnamed').join(', ');
 
   if(!s.perPay){
-    el.innerHTML = `<div class="smooth-empty">Enter your annual income above and this will show what lands in each month of the year.</div>`;
+    el.innerHTML = `<div class="smooth-empty">Enter your take-home above and this will show what lands in each month of the year.</div>`;
     return;
   }
 
