@@ -6021,8 +6021,13 @@ function renderIncomeSmoothing(){
   // No pay has landed yet, so nothing anchors WHICH months carry the extra - every amount is
   // still known, so the card says what it can rather than nothing at all.
   if(!s.enough){
-    el.innerHTML = `<div class="smooth-sub">You are paid <strong>${money(s.perPay)}</strong> every ${escapeAttr(cadence)}${otherBit}. That makes <strong>${short(normalMonth)}</strong> in a normal month and <strong>${short(annual)}</strong> over the year.</div>
-      <div class="smooth-empty">Which months bring an extra pay depends on your pay dates, so that appears once your first pay lands.</div>`;
+    // The LEVELLED figure, like the main branch below. This said "in a normal month" and showed
+    // the floor (pays that physically land), which is the model the card moved away from - so
+    // before the first pay it quoted one number and after it quoted another.
+    el.innerHTML = `<div class="smooth-sub">You are paid <strong>${money(s.perPay)}</strong> every ${escapeAttr(cadence)}${otherBit}. Levelled out, that is <strong>${short(smoothedMonthlyIncome() || normalMonth)}</strong> to budget with every month, and <strong>${short(annual)}</strong> over the year.</div>
+      <div class="smooth-empty">${upIncomeSourceKey
+        ? 'Which months bring an extra pay depends on your pay dates, so that appears once your first pay lands.'
+        : 'Which months bring an extra pay needs to know which transaction is your pay. On the Up tab, press <strong>Choose income</strong> and tap one — the rest fills in from there.'}</div>`;
     return;
   }
 
