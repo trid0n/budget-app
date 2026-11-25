@@ -5765,9 +5765,14 @@ function expectedPayLineAmount(item){
 function levelledBadgeHtml(item){
   if(!item || !item.payTarget) return '';
   const s = payScheduleForYear();
-  if(!s.perPay || !s.typical) return '';
-  const normal = s.perPay * s.typical, big = normal + s.perPay;
-  const tip = `Spread evenly — not what lands.\nMost months bring ${money(normal)}, and ${money(big)} when a ${s.typical + 1}${s.typical + 1 === 3 ? 'rd' : 'th'} pay falls. The month-end close holds the difference back so every month can spend the same.`;
+  if(!s.perPay) return '';
+  // typical only exists once a pay has been recognised, because it is the MODE of the month-by-
+  // month counts. Nothing here needs that: how many pays a normal month holds follows from the
+  // cadence alone, so the badge works before an income source is ever picked.
+  const typical = s.typical || Math.floor(s.annualPays / 12);
+  if(!typical) return '';
+  const normal = s.perPay * typical, big = normal + s.perPay;
+  const tip = `Spread evenly — not what lands.\nMost months bring ${money(normal)}, and ${money(big)} when a ${typical + 1}${typical + 1 === 3 ? 'rd' : 'th'} pay falls. The month-end close holds the difference back so every month can spend the same.`;
   return `<span class="tpl-levelled" data-tip="${escapeAttr(tip)}">levelled</span>`;
 }
 function tplIncomeRowHtml(item){
