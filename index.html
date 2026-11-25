@@ -554,7 +554,13 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .smooth-col-lbl{text-align:center; font-size:.66rem; color:var(--ink-soft); padding-top:5px; white-space:nowrap;}
 .smooth-col.is-extra .smooth-col-lbl{color:var(--ink); font-weight:700;}
 .smooth-note{font-size:.74rem; color:var(--ink-soft); line-height:1.55; margin-top:14px;}
-.tpl-pay-fix{font-size:.66rem; font-weight:700; padding:2px 7px; margin-right:4px; border:1px solid var(--gold); border-radius:999px; background:var(--gold-bg); color:var(--gold); cursor:pointer; position:relative; font-variant-numeric:tabular-nums;}
+/* Selector must out-specify `.del-cell button`, which otherwise forces this to 24x24 with
+   overflow:hidden (clipping the amount to a few characters) and lends it the delete button's
+   expanding red disc - so an "update this figure" chip read as a destructive control. Its
+   ::before is killed for the same reason as .item-menu-toggle above. */
+.del-cell button.tpl-pay-fix{font-size:.66rem; font-weight:700; width:auto; height:auto; padding:3px 9px; margin-right:4px; border:1px solid var(--gold); border-radius:999px; background:var(--gold-bg); color:var(--gold); cursor:pointer; overflow:visible; white-space:nowrap; font-variant-numeric:tabular-nums;}
+.del-cell button.tpl-pay-fix::before{display:none;}
+.del-cell button.tpl-pay-fix:hover{background:var(--gold); color:var(--paper);}
 .smooth-empty{font-size:.8rem; color:var(--ink-soft); line-height:1.6; background:var(--paper-dim); border-radius:10px; padding:12px 14px;}
 .mc-rec{border:1px solid var(--rule); border-radius:10px; padding:10px 12px; font-size:.78rem; margin-top:8px;}
 .mc-rec-hdr{display:flex; justify-content:space-between; gap:10px; font-weight:700;}
@@ -6068,9 +6074,12 @@ function commitAnnualIncome(){
 }
 function matchTemplatePayLine(){
   const payLine = payTargetTemplateItem();
-  const s = payScheduleForYear();
-  if(!payLine || !s.perPay || !s.typical) return;
-  payLine.amount = Math.round(s.perPay * s.typical * 100) / 100;
+  // The same function the chip's label comes from. These were computed separately and drifted
+  // apart the moment the card moved from floor budgeting to levelling: the chip offered the
+  // levelled figure and set the floor one, so clicking it never cleared its own prompt.
+  const want = expectedPayLineAmount(payLine);
+  if(!payLine || !want) return;
+  payLine.amount = want;
   scheduleTemplateSave();
   renderTemplateEditor();
   toast(`Template pay line set to ${money(payLine.amount)}`);

@@ -1407,3 +1407,20 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     practice because those lines are crossed off once the transfer is made, which is before a
     close. If a close is ever done with them still uncrossed, that is the explanation; the fix is
     to move those items out of "stays in spending" rather than to subtract less.
+
+72. **The pay-line chip was wearing the delete button's clothes.** Reported as "what is that red
+    box" — a clipped red pill on the template's income row. `.del-cell button` is (0,1,1) and
+    `.tpl-pay-fix` was (0,1,0), so the delete styling won: `width:24px`, `overflow:hidden` (which
+    cut "$6,832.25" down to "280."), and the expanding `--debit` disc from its `::before`. An
+    "update this figure" control therefore read as a destructive one.
+    Fixed the way `.item-menu-toggle` right above it already does — select as
+    `.del-cell button.tpl-pay-fix` and kill the `::before`. **This is the third specificity
+    collision in this file** (the login button in item 9, `.item-menu-toggle`, now this):
+    anything dropped into `.del-cell` that is not a 24px icon button has to out-specify that rule
+    deliberately.
+    **And a second bug the test caught**: the chip DISPLAYED `expectedPayLineAmount()` (levelled,
+    annual ÷ 12) but `matchTemplatePayLine()` still SET `perPay × typical` (the old floor figure).
+    They were computed separately and drifted apart when item 66 moved the card to levelling, so
+    clicking the chip wrote the wrong number and never cleared its own prompt. Both read from the
+    one function now. **Generalise: a control that shows a value and a handler that applies one
+    must not compute it twice.**
