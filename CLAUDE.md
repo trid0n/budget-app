@@ -1335,3 +1335,20 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     minus list into the split, and the headline figure rose by it.
     Also: `smoothingReserve()` returns 0 below a dollar — a derivation line reading "−$0.04" is
     noise, not a reserve.
+
+68. **The levelling reserve says what it is reserving FOR.** The user's November close held back
+    $2,030.89 where the maths says ~$0 — December brings three pays and more than covers itself,
+    so nothing needs holding back. Reproduced from a clean fortnightly anchor and the running
+    series never goes positive (`Dec:3=-2628 … May:2=0`, perfectly periodic), so the code is right
+    and **their projected schedule is not the one worked out by hand** — almost certainly the
+    anchor, since the chart projects forward from the most recent known pay and an old job's pay
+    would offset the whole grid. Not diagnosable from here without their data.
+    So `smoothingReserveInfo()` now returns the month the high-water mark falls on, and the close
+    panel carries a check reading "covers the shortfall each month up to <Month>, and <Month> is
+    the next month with an extra pay — if those look wrong, the pay schedule on the Template tab
+    is wrong". **A bare reserve figure cannot be sanity-checked; a wrong one looks exactly like a
+    right one.** Naming the months makes it checkable by anyone who knows their own payday.
+    **Epsilon, not a bare `>`, when tracking the peak**: the high-water mark recurs identically
+    each cycle, so float noise picked an arbitrary later occurrence and the check read "up to
+    November 2027" beside "June 2027 is the next extra pay" — self-contradictory. `running > worst
+    + 0.005` keeps the FIRST peak, which is when the money is actually needed.

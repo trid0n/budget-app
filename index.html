@@ -3473,6 +3473,15 @@ function monthCloseChecks(){
   if(fig.laterCredits > 0){
     out.push({level:'ok', key:'latercredits', text:`${money(fig.laterCredits)} in the balance belongs to a later period`, detail:'Already held back — a pay landing in the last week of a month funds the month after it, so it has been subtracted rather than swept.'});
   }
+  if(fig.reserve > 0){
+    // Names the month it carries you to, so a reserve built on a wrong pay schedule is obvious
+    // on sight rather than being an unverifiable number.
+    const info = smoothingReserveInfo();
+    const extras = payScheduleForYear().extraMonths || [];
+    const nextExtra = extras.map(m => m.key).filter(k => k > settings.currentMonth)[0];
+    out.push({level:'ok', key:'reserve', text:`${money(fig.reserve)} kept back to keep the coming months level`,
+      detail:`It covers the shortfall each month up to ${info.untilKey ? monthLabel(info.untilKey) : 'the next bigger month'}${nextExtra ? `, and ${monthLabel(nextExtra)} is the next month with an extra pay` : ''}. If those months look wrong, the pay schedule on the Template tab is wrong — check which months its taller bars fall on.`});
+  }
   if(!fig.periodIsCurrent && fig.balanceCounted){
     out.push({level:'warn', key:'period', text:`${monthLabel(settings.currentMonth)} is not the current period`, detail:'The figure still uses your balance as it is right now, which is what a transfer acts on — but that balance may already include money belonging to the period after this one.'});
   }
@@ -5906,23 +5915,30 @@ function smoothedMonthlyIncome(){
 // coming months adding (levelled - what that month brings) and keep the high-water mark.
 // Without this the month-end close would sweep the surplus from a 3-pay month straight out, and
 // the following months would be short by exactly the amount that was supposed to even them out.
-function smoothingReserve(){
+function smoothingReserve(){ return smoothingReserveInfo().amount; }
+// The same walk, but keeping WHICH month the high-water mark falls on. A bare reserve figure is
+// impossible to sanity-check - a wrong one looks exactly like a right one - whereas "covers you
+// until June" is instantly recognisable as right or wrong by anyone who knows their own payday.
+function smoothingReserveInfo(){
   const s = payScheduleForYear();
   const level = smoothedMonthlyIncome();
-  if(!s.enough || !level) return 0;
+  if(!s.enough || !level) return {amount: 0, untilKey: null};
   const months = s.horizon || s.months;
   const from = months.findIndex(m => m.key === settings.currentMonth);
-  if(from < 0) return 0;
+  if(from < 0) return {amount: 0, untilKey: null};
   const planned = monthTemplate.income.reduce((t, i) => t + (Number(i.amount)||0), 0);
   const payLine = payTargetTemplateItem();
   const other = payLine ? Math.max(0, planned - (Number(payLine.amount)||0)) : 0;
-  let running = 0, worst = 0;
+  let running = 0, worst = 0, worstKey = null;
   for(let i = from + 1; i < months.length; i++){
     running += level - (s.perPay * months[i].count + other);
-    if(running > worst) worst = running;
+    // Epsilon, not a bare >: the peak recurs identically each cycle, so float noise otherwise
+    // picks an arbitrary later one. The FIRST peak is the answer worth naming - that is when the
+    // money is actually needed.
+    if(running > worst + 0.005){ worst = running; worstKey = months[i].key; }
   }
   // Below a dollar is rounding, not a reserve, and a line reading "-$0.04" is just noise.
-  return worst < 1 ? 0 : Math.round(worst * 100) / 100;
+  return worst < 1 ? {amount: 0, untilKey: null} : {amount: Math.round(worst * 100) / 100, untilKey: worstKey};
 }
 function renderIncomeSmoothing(){
   const el = document.getElementById('incomeSmoothingBody');
