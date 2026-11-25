@@ -298,24 +298,13 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
 
 ## Known open items
 
-- **`user_settings.goal_saver_account_id` and `excess_saver_account_id` need the migration**
-  (added 2026-11-24, not yet run). Until then the close panel's saver pickers work for the session
-  but forget on reload, and the Where-it-goes rows fall back to "Goal saver" / "Misc saver".
-- Otherwise none outstanding. The three before these — `month_closes` (2026-11-23),
-  `user_settings.annual_income` and `user_settings.pay_cadence_days` (both 2026-11-24) — were each
-  **verified from here rather than taken on report**, every one against known-good controls plus
-  an invented name that correctly answers `400 42703`. Use the REST probe under "Schema
-  migrations" rather than believing this line; the first attempt at `month_closes` was reported
-  run and had in fact rolled back.
-- `user_settings.annual_income` (2026-11-24) answers `200` alongside two known-good columns while
-  an invented column name answers `400 42703`, so the probe is discriminating and the column is
-  really there. Landed on the first attempt, unlike the one below.
-- `month_closes` (added 2026-11-23) IS applied, and
-  unlike every other entry in this file it was **independently verified from here, not taken on
-  report** — table present, all eleven columns present, and an anonymous POST rejected with
-  `42501` identically to a control table, with the row count still 0. The probe is described under
-  "Schema migrations" above; use it rather than believing this line. Its first reported run had
-  in fact rolled back, and only the probe caught that.
+- **No outstanding schema migrations.** Everything added over 2026-11-23/24 — the `month_closes`
+  table and `annual_income`, `pay_cadence_days`, `goal_saver_account_id`, `excess_saver_account_id`
+  on `user_settings` — was **verified from this machine rather than taken on report**: each
+  against known-good controls plus an invented name that correctly answers `400 42703`, and
+  `month_closes` also against an anonymous POST rejected with `42501` like a control table, row
+  count still 0. Use the REST probe under "Schema migrations" rather than believing this line —
+  the first reported run of `month_closes` had silently rolled back, and only the probe caught it.
 - **Ballet was not carried into Recurring costs.** The user chose to start fresh, so
   `recurring_costs` began empty while their old values still sit in the untouched
   `public.ballet` row. They were given both options (re-add it by hand, or an `insert …
