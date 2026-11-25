@@ -3446,7 +3446,11 @@ function monthSweepFigure(){
     balanceCounted: p.effectiveBalance != null,
     periodIsCurrent: isCurrentPeriod(settings.currentMonth),
     laterCredits, reserve,
-    amount: Math.round((bal + p.totals.unreceivedIncome - p.totals.remaining - laterCredits - reserve) * 100) / 100
+    // unreceivedIncome is deliberately NOT added. It belongs in the Budget tab's projection -
+    // "how will this month end up" - but this figure is money about to leave a real account, and
+    // income that has not arrived cannot be transferred. Counting it overdrew the account by
+    // exactly the amount still expected.
+    amount: Math.round((bal - p.totals.remaining - laterCredits - reserve) * 100) / 100
   };
 }
 // Transactions the app considers part of the month being closed. periodKeyForTx is the same
@@ -3472,6 +3476,9 @@ function monthCloseChecks(){
   }
   if(fig.laterCredits > 0){
     out.push({level:'ok', key:'latercredits', text:`${money(fig.laterCredits)} in the balance belongs to a later period`, detail:'Already held back — a pay landing in the last week of a month funds the month after it, so it has been subtracted rather than swept.'});
+  }
+  if(fig.totals.unreceivedIncome > 0){
+    out.push({level:'ok', key:'duein', text:`${money(fig.totals.unreceivedIncome)} of income has not arrived yet`, detail:'Left out of the figure above rather than added to it — it is not in the account, so it cannot be transferred. It will be there to sweep once it lands.'});
   }
   if(fig.reserve > 0){
     // Names the month it carries you to, so a reserve built on a wrong pay schedule is obvious
@@ -3567,7 +3574,7 @@ function closeFigureNow(rec){
   // what the EDIT did, so every other term has to be held at what it was.
   const later = Number(b.laterCredits) || 0;
   const reserve = Number(b.reserve) || 0;
-  return Math.round((bal + t.unreceivedIncome - t.remaining - (Number(monthData.goal)||0) - later - reserve) * 100) / 100;
+  return Math.round((bal - t.remaining - later - reserve) * 100) / 100;
 }
 // A dot on the button when something still needs doing before the figure can be trusted.
 // Computed on a debounce and patched in afterwards, NOT inside renderMonthCloseBar, because that
@@ -3717,7 +3724,6 @@ function renderMonthClosePanel(){
 
   const terms = [
     ['Spending balance', fig.balanceCounted ? money(fig.effectiveBalance) : '—'],
-    ['Income still to come', money(fig.totals.unreceivedIncome)],
     [`Not yet crossed off`, '−' + money(fig.totals.remaining)]
   ];
   // Only shown when there is any, so an ordinary month's derivation stays four lines.

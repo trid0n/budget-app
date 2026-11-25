@@ -1352,3 +1352,21 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     each cycle, so float noise picked an arbitrary later occurrence and the check read "up to
     November 2027" beside "June 2027 is the next extra pay" — self-contradictory. `running > worst
     + 0.005` keeps the FIRST peak, which is when the money is actually needed.
+    **Resolved the next day, and the anchor theory was right.** Once the first real pay landed
+    (25 Nov) the reserve dropped to $0 on its own, because the projection anchors on the most
+    recent known pay and that was finally a pay on the real fortnightly grid rather than an old
+    job's. No code fix: the schedule is right from here, and the explanatory check above is what
+    makes a future offset visible instead of silent.
+
+69. **The sweep figure no longer counts income that has not arrived.** Spotted in a screenshot of
+    a real close: balance $4,880.83, income still to come $80.00, not yet crossed off −$105.39,
+    "safe to transfer" $4,855.44 — but only $4,775.44 is in the account, so acting on it would
+    have **overdrawn by exactly the $80 still expected**. `unreceivedIncome` came along from
+    `leftOverParts()`, where it is right: the Budget tab projects how the month will END. This
+    figure is money about to leave a real account, and a projection is not a balance.
+    Dropped from `monthSweepFigure` and from `closeFigureNow`, and out of the derivation's term
+    list; a check says it is being left out and why, rather than it silently vanishing.
+    Verified against those exact numbers: the figure is now $4,775.44, which is balance minus what
+    stays, and the destinations sum to it to the cent.
+    **Generalise**: every term in a figure that moves money has to be cash that exists. Terms
+    inherited from a projection need re-justifying one at a time, not carrying over wholesale.
