@@ -1370,3 +1370,27 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     stays, and the destinations sum to it to the cent.
     **Generalise**: every term in a figure that moves money has to be cash that exists. Terms
     inherited from a projection need re-justifying one at a time, not carrying over wholesale.
+
+70. **"Assign them" hands the list to the Up tab, and the Budget headline is the misc-saver
+    figure.** Both asked for directly.
+    (a) The modal queue from item 67 is gone (`txAssignQueue` and `startAssignQueue` deleted).
+    `showTheseInUpTab()` sets `upTxOnlyIds`, closes the panel and switches to the Up tab, where
+    `visibleUpTransactions()` returns just those — **before** the cover/income/cycle filters,
+    since this is an explicit "show me these" and a transaction one of those would hide still
+    needs dealing with. A gold banner names the set and counts what is left, recomputed from
+    `isTxSettledForClose` so it falls as each is handled rather than claiming the original number
+    forever; the rows stay on screen once done, so you can see what you just did. Rationale for
+    the change: the Up tab has hold-to-remember, exclude and multi-select, and the modal had none
+    of them.
+    (b) On the CURRENT period only, `#rtaAmt` shows what will reach the misc saver at close
+    (`sweepDestinations(...).excess`) with the label naming that saver. Past and future months
+    keep the old "left over" figure — today's balance is not part of their story, the same reason
+    the balance bar says "not counted" on one. Falls back to the old behaviour when no excess
+    saver is picked.
+    **`payScheduleForYear()` had to be memoised first.** That headline redraws on every render
+    including per keystroke, and the figure pulls in `smoothingReserve` → `payScheduleForYear`,
+    which projects 24 months of pay dates and was being called several times per render. Cached
+    on a signature of everything that can change the answer (`upTransactions.length`,
+    `cachedPayDates().length`, annual income, cadence, effective month, income source, period
+    mode) — verified it still flips 26→12 on a cadence change and tracks an income edit, so the
+    cache cannot freeze a stale schedule.

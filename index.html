@@ -517,6 +517,7 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 .mc-dest-why{display:block; color:var(--ink-faint); font-size:.72rem; margin-top:1px;}
 .mc-dest-amt{font-variant-numeric:tabular-nums; font-weight:700; flex:none;}
 .mc-dest-pick{flex:none; max-width:130px; padding:3px 6px; font-size:.72rem; border:1px solid var(--rule); border-radius:7px; background:var(--paper-dim); color:var(--ink);}
+.tx-only-banner{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:var(--gold-bg); border:1px solid var(--gold); border-radius:10px; padding:8px 12px; margin-bottom:10px; font-size:.8rem; color:var(--gold); font-weight:700;}
 .mc-note{font-size:.74rem; color:var(--ink-faint); margin-top:10px; line-height:1.5;}
 .mc-dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--debit); margin-left:7px; vertical-align:middle;}
 /* ---- income smoothing (Template tab) ---- */
@@ -1936,6 +1937,10 @@ try{
           <span class="tx-group-banner-text" id="txGroupBannerText"></span>
           <button class="mini-btn gold" id="txGroupCommitBtn">Link &amp; cross off</button>
         </div>
+        <div class="tx-only-banner" id="upTxOnlyBanner" style="display:none;">
+          <span id="upTxOnlyText"></span>
+          <button class="mini-btn" id="upTxOnlyClearBtn">Show everything</button>
+        </div>
         <div class="up-tx-list" id="upTxList"></div>
         <div class="up-tx-loadmore-row"><button class="mini-btn" id="upLoadMoreBtn" style="display:none;">Load more</button></div>
         <div class="up-status-row" id="upStatusRow" style="display:none;">
@@ -3346,7 +3351,13 @@ function updateSummary(){
   document.getElementById('miniIncome').textContent = money(t.unreceivedIncome);
   document.getElementById('miniCost').textContent = money(t.remaining);
   const { usingManual, usingRememberedUp, effectiveBalance, goal, applyBalanceToTotal, inHand } = parts;
-  document.getElementById('rtaAmt').textContent = money(inHand);
+  // On the current period the headline answers the question that actually gets acted on: what
+  // ends up in the misc saver once the month is closed. Only there - on a past or future month
+  // today's balance is not part of that month's story, which is the same reason the balance bar
+  // says "not counted" on one.
+  const showingSweep = applyBalanceToTotal && !!excessSaverAccountId;
+  const headline = showingSweep ? (sweepDestinations(monthSweepFigure()).find(d => d.key === 'excess') || {amount: 0}).amount : inHand;
+  document.getElementById('rtaAmt').textContent = money(headline);
   const anyChargedNow = t.charged > 0 || t.receivedIncome > 0;
   document.getElementById('miniUncrossWrap').innerHTML = anyChargedNow ? `<button class="uncross-all-btn" id="uncrossAllBtn">Uncross all</button>` : '';
 
@@ -3369,7 +3380,13 @@ function updateSummary(){
   const card = document.getElementById('assignCard');
   const lbl = document.getElementById('rtaLabel');
   card.classList.remove('over','zero');
-  if(Math.abs(inHand) < 0.5){ card.classList.add('zero'); lbl.textContent = applyBalanceToTotal ? 'Projected to break even (after your goal)' : 'Spent exactly what you\u2019ve earned, after your goal'; }
+  if(showingSweep){
+    const saver = saverNameById(excessSaverAccountId) || 'your misc saver';
+    if(headline < -0.5){ card.classList.add('over'); lbl.textContent = `Short \u2014 nothing for ${saver}`; }
+    else if(headline < 0.5){ card.classList.add('zero'); lbl.textContent = `Nothing spare for ${saver}`; }
+    else lbl.textContent = `Heading for ${saver} at month end`;
+  }
+  else if(Math.abs(inHand) < 0.5){ card.classList.add('zero'); lbl.textContent = applyBalanceToTotal ? 'Projected to break even (after your goal)' : 'Spent exactly what you\u2019ve earned, after your goal'; }
   else if(inHand < 0){ card.classList.add('over'); lbl.textContent = applyBalanceToTotal ? 'Projected to go over, after your goal' : 'Over budget once your goal is set aside'; }
   else { lbl.textContent = goal > 0 ? 'Left over after your goal' : 'Left over right now'; }
   const goalEl = document.getElementById('goalInput');
@@ -3823,9 +3840,10 @@ document.addEventListener('click', e => {
   const assignBtn = e.target.closest('[data-mc-assign]');
   if(assignBtn){
     const check = monthCloseChecks()[Number(assignBtn.getAttribute('data-mc-assign'))];
-    if(check && check.txs) startAssignQueue(check.txs);
+    if(check && check.txs) showTheseInUpTab(check.txs, check.key === 'guesses' ? 'guesses to confirm' : 'to assign');
     return;
   }
+  if(e.target.closest('#upTxOnlyClearBtn')){ clearUpTxOnly(); return; }
 });
 document.addEventListener('change', e => {
   const pick = e.target.closest('[data-mc-saver]');
@@ -5845,7 +5863,19 @@ const DAY_MS = 86400000;
 // The cadence is learned, never configured: the median gap between known pays, so one shifted
 // payday (a public holiday) or one missed pay can't skew it the way a mean would.
 function PAYS_PER_YEAR(days){ return days === 30 ? 12 : Math.round(365.25 / days); }
+// Memoised because the Budget tab's headline now depends on it, and that redraws on every render
+// including per keystroke, while this projects 24 months of pay dates. The signature covers
+// everything that can change the answer; anything not in it (a pay landing, the cache filling)
+// moves one of these counts too.
+let payScheduleCache = {sig: null, val: null};
 function payScheduleForYear(){
+  const sig = `${upTransactions.length}|${cachedPayDates().length}|${annualIncome}|${payCadenceDays}|${todaysEffectiveMonthKey}|${upIncomeSourceKey}|${settings.periodMode}`;
+  if(payScheduleCache.sig === sig) return payScheduleCache.val;
+  const val = computePayScheduleForYear();
+  payScheduleCache = {sig, val};
+  return val;
+}
+function computePayScheduleForYear(){
   const cadence = [7, 14, 28, 30].includes(payCadenceDays) ? payCadenceDays : 14;
   const annualPays = PAYS_PER_YEAR(cadence);
   const statedAnnual = Number(annualIncome) > 0 ? Number(annualIncome) : 0;
@@ -8704,9 +8734,16 @@ function renderPayCycleRow(){
 // filter on (or a search, or a pay-cycle range) the banner still counted outgoing saver
 // transfers that weren't rendered, and offered to cross off rows you couldn't see. The
 // batch's adjacency rule is positional too, so it has to be measured over the same rows.
+// Set by the month-close panel's "Assign them": the transactions it wants dealt with, shown here
+// rather than in a modal queue so they are assigned with the whole Up tab's tools (hold to
+// remember, exclude, multi-select) instead of one narrowed dialog at a time.
+let upTxOnlyIds = null;
 function visibleUpTransactions(){
   const term = upTxSearchTerm.trim().toLowerCase();
   let filtered = term ? upTransactions.filter(t => txMatchesSearchTerm(t, term)) : upTransactions;
+  // First, and before the cover/income/cycle filters: this is an explicit "show me these",
+  // and a transaction one of those would otherwise hide still needs assigning.
+  if(upTxOnlyIds) return upTransactions.filter(t => upTxOnlyIds.has(t.id));
   // Hide the incoming "Cover from X" transfer as its own row — the cost transaction
   // it covers already shows a cover icon, so listing both was just the same money
   // shown twice (once as -, once as +).
@@ -8749,6 +8786,7 @@ let lastUpTxViewSig = null;
 function renderUpTxList(){
   autoApplyTxRules();
   updateTransferGroupBanner();
+  renderUpTxOnlyBanner();
   renderPayCycleRow();
   const prevEffectiveMonthKey = todaysEffectiveMonthKey;
   recomputeEffectivePeriod();
@@ -9245,27 +9283,43 @@ function openTxAssignModal(txId, amt, desc, date, transferAccountId){
   search.focus();
   search.select();
 }
-// Transactions queued up by "Assign them all" on the close panel. Each one reopens the modal as
-// the last is finished, so a run of them is one pass rather than hunting the Up tab for each.
-let txAssignQueue = [];
 function closeTxAssignModal(){
   document.getElementById('txAssignOverlay').classList.remove('show');
   txAssignCurrent = null;
-  if(!txAssignQueue.length) return;
-  const next = txAssignQueue.shift();
-  // A beat, or the overlay's own transition reopens mid-fade and the field never takes focus.
-  setTimeout(() => openTxAssignModal(next.id, next.amt, next.desc, next.date, next.transferAccountId), 180);
 }
-function startAssignQueue(txs){
-  txAssignQueue = txs.map(t => ({
-    id: t.id, amt: parseFloat(t.attributes.amount.value), desc: t.attributes.description,
-    date: t.attributes.createdAt,
-    transferAccountId: isInternalTransfer(t) ? (t.relationships.transferAccount.data.id || null) : null
-  }));
-  if(!txAssignQueue.length) return;
+// Hands the outstanding transactions to the Up tab rather than walking a modal over them one at
+// a time: there you get the hold-to-remember gesture, exclude, multi-select and the merchant
+// context, none of which the single-transaction dialog has.
+function showTheseInUpTab(txs, label){
+  if(!txs.length) return;
+  upTxOnlyIds = new Set(txs.map(t => t.id));
+  upTxOnlyLabel = label || 'to assign';
   document.getElementById('monthCloseOverlay').classList.remove('show');
-  const first = txAssignQueue.shift();
-  openTxAssignModal(first.id, first.amt, first.desc, first.date, first.transferAccountId);
+  activateTab('up');
+  renderUpTxList();
+}
+function clearUpTxOnly(){
+  upTxOnlyIds = null;
+  renderUpTxList();
+}
+function renderUpTxOnlyBanner(){
+  const bar = document.getElementById('upTxOnlyBanner');
+  if(!bar) return;
+  if(!upTxOnlyIds){ bar.style.display = 'none'; return; }
+  // Counted from what is actually on screen, so it falls as each one is dealt with rather than
+  // claiming the original number forever.
+  const left = upTransactions.filter(t => upTxOnlyIds.has(t.id) && !isTxSettledForClose(t)).length;
+  bar.style.display = '';
+  document.getElementById('upTxOnlyText').textContent = left
+    ? `Showing ${upTxOnlyIds.size} ${upTxOnlyLabel} — ${left} still to do`
+    : `All ${upTxOnlyIds.size} done`;
+}
+let upTxOnlyLabel = 'to assign';
+// Settled = assigned to a line, or deliberately excluded. A guess is not settled: it is the app's
+// opinion, not a decision, which is the whole reason the close flags them.
+function isTxSettledForClose(t){
+  const a = txAssignments[t.id];
+  return !!(a && (a.excluded || a.catId));
 }
 // Undoes a transaction's prior contribution to whatever item it was on, in whatever month that
 // was. This was previously called reverseTxAssignmentIfSameMonth and did exactly what its name
