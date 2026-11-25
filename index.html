@@ -6092,9 +6092,13 @@ function updateTemplateSummary(incTotal){
   const card = document.getElementById('tplAssignCard');
   const lbl = document.getElementById('tplRtaLabel');
   card.classList.remove('over','zero');
-  if(Math.abs(leftOver) < 0.5){ card.classList.add('zero'); lbl.textContent = 'Breaks even, after your goal'; }
-  else if(leftOver < 0){ card.classList.add('over'); lbl.textContent = 'Over budget once your goal is set aside'; }
-  else lbl.textContent = goal > 0 ? 'Left over after your goal' : 'Left over each month';
+  // Same quantity the Budget tab's headline now names, for a typical month rather than this one.
+  // Nothing extra is subtracted for the saver transfers: the Tech and Recurring lines ARE
+  // template costs already, so taking them off again would count them twice.
+  const saver = excessSaverAccountId ? saverNameById(excessSaverAccountId) : null;
+  if(Math.abs(leftOver) < 0.5){ card.classList.add('zero'); lbl.textContent = saver ? `Nothing spare for ${saver}` : 'Breaks even, after your goal'; }
+  else if(leftOver < 0){ card.classList.add('over'); lbl.textContent = saver ? `Short — nothing for ${saver}` : 'Over budget once your goal is set aside'; }
+  else lbl.textContent = saver ? `Heading for ${saver} each month` : (goal > 0 ? 'Left over after your goal' : 'Left over each month');
 }
 document.getElementById('tplGoalInput').addEventListener('input', (e) => {
   ensureTemplateIds();

@@ -1394,3 +1394,16 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     `cachedPayDates().length`, annual income, cadence, effective month, income source, period
     mode) — verified it still flips 26→12 on a cadence change and tracks an income edit, so the
     cache cannot freeze a stale schedule.
+
+71. **The Template tab's green figure names the misc saver too.** Only the LABEL changed: income −
+    costs − goal already IS what would reach that saver in a typical month, because the Tech and
+    Recurring lines are themselves template costs. Subtracting `templateTransferTotal()` on top
+    would have counted those transfers twice. Falls back to the old wording when no excess saver
+    is picked, same as the Budget tab.
+    **Latent overlap worth knowing about, not fixed because it does not currently bite.** On the
+    BUDGET tab's close panel, an uncrossed Tech or Recurring line sits in "Stays in spending"
+    (via `totals.remaining`) while the same obligation is also claimed by "Your template
+    transfers" — so the misc figure would be understated by that amount. It does not show up in
+    practice because those lines are crossed off once the transfer is made, which is before a
+    close. If a close is ever done with them still uncrossed, that is the explanation; the fix is
+    to move those items out of "stays in spending" rather than to subtract less.
