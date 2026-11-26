@@ -2203,7 +2203,7 @@ try{
 <div class="modal-overlay" id="monthCloseOverlay">
   <div class="modal-box month-close-box">
     <button class="panel-close-btn mc-exit-btn" id="monthCloseExitBtn" title="Close"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
-    <div class="tx-assign-hdr" id="monthCloseTitle">Close month</div>
+    <div class="tx-assign-hdr" id="monthCloseTitle">Closing totals</div>
     <div id="monthCloseBody"></div>
   </div>
 </div>
@@ -3722,7 +3722,7 @@ function monthCloseSnapshot(){
 }
 function openMonthClosePanel(){
   if(!monthData) return;
-  document.getElementById('monthCloseTitle').textContent = `Close ${monthLabel(settings.currentMonth)}`;
+  document.getElementById('monthCloseTitle').textContent = `${monthLabel(settings.currentMonth)} closing totals`;
   renderMonthClosePanel();
   document.getElementById('monthCloseOverlay').classList.add('show');
 }
