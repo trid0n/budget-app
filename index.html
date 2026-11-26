@@ -3464,9 +3464,17 @@ function laterPeriodCreditsInBalance(){
 // slowdowns this codebase has already had to undo once.
 // So the two figures differ by exactly the forward-filed credits, which is why that difference gets
 // its own line in the derivation AND its own check, rather than being folded into the total.
+// Uncrossed items are only held back while the period can still spend them. Once it has ended
+// there is nothing left to pay out of it - anything still uncrossed was budgeted for a month that
+// is over - so reserving it would strand money against a cost that is not coming. The close is
+// done on the 1st for the month just finished, which is always a closed period.
+function heldBackRemaining(key, remaining){
+  return isClosedPeriod(key) ? 0 : Math.round((Number(remaining)||0) * 100) / 100;
+}
 function monthSweepFigure(){
   const p = leftOverParts();
   const bal = p.effectiveBalance == null ? 0 : p.effectiveBalance;
+  const heldRemaining = heldBackRemaining(settings.currentMonth, p.totals.remaining);
   const laterCredits = p.effectiveBalance == null ? 0 : laterPeriodCreditsInBalance();
   // Held back so the coming months can each spend the levelled figure - see smoothingReserve().
   // Sweeping this out is precisely what would break smoothing: the surplus from a 3-pay month is
@@ -3479,12 +3487,12 @@ function monthSweepFigure(){
     ...p,
     balanceCounted: p.effectiveBalance != null,
     periodIsCurrent: isCurrentPeriod(settings.currentMonth),
-    laterCredits, reserve,
+    laterCredits, reserve, heldRemaining,
     // unreceivedIncome is deliberately NOT added. It belongs in the Budget tab's projection -
     // "how will this month end up" - but this figure is money about to leave a real account, and
     // income that has not arrived cannot be transferred. Counting it overdrew the account by
     // exactly the amount still expected.
-    amount: Math.round((bal - p.totals.remaining - laterCredits - reserve) * 100) / 100
+    amount: Math.round((bal - heldRemaining - laterCredits - reserve) * 100) / 100
   };
 }
 // Transactions the app considers part of the month being closed. periodKeyForTx is the same
@@ -3522,6 +3530,16 @@ function monthCloseChecks(){
     const nextExtra = extras.map(m => m.key).filter(k => k > settings.currentMonth)[0];
     out.push({level:'ok', key:'reserve', text:`${money(fig.reserve)} kept back to keep the coming months level`,
       detail:`It covers the shortfall each month up to ${info.untilKey ? monthLabel(info.untilKey) : 'the next bigger month'}${nextExtra ? `, and ${monthLabel(nextExtra)} is the next month with an extra pay` : ''}. If those months look wrong, the pay schedule on the Template tab is wrong — check which months its taller bars fall on.`});
+  }
+  // Both of these are terms deliberately left OUT of the figure. Said out loud for the same
+  // reason as the income-not-yet-arrived one: a term that silently vanishes is indistinguishable
+  // from a term nobody thought of.
+  if(fig.heldRemaining === 0 && fig.totals.remaining > 0){
+    out.push({level:'ok', key:'uncrossedout', text:`${money(fig.totals.remaining)} of items not crossed off is being swept, not held back`, detail:`${monthLabel(settings.currentMonth)} has ended, so anything still uncrossed was budgeted for a month that is over and its money is yours to move. Check the list below in case one of them is a charge still to come out.`});
+  }
+  const tplTransfers = templateTransferTotal();
+  if(tplTransfers > 0){
+    out.push({level:'ok', key:'tpltransfers', text:`${money(tplTransfers)} of tech and recurring set-asides is not taken out of this figure`, detail:'Left in so the figure is simply what is in the account and free to move — adjust those transfers and make them yourself in Up, out of what is swept below.'});
   }
   if(!fig.periodIsCurrent && fig.balanceCounted){
     out.push({level:'warn', key:'period', text:`${monthLabel(settings.currentMonth)} is not the current period`, detail:'The figure still uses your balance as it is right now, which is what a transfer acts on — but that balance may already include money belonging to the period after this one.'});
@@ -3608,7 +3626,7 @@ function closeFigureNow(rec){
   // what the EDIT did, so every other term has to be held at what it was.
   const later = Number(b.laterCredits) || 0;
   const reserve = Number(b.reserve) || 0;
-  return Math.round((bal - t.remaining - later - reserve) * 100) / 100;
+  return Math.round((bal - heldBackRemaining(rec.monthKey, t.remaining) - later - reserve) * 100) / 100;
 }
 // A dot on the button when something still needs doing before the figure can be trusted.
 // Computed on a debounce and patched in afterwards, NOT inside renderMonthCloseBar, because that
@@ -3645,7 +3663,7 @@ function renderMonthCloseBar(){
   }
   const dot = monthCloseWarnCount > 0 ? `<span class="mc-dot" title="${monthCloseWarnCount} thing${monthCloseWarnCount===1?'':'s'} to check first"></span>` : '';
   if(!rec){
-    bar.innerHTML = `<button class="mini-btn month-close-open" id="monthCloseOpenBtn">Close ${escapeAttr(monthLabel(settings.currentMonth).split(' ')[0])} &amp; receipt${dot}</button>`;
+    bar.innerHTML = `<button class="mini-btn month-close-open" id="monthCloseOpenBtn">Closing totals${dot}</button>`;
     bar.classList.remove('closed');
     scheduleCloseWarnBadge();
     return;
@@ -3656,9 +3674,13 @@ function renderMonthCloseBar(){
   const n = closesFor(settings.currentMonth).length;
   const edited = closeTotalsDiffer(rec);
   const nowFig = edited ? closeFigureNow(rec) : 0;
+  // An edit to a finished month usually can't move the figure at all, since its uncrossed items
+  // are not a term in it - so quoting a "would now be" identical to the recorded one reads as a
+  // contradiction. Say only what is true: the budget changed, the figure didn't.
+  const moved = edited && Math.abs(nowFig - (Number(rec.amount)||0)) > 0.005;
   bar.innerHTML = `<span class="month-close-state">Closed ${escapeAttr(when)} at <strong>${money(rec.amount)}</strong>${n>1?` · ${n} closes`:''}</span>`
-    + (edited ? `<span class="month-close-edited">budget edited since — would now be ${money(nowFig)}</span>` : '')
-    + `<button class="mini-btn month-close-open" id="monthCloseOpenBtn">${edited?'Review':'View record'}</button>`;
+    + (edited ? `<span class="month-close-edited">budget edited since${moved ? ` — would now be ${money(nowFig)}` : ''}</span>` : '')
+    + `<button class="mini-btn month-close-open" id="monthCloseOpenBtn">${moved?'Review':'View record'}</button>`;
 }
 // Every line as it stood at the moment of the close. Stored in full rather than as a total,
 // because "why was Groceries holding $240 back?" is the question you actually come back with.
@@ -3704,30 +3726,20 @@ function openMonthClosePanel(){
   renderMonthClosePanel();
   document.getElementById('monthCloseOverlay').classList.add('show');
 }
-// The monthly transfers the template already commits to, as one figure. Per-saver rows were
-// deliberately dropped: the amounts are not chosen here, they come from the Tech and Recurring
-// tables, and the transfers are carried out in Up anyway - so a row per saver was an editor for
-// numbers nobody edits. The per-saver amounts are still stored on the record.
 function saverNameById(id){
   const s = upSaverAccounts.find(a => a.id === id);
   return s ? (s.name || 'Saver') : null;
 }
-// Where the swept money actually goes, in the order it is claimed: the set-asides the template
-// already commits to, then the month's goal to the house saver, then everything else to the
-// misc saver. Each is capped at what is actually left, so a short month cannot show a saver
-// receiving money that does not exist.
+// Where the swept money actually goes, in the order it is claimed: the month's goal to the house
+// saver, then everything else to the misc saver. Each is capped at what is actually left, so a
+// short month cannot show a saver receiving money that does not exist.
+// The tech and recurring set-asides deliberately get no row of their own. Those amounts are
+// adjusted and transferred by hand in Up, so claiming them here only held money back from a
+// figure the transfers are then made out of anyway. templateTransferTotal() is still written to
+// the record, and a check names the figure so it isn't silently dropped.
 function sweepDestinations(fig){
   const out = [];
   let left = fig.amount;
-  const transfers = templateTransferTotal();
-  if(transfers > 0){
-    const give = Math.max(0, Math.min(left, transfers));
-    const short = Math.round((transfers - give) * 100) / 100;
-    out.push({key:'tpl', name:'Your template transfers',
-      why: short > 0 ? `Tech and recurring set-asides — ${money(short)} short of ${money(transfers)}` : 'Tech and recurring set-asides',
-      amount: give});
-    left -= give;
-  }
   const goal = Number(fig.goal) || 0;
   if(goal > 0){
     const give = Math.max(0, Math.min(left, goal));
@@ -3753,13 +3765,18 @@ function renderMonthClosePanel(){
   const checks = monthCloseChecks();
   const warns = checks.filter(c => c.level === 'warn').length;
   const dests = sweepDestinations(fig);
-  const stays = Math.round((fig.totals.remaining + fig.reserve) * 100) / 100;
+  const stays = Math.round((fig.heldRemaining + fig.reserve) * 100) / 100;
+  const staysWhy = fig.heldRemaining > 0
+    ? (fig.reserve > 0 ? 'Not-yet-paid items, and next months’ levelling' : 'Not-yet-paid items')
+    : 'Next months’ levelling';
   const past = closesFor(settings.currentMonth);
 
   const terms = [
-    ['Spending balance', fig.balanceCounted ? money(fig.effectiveBalance) : '—'],
-    [`Not yet crossed off`, '−' + money(fig.totals.remaining)]
+    ['Spending balance', fig.balanceCounted ? money(fig.effectiveBalance) : '—']
   ];
+  // Only a term while it is actually being held back - on a finished month it isn't, and a
+  // −$0.00 line claiming otherwise is worse than no line.
+  if(fig.heldRemaining > 0) terms.push(['Not yet crossed off', '−' + money(fig.heldRemaining)]);
   // Only shown when there is any, so an ordinary month's derivation stays four lines.
   if(fig.laterCredits > 0) terms.push(['Already received for a later period', '−' + money(fig.laterCredits)]);
   if(fig.reserve > 0) terms.push(['Kept back to keep next months level', '−' + money(fig.reserve)]);
@@ -3774,7 +3791,7 @@ function renderMonthClosePanel(){
     <div class="mc-list">${checks.map((c, i) => `<div class="mc-check ${c.level}"><span class="mc-check-ic">${c.level==='ok'?'✓':'!'}</span><span>${escapeAttr(c.text)}${c.detail?`<span class="mc-check-detail">${escapeAttr(c.detail)}</span>`:''}</span>${c.action === 'assign' ? `<button class="mini-btn mc-check-btn" data-mc-assign="${i}">Assign ${c.txs.length === 1 ? 'it' : 'them'}</button>` : ''}</div>`).join('')}</div>
     <div class="mc-sec-lbl">Where it goes</div>
     <div class="mc-list">
-      ${stays > 0 ? `<div class="mc-dest"><span class="mc-dest-name">Stays in spending<span class="mc-dest-why">Not-yet-paid items${fig.reserve > 0 ? ', and next months’ levelling' : ''}</span></span><span class="mc-dest-amt">${money(stays)}</span></div>` : ''}
+      ${stays > 0 ? `<div class="mc-dest"><span class="mc-dest-name">Stays in spending<span class="mc-dest-why">${staysWhy}</span></span><span class="mc-dest-amt">${money(stays)}</span></div>` : ''}
       ${dests.map(d => `<div class="mc-dest">
         <span class="mc-dest-name">${escapeAttr(d.name)}<span class="mc-dest-why">${escapeAttr(d.why)}</span></span>
         ${d.picker ? `<select class="mc-dest-pick" data-mc-saver="${d.picker}"><option value="">Pick a saver…</option>${upSaverAccounts.map(a => `<option value="${escapeAttr(a.id)}"${(d.picker === 'goal' ? goalSaverAccountId : excessSaverAccountId) === a.id ? ' selected' : ''}>${escapeAttr(a.name || 'Saver')}</option>`).join('')}</select>` : ''}
@@ -3795,12 +3812,14 @@ function monthCloseRecordHtml(r){
   const transfers = Number(r.transfers) || 0;
   const warns = (r.warnings||[]).map(w => escapeAttr(w.text)).join(' · ');
   const edited = closeTotalsDiffer(r);
+  const nowFig = edited ? closeFigureNow(r) : 0;
+  const moved = edited && Math.abs(nowFig - (Number(r.amount)||0)) > 0.005;
   return `<div class="mc-rec">
     <div class="mc-rec-hdr"><span>${escapeAttr(when)}</span><span>${money(r.amount)}</span></div>
     <div class="mc-rec-line">Balance ${b.balance == null ? '—' : money(b.balance)}${b.balanceSource?` (${escapeAttr(b.balanceSource)})`:''} · income due ${money(b.incomeStillToCome)} · uncrossed ${money(b.uncrossed)} · goal ${money(b.goal)}${Number(b.laterCredits) > 0 ? ` · held for a later period ${money(b.laterCredits)}` : ''}</div>
     ${(r.destinations||[]).length ? `<div class="mc-rec-line">Sent: ${(r.destinations||[]).filter(d => d.amount > 0).map(d => `${escapeAttr(d.name)} ${money(d.amount)}`).join(' · ') || 'nothing'}</div>` : (transfers > 0 ? `<div class="mc-rec-line">Template transfers ${money(transfers)}</div>` : '')}
     ${warns ? `<div class="mc-rec-line">Closed with: ${warns}</div>` : ''}
-    ${edited ? `<div class="mc-rec-line" style="color:var(--debit);">This month has been edited since — the same balance would now give ${money(closeFigureNow(r))}</div>` : ''}
+    ${edited ? `<div class="mc-rec-line"${moved ? ' style="color:var(--debit);"' : ''}>This month has been edited since${moved ? ` — the same balance would now give ${money(nowFig)}` : ', but not in a way that moves the figure'}</div>` : ''}
   </div>`;
 }
 async function commitMonthClose(){
@@ -3815,6 +3834,7 @@ async function commitMonthClose(){
     breakdown: {
       balance: fig.effectiveBalance, balanceSource: fig.balanceSource, balanceCounted: fig.balanceCounted,
       periodIsCurrent: fig.periodIsCurrent, incomeStillToCome: t.unreceivedIncome, uncrossed: t.remaining,
+      heldRemaining: fig.heldRemaining,
       goal: fig.goal, laterCredits: fig.laterCredits, reserve: fig.reserve
     },
     totals: {income: t.income, cost: t.cost, charged: t.charged, goal: fig.goal},
@@ -3822,7 +3842,7 @@ async function commitMonthClose(){
     warnings: monthCloseChecks().filter(c => c.level === 'warn').map(c => ({key: c.key, text: c.text})),
     transfers: templateTransferTotal(),
     destinations: sweepDestinations(fig).map(d => ({name: d.name, why: d.why, amount: d.amount})),
-    staysInSpending: Math.round((t.remaining + fig.reserve) * 100) / 100,
+    staysInSpending: Math.round((fig.heldRemaining + fig.reserve) * 100) / 100,
     // Kept on the record even though the panel no longer shows them per saver: the receipt costs
     // nothing to keep complete, and "which saver" is a question you can still want answered later.
     splits: Object.entries(sweepSuggestions().amounts)

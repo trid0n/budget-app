@@ -1424,3 +1424,29 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     clicking the chip wrote the wrong number and never cleared its own prompt. Both read from the
     one function now. **Generalise: a control that shows a value and a handler that applies one
     must not compute it twice.**
+
+73. **The close holds back less: no set-aside row, and no reserve for a month that has ended.**
+    Both asked for after reading a real receipt, and both are terms being deliberately left out —
+    said out loud as checks rather than silently dropped, the same way item 69's unreceived income
+    was.
+    - **"Your template transfers" is gone from the split.** It was `templateTransferTotal()` — the
+      tech fund's should-hold-now gap plus each recurring cost's monthly set-aside — claiming the
+      first slice of the figure. Those transfers are adjusted and made by hand in Up, out of what
+      the sweep moves, so claiming them here only understated the misc saver. The figure is still
+      written to the record (`transfers`) and a check names it. This also retires item 71's latent
+      double-claim: with no row, an uncrossed Tech or Recurring line can no longer be counted both
+      in "Stays in spending" and in that row.
+    - **Uncrossed items are only held back while the period can still spend them.**
+      `heldBackRemaining(key, remaining)` returns 0 once `isClosedPeriod(key)`, and
+      `monthSweepFigure` (plus `closeFigureNow`, the derivation term, the "Stays in spending" row
+      and the record's `staysInSpending`) uses it instead of `totals.remaining`. The close happens
+      on the 1st for the month just finished, which is always closed, so in practice nothing is
+      reserved — anything still uncrossed was budgeted for a month that is over.
+      **Gated on the period rather than removed outright**, because `monthSweepFigure` also feeds
+      the Budget tab's current-period headline (item 70): dropping it unconditionally would have
+      had mid-month promise the misc saver every dollar of rent not yet charged.
+    **Found by testing**: with uncrossed items no longer a term, almost no edit to a finished month
+    can move its figure — so the record's "edited since" line was quoting a "would now give"
+    identical to the recorded amount, which reads as a contradiction. It now says the figure is
+    unaffected, in the ordinary colour, and keeps the quoted figure (and the bar's "Review" button)
+    for when one genuinely moved. Verified both branches.
