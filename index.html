@@ -1956,6 +1956,7 @@ try{
         </div>
         <div class="tx-only-banner" id="upTxOnlyBanner" style="display:none;">
           <span id="upTxOnlyText"></span>
+          <button class="mini-btn gold" id="upTxOnlyBackBtn" style="display:none;">Back to closing totals</button>
           <button class="mini-btn" id="upTxOnlyClearBtn">Show everything</button>
         </div>
         <div class="up-tx-list" id="upTxList"></div>
@@ -3546,10 +3547,9 @@ function monthCloseChecks(){
   }
   if(upToken){
     const considered = txsForClosingPeriod().filter(t => { const a = txAssignments[t.id]; return !(a && a.excluded); });
-    let unassigned = [], guessed = [], held = [];
+    let unassigned = [], guessed = [];
     considered.forEach(t => {
       const a = txAssignments[t.id];
-      if(t.attributes.status === 'HELD') held.push(t);
       if(a && a.catId) return;
       const amt = parseFloat(t.attributes.amount.value);
       (findGuessForTx(t.attributes.description, amt, t) ? guessed : unassigned).push(t);
@@ -3561,23 +3561,18 @@ function monthCloseChecks(){
     // an assigned one, and saying "all assigned" beside "4 guesses unconfirmed" is worse than
     // saying nothing.
     if(!unassigned.length && !guessed.length) out.push({level:'ok', key:'unassigned', text:`All ${considered.length} transaction${considered.length===1?'':'s'} assigned`});
-    if(held.length) out.push({level:'warn', key:'held', text:`${held.length} transaction${held.length===1?'':'s'} still pending — ${money(sum(held))}`, detail:'Held by Up and not settled, so the final amount can still change.'});
   } else {
     out.push({level:'warn', key:'up', text:'Up Bank is not connected', detail:'Transactions cannot be checked against the budget, so only the figures you have typed are being verified.'});
   }
-  const uncrossedWithTx = [], crossedNoTx = [], overTx = [];
+  // Three checks were dropped here on request: pending (HELD) transactions, items paid but not
+  // crossed off, and crossed-off items with no transaction. All three were about the figure
+  // holding the wrong amount back - and once uncrossed items stopped being a term in it for a
+  // finished month (heldBackRemaining), crossing state cannot move the figure at all, so they
+  // warned about nothing on the only kind of month that gets closed.
+  const overTx = [];
   monthData.categories.forEach(c => c.items.forEach(i => {
-    const txs = getTxsForItem(c.id, i.id);
-    if(!i.charged && txs.length) uncrossedWithTx.push({c, i});
-    if(i.charged && !txs.length && upToken && (Number(i.amount)||0) > 0) crossedNoTx.push({c, i});
     if(!isSourceSyncedItem(i.name) && itemAmountExceedsTxTotal(c.id, i.id, i.amount)) overTx.push({c, i});
   }));
-  const itemSum = list => Math.round(list.reduce((s,x) => s + (Number(x.i.amount)||0), 0) * 100) / 100;
-  if(uncrossedWithTx.length) out.push({level:'warn', key:'uncrossed', text:`${uncrossedWithTx.length} item${uncrossedWithTx.length===1?'':'s'} paid but not crossed off — ${money(itemSum(uncrossedWithTx))}`, detail:`The money has gone but the figure is still holding it back: ${uncrossedWithTx.slice(0,4).map(x => x.i.name).join(', ')}${uncrossedWithTx.length>4?'…':''}`});
-  else out.push({level:'ok', key:'uncrossed', text:'Nothing is paid-but-still-reserved'});
-  // The dangerous direction: crossed off means "the figure stops holding this money back", so if
-  // it hasn't actually left the account the balance still contains it and a sweep sends it away.
-  if(crossedNoTx.length) out.push({level:'warn', key:'crossed', text:`${crossedNoTx.length} crossed-off item${crossedNoTx.length===1?'':'s'} with no transaction — ${money(itemSum(crossedNoTx))}`, detail:`If one of these has not actually been charged yet, its money is still in the balance and would be swept away: ${crossedNoTx.slice(0,4).map(x => x.i.name).join(', ')}${crossedNoTx.length>4?'…':''}`});
   if(overTx.length) out.push({level:'warn', key:'overtx', text:`${overTx.length} item${overTx.length===1?'':'s'} budgeted above ${overTx.length===1?'its':'their'} transactions`, detail:`Either more is still to come out, or the amount needs pulling down: ${overTx.slice(0,4).map(x => x.i.name).join(', ')}${overTx.length>4?'…':''}`});
   return out;
 }
@@ -3880,6 +3875,7 @@ document.addEventListener('click', e => {
     if(check && check.txs) showTheseInUpTab(check.txs, check.key === 'guesses' ? 'guesses to confirm' : 'to assign');
     return;
   }
+  if(e.target.closest('#upTxOnlyBackBtn')){ returnToMonthClose(); return; }
   if(e.target.closest('#upTxOnlyClearBtn')){ clearUpTxOnly(); return; }
 });
 document.addEventListener('change', e => {
@@ -9358,13 +9354,34 @@ function showTheseInUpTab(txs, label){
   if(!txs.length) return;
   upTxOnlyIds = new Set(txs.map(t => t.id));
   upTxOnlyLabel = label || 'to assign';
+  // Remembered so the trip back lands on the month the close was being taken for, even if the
+  // month on screen was changed while assigning.
+  upTxOnlyFromCloseMonth = settings.currentMonth;
   document.getElementById('monthCloseOverlay').classList.remove('show');
   activateTab('up');
   renderUpTxList();
 }
 function clearUpTxOnly(){
+  clearTimeout(upTxOnlyReturnTimer);
+  upTxOnlyReturnTimer = null;
+  // "Show everything" means staying here, so the trip back is given up with the filter.
+  upTxOnlyFromCloseMonth = null;
   upTxOnlyIds = null;
   renderUpTxList();
+}
+// Back to the panel the set came from - the whole reason for being over here was to clear its
+// checks. The filter has done its job by then, so it goes: pressing Assign them again rebuilds
+// it from whatever is still outstanding.
+async function returnToMonthClose(){
+  clearTimeout(upTxOnlyReturnTimer);
+  upTxOnlyReturnTimer = null;
+  const key = upTxOnlyFromCloseMonth;
+  upTxOnlyFromCloseMonth = null;
+  upTxOnlyIds = null;
+  renderUpTxList();
+  if(key && key !== settings.currentMonth) await switchToMonth(key);
+  activateTab('ledger');
+  openMonthClosePanel();
 }
 function renderUpTxOnlyBanner(){
   const bar = document.getElementById('upTxOnlyBanner');
@@ -9377,8 +9394,22 @@ function renderUpTxOnlyBanner(){
   document.getElementById('upTxOnlyText').textContent = left
     ? `Showing ${upTxOnlyIds.size} ${upTxOnlyLabel} — ${left} still to do`
     : `All ${upTxOnlyIds.size} done`;
+  const back = document.getElementById('upTxOnlyBackBtn');
+  if(back) back.style.display = upTxOnlyFromCloseMonth ? '' : 'none';
+  // Once the last one is settled, make the trip back without being asked. Delayed so the row is
+  // seen ticking off rather than the tab vanishing under the click, guarded by the timer handle so
+  // the repeated renders of one assignment arm it once, and only while the Up tab is still the one
+  // on screen - having navigated away is its own answer about where you want to be.
+  if(!left && upTxOnlyFromCloseMonth && !upTxOnlyReturnTimer){
+    upTxOnlyReturnTimer = setTimeout(() => {
+      upTxOnlyReturnTimer = null;
+      if(document.getElementById('view-up').classList.contains('active')) returnToMonthClose();
+    }, 800);
+  }
 }
 let upTxOnlyLabel = 'to assign';
+let upTxOnlyFromCloseMonth = null;
+let upTxOnlyReturnTimer = null;
 // Settled = assigned to a line, or deliberately excluded. A guess is not settled: it is the app's
 // opinion, not a decision, which is the whole reason the close flags them.
 function isTxSettledForClose(t){

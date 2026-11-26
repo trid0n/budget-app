@@ -1450,3 +1450,24 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     identical to the recorded amount, which reads as a contradiction. It now says the figure is
     unaffected, in the ordinary colour, and keeps the quoted figure (and the bar's "Review" button)
     for when one genuinely moved. Verified both branches.
+
+74. **The Up-tab detour comes back on its own, and three checks are gone.**
+    (a) "Assign them" sends the outstanding transactions to the Up tab (item 70), and the trip back
+    was manual. `showTheseInUpTab` now remembers `upTxOnlyFromCloseMonth` — the month the close was
+    being taken for, since the month on screen can be changed while assigning — and
+    `returnToMonthClose()` switches back to that month, the Budget tab and the panel, dropping the
+    filter on the way (pressing Assign them again rebuilds it from whatever is still outstanding).
+    Two routes: a "Back to closing totals" button in the banner, and automatically once the last
+    one is settled. The automatic one is on an 800ms timer so the row is seen ticking off rather
+    than the tab vanishing under the click, armed once per run via the timer handle (one assignment
+    re-renders the list several times), and it checks `#view-up` is still the active view first —
+    having navigated away is its own answer about where you want to be. "Show everything" gives up
+    the return trip along with the filter, so finishing the work there doesn't yank you anywhere.
+    **`activateTab('budget')` silently does nothing** — the Budget tab's `data-view` is `ledger`,
+    and `activateTab` returns early when the button isn't found. Caught in the harness.
+    (b) Dropped on request: **pending (HELD) transactions**, **items paid but not crossed off** and
+    **crossed-off items with no transaction** (plus the paid-but-still-reserved ok-branch). All
+    three were about the figure holding the wrong amount back, and item 73 took uncrossed items out
+    of the figure for a finished month — so on the only kind of month that gets closed, crossing
+    state cannot move the figure and they warned about nothing. "Budgeted above its transactions"
+    is deliberately kept: that one is about the budget's own accuracy, not the figure.
