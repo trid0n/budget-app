@@ -298,9 +298,10 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
 
 ## Known open items
 
-- **One outstanding migration: `months.goal_transferred`** (added 2026-11-28, see item 76). Until it
-  is run the tick works for the session and silently forgets on reload — it has its own narrow
-  upsert, so nothing else is affected. Verify it with the REST probe below rather than on report.
+- **No outstanding schema migrations.** `months.goal_transferred` (item 76) was **verified from this
+  machine 2026-11-28**, not taken on report: `200 []` against the `goal` and `income_emoji` controls,
+  and an invented `zzq_invented_control` correctly answering `400 42703`, which is what makes the
+  passes mean anything.
 - Everything added over 2026-11-23/24 — the `month_closes`
   table and `annual_income`, `pay_cadence_days`, `goal_saver_account_id`, `excess_saver_account_id`
   on `user_settings` — was **verified from this machine rather than taken on report**: each
