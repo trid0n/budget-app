@@ -211,6 +211,12 @@ header.mast.mast-empty{padding-bottom:0; margin-bottom:0; max-height:0; overflow
 .goal-input-wrap{display:flex; align-items:center; background:rgba(255,255,255,.2); border-radius:6px; padding:2px 6px;}
 .goal-display{cursor:pointer; border-bottom:1px dashed rgba(255,255,255,.4); padding-bottom:1px; transition:border-color .15s, opacity .15s;}
 .goal-display:hover{border-color:rgba(255,255,255,.8); opacity:.9;}
+/* On the assign card, so it is styled against that card's own ink rather than the page's tokens. */
+.goal-sent{display:inline-flex; align-items:center; gap:3px; padding:1px 7px; font:inherit; font-size:.68rem; line-height:1.5; color:inherit; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.35); border-radius:999px; cursor:pointer; opacity:.85; transition:background .15s, opacity .15s, border-color .15s;}
+.goal-sent:hover{background:rgba(255,255,255,.24); opacity:1;}
+/* A neutral dark, not the green card's own ink: the card also goes red (over) and grey (zero). */
+.goal-sent.on{background:rgba(255,255,255,.92); border-color:rgba(255,255,255,.92); color:#1B2430; opacity:1; font-weight:700;}
+.goal-sent-tick{font-size:.72rem; line-height:1;}
 .goal-input-wrap span{font-size:.72rem;}
 .goal-input{background:none; border:none; color:#fff; width:64px; font-family:'Inter',sans-serif; font-size:.78rem; font-weight:700; padding:2px 2px 2px 3px; outline:none;}
 .goal-input:focus{outline:none; background:rgba(255,255,255,.15); border-radius:3px;}
@@ -525,8 +531,6 @@ input.amt-input:hover, input.amt-input:focus{outline:none;}
 /* Sits in the caption line, not the row's: that line already carries a saver picker and a figure. */
 /* --chip, not --paper-dim: in dark mode that token sits two values off the panel's own surface,
    so an empty tick would be invisible but for its border. Same trap as the smoothing bars. */
-.mc-dest-tick{flex:none; width:18px; height:18px; border:1.5px solid var(--rule); border-radius:5px; background:var(--chip); color:var(--ink-faint); font-size:.68rem; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;}
-.mc-dest-tick.on{border-color:var(--gold); background:var(--gold); color:var(--paper);}
 .mc-dest-pick{flex:none; max-width:130px; padding:3px 6px; font-size:.72rem; border:1px solid var(--rule); border-radius:7px; background:var(--paper-dim); color:var(--ink);}
 .tx-only-banner{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:var(--gold-bg); border:1px solid var(--gold); border-radius:10px; padding:8px 12px; margin-bottom:10px; font-size:.8rem; color:var(--gold); font-weight:700;}
 .mc-note{font-size:.74rem; color:var(--ink-faint); margin-top:10px; line-height:1.5;}
@@ -1722,6 +1726,7 @@ try{
               <div class="goal-row">
                 <span class="goal-display" id="goalDisplay" title="Click to set your goal">Goal: $0</span>
                 <div class="goal-input-wrap" id="goalInputWrap" style="display:none;"><span>$</span><input type="number" step="0.01" id="goalInput" class="goal-input" placeholder="0"></div>
+                <button class="goal-sent" id="goalSentBtn" style="display:none;" data-goal-sent="1"></button>
               </div>
               <div class="goal-status" id="goalStatus"></div>
             </div>
@@ -3432,6 +3437,17 @@ function updateSummary(){
   if(document.getElementById('goalInputWrap').style.display === 'none'){
     goalDisplayEl.textContent = goal > 0 ? `Goal: $${Math.round(goal).toLocaleString('en-US')}` : 'Set a goal';
   }
+  // Lives beside the goal rather than in the close panel: this is where the goal is read day to
+  // day, so it's where you notice you have already moved it. The close panel still shows the
+  // resulting state, it just isn't the control any more.
+  const sentBtn = document.getElementById('goalSentBtn');
+  const sent = monthData.goalTransferred === true;
+  sentBtn.style.display = goal > 0 ? '' : 'none';
+  sentBtn.classList.toggle('on', sent);
+  sentBtn.innerHTML = sent ? '<span class="goal-sent-tick">✓</span>sent' : 'mark sent';
+  sentBtn.title = sent
+    ? 'Marked as already transferred — the close sends it to your misc saver instead. Tap to undo.'
+    : 'Tick this once you have moved the goal to its saver yourself';
   const statusEl = document.getElementById('goalStatus');
   statusEl.textContent = '';
   renderMonthCloseBar();
@@ -3558,7 +3574,7 @@ function monthCloseChecks(){
     out.push({level:'ok', key:'uncrossedout', text:`${money(fig.totals.remaining)} of items not crossed off is being swept, not held back`, detail:`${monthLabel(settings.currentMonth)} has ended, so anything still uncrossed was budgeted for a month that is over and its money is yours to move. Check the list below in case one of them is a charge still to come out.`});
   }
   if(fig.goal > 0 && monthData.goalTransferred){
-    out.push({level:'ok', key:'goaldone', text:`${money(fig.goal)} of goal was already transferred`, detail:'So the split below sends it to your misc saver rather than asking for it twice — the balance is already net of it. Untick it on the goal row if it has not actually gone out.'});
+    out.push({level:'ok', key:'goaldone', text:`${money(fig.goal)} of goal was already transferred`, detail:'So the split below sends it to your misc saver rather than asking for it twice — the balance is already net of it. Untick “sent” beside the goal on the Budget tab if it has not actually gone out.'});
   }
   const tplTransfers = templateTransferTotal();
   if(tplTransfers > 0){
@@ -3771,11 +3787,9 @@ function sweepDestinations(fig){
     out.push({key:'goal', name: saverNameById(goalSaverAccountId) || 'Goal saver',
       // Kept short: this row carries a select, a tick and a figure, so a long caption is the one
       // thing that crushes the name column on a narrow panel. The check above says the rest.
-      why: done ? 'Already transferred'
+      why: done ? 'Already transferred — marked on the Budget tab'
         : short > 0 ? `This month's goal — ${money(short)} short of ${money(goal)}`
-        // The hint is what makes the empty tick mean something; without it the box beside the
-        // caption is a control with no stated purpose.
-        : "This month's goal — tick if already sent",
+        : "This month's goal",
       amount: done ? goal : give, done, claimed: give, picker:'goal'});
     left -= give;
   }
@@ -3826,7 +3840,7 @@ function renderMonthClosePanel(){
           ${d.picker ? `<select class="mc-dest-pick" data-mc-saver="${d.picker}"><option value="">Pick a saver…</option>${upSaverAccounts.map(a => `<option value="${escapeAttr(a.id)}"${(d.picker === 'goal' ? goalSaverAccountId : excessSaverAccountId) === a.id ? ' selected' : ''}>${escapeAttr(a.name || 'Saver')}</option>`).join('')}</select>` : ''}
           <span class="mc-dest-amt${d.done ? ' done' : ''}">${money(d.amount)}</span>
         </div>
-        <div class="mc-dest-why">${d.key === 'goal' ? `<button class="mc-dest-tick${d.done ? ' on' : ''}" data-mc-goal-done="1" aria-pressed="${d.done ? 'true' : 'false'}" title="${d.done ? 'Mark as not transferred yet' : 'I have already transferred this'}">${d.done ? '✓' : ''}</button>` : ''}<span>${escapeAttr(d.why)}</span></div>
+        <div class="mc-dest-why"><span>${escapeAttr(d.why)}</span></div>
       </div>`).join('')}
     </div>
     ${monthClosesAvailable ? '' : `<div class="mc-note" style="color:var(--debit);">The <code>month_closes</code> table does not exist yet, so this cannot be recorded. The figure and the checks above still work — run the SQL from <code>supabase/schema.sql</code> to turn the record on.</div>`}
@@ -3915,7 +3929,7 @@ document.addEventListener('click', e => {
     if(check && check.txs) showTheseInUpTab(check.txs, check.key === 'guesses' ? 'guesses to confirm' : 'to assign');
     return;
   }
-  if(e.target.closest('[data-mc-goal-done]')){
+  if(e.target.closest('[data-goal-sent]')){
     if(!monthData) return;
     monthData.goalTransferred = !monthData.goalTransferred;
     saveGoalTransferred();

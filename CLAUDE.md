@@ -1515,12 +1515,20 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     row's `claimed` rather than its `amount` — the receipt is a list of what MOVES, and nothing
     moves to a goal already sent. A check says it out loud, the same way items 69 and 73 announce
     terms deliberately left out.
-    **Three things found by screenshotting, none visible in the code.** The tick as a fourth item
-    on the row's flex line left the caption a ~110px column and broke "This month's goal — tick if
-    already sent" into six lines (119px tall row); `.mc-dest` is now two lines — name/picker/figure,
-    then the caption full width — which shrank every row and improved the two that were already
-    there. The "Stays in spending" row is built by its own markup, not the `dests.map`, so it had
-    to be restructured too or its figure dropped to a line of its own. And the empty tick used
-    `--paper-dim`, which is **the item-64 trap again**: in dark mode that sits two values off the
-    panel's surface, so it was invisible but for its border — `--chip` fixes it, as it did for the
-    smoothing bars. Verified at 1280 and at 375, in both themes.
+    **The tick lives on the Budget tab's green card, not in the close panel** (moved 2026-11-28 on
+    request): `#goalSentBtn` in `.goal-row`, rendered by `updateSummary` so it appears only with a
+    goal set and carries the state. That is where the goal is read day to day, so it is where you
+    notice you have already moved it; the close panel still shows the resulting state (struck-through
+    figure, "Already transferred — marked on the Budget tab") but is no longer the control. The pill
+    is styled against the card's own white ink, and its `on` colour is a neutral dark rather than the
+    green card's ink because that card also goes red (over) and grey (zero) — checked in all three.
+    **Found by screenshotting, none of it visible in the code.** While the tick was still in the
+    panel it was a fourth item on `.mc-dest`'s flex line, which left the caption a ~110px column and
+    broke it into six lines (a 119px row). `.mc-dest` is now two lines — name/picker/figure, then
+    the caption full width — which shrank every row and improved the two that were already there;
+    that stayed after the tick moved. The "Stays in spending" row is built by its own markup, not
+    the `dests.map`, so it had to be restructured too or its figure dropped to a line of its own.
+    And the panel tick first used `--paper-dim`, **the item-64 trap again** — in dark mode that sits
+    two values off the panel's surface, so it was invisible but for its border. That rule went with
+    the tick, but the trap is worth remembering for the next small control. Verified at 1280 and at
+    375, in both themes.
