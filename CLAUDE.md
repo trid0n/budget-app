@@ -1501,8 +1501,8 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     goal already moved is already out of the balance. What was wrong was the SPLIT:
     `sweepDestinations` took the goal off the top, so the misc saver was understated by exactly the
     goal and the panel asked for a transfer that had already happened.
-    `monthData.goalTransferred` → `months.goal_transferred` (**needs the migration** — see Known
-    open items). The goal row keeps its figure (struck through, as a record and as somewhere to
+    `monthData.goalTransferred` → `months.goal_transferred` (column verified live 2026-11-28, see
+    Known open items). The goal row keeps its figure (struck through, as a record and as somewhere to
     untick) but claims nothing, so everything flows to the misc saver. The Budget tab's headline
     follows for free, being `sweepDestinations(...).excess` already.
     **Its own narrow upsert**, `db.saveMonthGoalTransferred`, for the same reason as
