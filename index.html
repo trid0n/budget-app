@@ -6131,10 +6131,26 @@ function matchTemplatePayLine(){
   renderTemplateEditor();
   toast(`Template pay line set to ${money(payLine.amount)}`);
 }
-function onPayCadenceChange(){
+async function onPayCadenceChange(){
   payCadenceDays = Number(document.getElementById('payCadenceSelect').value) || 14;
   renderTemplateEditor();
   db.saveSettings({ pay_cadence_days: payCadenceDays }).catch(() => {});
+  // Switching to or from monthly turns the late-pay rule on or off, which re-files every pay
+  // that landed in a month's last week - offered rather than done silently, same as the
+  // periodMode toggle, because it rewrites stored amounts in two months at once.
+  await offerRefileMisfiled();
+}
+// The late-pay rule stopped applying below a monthly cadence (see periodKeyFor), so pays already
+// filed forward under it are now in the wrong month. Offered once, then never again whatever the
+// answer: a standing prompt for something the user has declined is just nagging.
+const LATE_PAY_RULE_FLAG = 'latePayRuleScoped';
+async function offerLatePayRuleRefileOnce(){
+  if(lateNessAppliesToPay()) return;
+  let seen = null;
+  try{ seen = localStorage.getItem(LATE_PAY_RULE_FLAG); }catch(e){}
+  if(seen === authUserId) return;
+  try{ localStorage.setItem(LATE_PAY_RULE_FLAG, authUserId); }catch(e){}
+  await offerRefileMisfiled();
 }
 // Mirrors updateSummary()'s wording and states for the template's own numbers. No live
 // bank balance is folded in - that belongs to an actual month, not to a template.
@@ -7975,6 +7991,28 @@ function flashChangedItems(keys){
     changedFlashTimer = null;
   }, 5000);
 }
+// Anything whose stored monthKey disagrees with where the current rules say it belongs, offered
+// as one confirmed move. Extracted from the periodMode toggle so the pay-cadence control can use
+// it too: changing the cadence turns the late-pay rule on or off (see periodKeyFor), which moves
+// exactly the same kind of transaction.
+async function offerRefileMisfiled(){
+  const moves = findMisfiledAssignments();
+  const undatable = moves.undatable ? moves.undatable.length : 0;
+  if(!moves.length) return false;
+  const ok = await customConfirm(
+    `${moves.length} transaction${moves.length>1?'s':''} now belong${moves.length>1?'':'s'} to a different period. `
+    + `Move ${moves.length>1?'them':'it'} and update both periods' totals?`
+    + (undatable ? `\n\n${undatable} older one${undatable>1?'s are':' is'} from before your earliest loaded pay, so ${undatable>1?'they':'it'} can’t be placed in a cycle — ${undatable>1?'they’ll':'it’ll'} be left alone. Load a wider timeframe on the Up tab first if you want ${undatable>1?'them':'it'} included.` : ''));
+  if(!ok){ dismissToast(); return false; }
+  // Stays up with its bar running until the writes land - a re-file touches several months
+  // and saves each, so there's a real wait to account for.
+  toast(`Re-filing ${moves.length} transaction${moves.length!==1?'s':''}…`, {loading: true});
+  const {moved, skipped, created} = await refileAssignmentsToCurrentMode(moves);
+  toast(`Re-filed ${moved} transaction${moved!==1?'s':''}.`
+    + (created ? ` Added ${created} missing line${created!==1?'s':''}.` : '')
+    + (skipped ? ` ${skipped} couldn’t be placed.` : ''));
+  return true;
+}
 function findMisfiledAssignments(){
   const starts = payCycleStarts();
   const out = [], undatable = [];
@@ -8132,25 +8170,7 @@ document.getElementById('periodModeGroup').addEventListener('click', async (e) =
       dismissToast();
     }
   }
-  const moves = findMisfiledAssignments();
-  const undatable = moves.undatable ? moves.undatable.length : 0;
-  if(moves.length){
-    const ok = await customConfirm(
-      `${moves.length} transaction${moves.length>1?'s':''} now belong${moves.length>1?'':'s'} to a different period. `
-      + `Move ${moves.length>1?'them':'it'} and update both periods' totals?`
-      + (undatable ? `\n\n${undatable} older one${undatable>1?'s are':' is'} from before your earliest loaded pay, so ${undatable>1?'they':'it'} can’t be placed in a cycle — ${undatable>1?'they’ll':'it’ll'} be left alone. Load a wider timeframe on the Up tab first if you want ${undatable>1?'them':'it'} included.` : ''));
-    if(ok){
-      // Stays up with its bar running until the writes land - a re-file touches several months
-      // and saves each, so there's a real wait to account for.
-      toast(`Re-filing ${moves.length} transaction${moves.length!==1?'s':''}…`, {loading: true});
-      const {moved, skipped, created} = await refileAssignmentsToCurrentMode(moves);
-      toast(`Re-filed ${moved} transaction${moved!==1?'s':''}.`
-        + (created ? ` Added ${created} missing line${created!==1?'s':''}.` : '')
-        + (skipped ? ` ${skipped} couldn’t be placed.` : ''));
-      return;
-    }
-    dismissToast();
-  }
+  if(await offerRefileMisfiled()) return;
   if(mode === 'paycycle' && !upIncomeSourceKey){
     toast('Pay cycle is on, but nothing will change until you choose an income source — do that on the Up tab');
   } else {
@@ -8526,9 +8546,16 @@ function isIncomeSourceTx(t){
 // periodKeyForDate plus the late-pay rule. It only ever shifts an answer that came from the
 // plain calendar month: in paycycle mode the cycle boundary already says exactly this, since
 // the pay STARTS the cycle it funds, and shifting that again would push it a month too far.
+// Monthly pay only. The rule exists because a monthly salary paid on the 28th IS the next
+// month's entire income, so filing it to the month that is ending leaves one month with two
+// pays and the next with none. On a fortnightly cadence it buys nothing - measured over a real
+// 14-day schedule, both ways give 26 pays a year and two 3-pay months; the rule only moves
+// WHICH months those are. What it did cost was a pay reading as "already received for a later
+// period" at every close, and a month you were genuinely paid in showing none.
+function lateNessAppliesToPay(){ return payCadenceDays === 30; }
 function periodKeyFor(dateish, isPay, starts, strict){
   const key = periodKeyForDate(dateish, starts, strict);
-  if(!key || !isPay) return key;
+  if(!key || !isPay || !lateNessAppliesToPay()) return key;
   const d = new Date(dateish);
   return (key === dateToKey(d) && isLatePayDate(d)) ? addMonths(key, 1) : key;
 }
@@ -12348,6 +12375,7 @@ document.getElementById('acctSaveBtn').addEventListener('click', async () => {
   dismissSplash();
   // After the splash, never before: a confirm behind it would be invisible and the app would
   // look hung. Awaited rather than fired, so the rest of init isn't racing the dialog.
+  await offerLatePayRuleRefileOnce();
   await maybePromptPreviousMonthClose();
   setInterval(() => {
     if(!upToken) return;

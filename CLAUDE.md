@@ -1471,3 +1471,22 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     of the figure for a finished month — so on the only kind of month that gets closed, crossing
     state cannot move the figure and they warned about nothing. "Budgeted above its transactions"
     is deliberately kept: that one is about the budget's own accuracy, not the figure.
+
+75. **The late-pay rule applies to MONTHLY pay only.** `LATE_PAY_DAYS` was written for a salary paid
+    once a month near the 28th, where filing it to the month that is ending leaves that month with
+    two pays and the next with none. On a fortnightly cadence it buys nothing structurally —
+    measured over a real 14-day schedule, both ways give 26 pays a year and two 3-pay months; the
+    rule only changes WHICH months those are. What it cost was real: a pay reading as "already
+    received for a later period" at every close, and a month you were genuinely paid in showing
+    none. `lateNessAppliesToPay()` (`payCadenceDays === 30`) now gates it inside `periodKeyFor`, so
+    monthly pay keeps the rule exactly as before.
+    Changing the cadence therefore re-files stored pays. `offerRefileMisfiled()` was extracted out
+    of the periodMode toggle handler — the same confirm, toast and `refileAssignmentsToCurrentMode`
+    call — and `onPayCadenceChange` now awaits it. `offerLatePayRuleRefileOnce()` offers the same
+    thing once per user on load (`latePayRuleScoped` in localStorage, keyed on `authUserId`), for
+    pays already filed under the old rule before this shipped; it writes the flag BEFORE the
+    dialog, so declining counts as asked.
+    Verified in the harness: a 25 Nov pay files to 2026-11 on fortnightly with `laterPeriodCredits`
+    0, still files to 2026-12 on monthly with $4,000 of later credits, spending on the 29th stays
+    in November either way, the 3-pay months move to Mar/Sep 2027, and a pay stored under the old
+    rule's answer is detected as misfiled 2026-12 → 2026-11.
