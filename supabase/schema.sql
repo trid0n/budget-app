@@ -96,6 +96,7 @@ create table if not exists public.months (
   notes        text not null default '',
   goal         numeric not null default 0,
   income_emoji text,  -- one emoji for the Income section header (like a category's own emoji) - see index.html's saveMonthIncomeEmoji()
+  goal_transferred boolean not null default false,  -- the month's savings goal has already been moved out of spending by hand, so the close must not claim it again - see index.html's saveMonthGoalTransferred()
   updated_at   timestamptz not null default now(),
   primary key (user_id, month_key)
 );

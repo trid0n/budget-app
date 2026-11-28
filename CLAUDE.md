@@ -298,7 +298,10 @@ Roughly the last ~25 commits, grouped by theme (see `git log` for exact messages
 
 ## Known open items
 
-- **No outstanding schema migrations.** Everything added over 2026-11-23/24 — the `month_closes`
+- **One outstanding migration: `months.goal_transferred`** (added 2026-11-28, see item 76). Until it
+  is run the tick works for the session and silently forgets on reload — it has its own narrow
+  upsert, so nothing else is affected. Verify it with the REST probe below rather than on report.
+- Everything added over 2026-11-23/24 — the `month_closes`
   table and `annual_income`, `pay_cadence_days`, `goal_saver_account_id`, `excess_saver_account_id`
   on `user_settings` — was **verified from this machine rather than taken on report**: each
   against known-good controls plus an invented name that correctly answers `400 42703`, and
@@ -1490,3 +1493,33 @@ all — sweep the live DOM for elements with real `scrollHeight > clientHeight` 
     0, still files to 2026-12 on monthly with $4,000 of later credits, spending on the 29th stays
     in November either way, the 3-pay months move to Mar/Sep 2027, and a pay stored under the old
     rule's answer is detected as misfiled 2026-12 → 2026-11.
+
+76. **Tick off a goal you already transferred by hand.** Asked for directly: the user moves the
+    month's savings goal to its saver during the month, not at the close, so the close was claiming
+    it a second time. The figure itself was always right — it is derived from the balance, and a
+    goal already moved is already out of the balance. What was wrong was the SPLIT:
+    `sweepDestinations` took the goal off the top, so the misc saver was understated by exactly the
+    goal and the panel asked for a transfer that had already happened.
+    `monthData.goalTransferred` → `months.goal_transferred` (**needs the migration** — see Known
+    open items). The goal row keeps its figure (struck through, as a record and as somewhere to
+    untick) but claims nothing, so everything flows to the misc saver. The Budget tab's headline
+    follows for free, being `sweepDestinations(...).excess` already.
+    **Its own narrow upsert**, `db.saveMonthGoalTransferred`, for the same reason as
+    `saveMonthIncomeEmoji`: bundled into the routine `saveMonth` an unmigrated column would reject
+    the whole row — every amount and name — rather than just this flag. That also means
+    `saveCurrentMonth()` does NOT write it, so `undo()` calls `saveGoalTransferred()` when it
+    restores a snapshot; without that the flag reverts in memory, stays set in the database, and
+    the two only disagree visibly on the next reload.
+    `commitMonthClose` records `breakdown.goalAlreadyTransferred`, and `destinations` stores each
+    row's `claimed` rather than its `amount` — the receipt is a list of what MOVES, and nothing
+    moves to a goal already sent. A check says it out loud, the same way items 69 and 73 announce
+    terms deliberately left out.
+    **Three things found by screenshotting, none visible in the code.** The tick as a fourth item
+    on the row's flex line left the caption a ~110px column and broke "This month's goal — tick if
+    already sent" into six lines (119px tall row); `.mc-dest` is now two lines — name/picker/figure,
+    then the caption full width — which shrank every row and improved the two that were already
+    there. The "Stays in spending" row is built by its own markup, not the `dests.map`, so it had
+    to be restructured too or its figure dropped to a line of its own. And the empty tick used
+    `--paper-dim`, which is **the item-64 trap again**: in dark mode that sits two values off the
+    panel's surface, so it was invisible but for its border — `--chip` fixes it, as it did for the
+    smoothing bars. Verified at 1280 and at 375, in both themes.
